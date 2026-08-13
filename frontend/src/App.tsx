@@ -64,10 +64,7 @@ function App() {
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [adminToken, setAdminToken] = useState<string | null>(null);
 
-  const username = useMemo(
-    () => dashboard?.phone ?? "",
-    [dashboard],
-  );
+  const username = useMemo(() => dashboard?.phone ?? "", [dashboard]);
 
   const isLoggedIn = Boolean(dashboard);
 
@@ -81,7 +78,9 @@ function App() {
       setDashboard(data);
       setView("home");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load dashboard.");
+      setError(
+        err instanceof Error ? err.message : "Failed to load dashboard.",
+      );
       setDashboard(null);
     } finally {
       setLoading(false);
@@ -104,7 +103,9 @@ function App() {
       await refreshDashboard(payload.phone);
       setShowAuthModal(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create account.");
+      setError(
+        err instanceof Error ? err.message : "Failed to create account.",
+      );
     } finally {
       setLoading(false);
     }
@@ -132,10 +133,7 @@ function App() {
     setShowBookingModal(true);
   };
 
-  const handleConfirmBooking = async (
-    slot: string,
-    vehicle: Vehicle,
-  ) => {
+  const handleConfirmBooking = async (slot: string, vehicle: Vehicle) => {
     setShowBookingModal(false);
     setLoading(true);
     setError(null);
@@ -152,7 +150,9 @@ function App() {
         await refreshDashboard(dashboard.phone);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to confirm booking.");
+      setError(
+        err instanceof Error ? err.message : "Failed to confirm booking.",
+      );
     } finally {
       setLoading(false);
     }
@@ -255,22 +255,26 @@ function App() {
     );
   };
 
+  const showLegacyShell = view !== "home";
+
   return (
     <main className="app-shell">
-      <Header
-        isLoggedIn={isLoggedIn}
-        username={username}
-        onNavigate={(target) => setView(target as ViewState)}
-        onOpenSignIn={() => {
-          setAuthMode("sign-in");
-          setShowAuthModal(true);
-        }}
-        onOpenSignUp={() => {
-          setAuthMode("sign-up");
-          setShowAuthModal(true);
-        }}
-        onOpenBookings={handleOpenBookings}
-      />
+      {showLegacyShell && (
+        <Header
+          isLoggedIn={isLoggedIn}
+          username={username}
+          onNavigate={(target) => setView(target as ViewState)}
+          onOpenSignIn={() => {
+            setAuthMode("sign-in");
+            setShowAuthModal(true);
+          }}
+          onOpenSignUp={() => {
+            setAuthMode("sign-up");
+            setShowAuthModal(true);
+          }}
+          onOpenBookings={handleOpenBookings}
+        />
+      )}
 
       {loading && <div className="status-message info">Loading...</div>}
       {success && <div className="status-message success">{success}</div>}
@@ -278,7 +282,7 @@ function App() {
 
       {renderContent()}
 
-      <Footer />
+      {showLegacyShell && <Footer />}
 
       <AuthModal
         visible={showAuthModal}
