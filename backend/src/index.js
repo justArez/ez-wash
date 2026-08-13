@@ -1,0 +1,14 @@
+import { Elysia } from "elysia";
+import { loadStore } from "./storage";
+import { registerLoyaltyRoutes } from "./routes/loyalty.route";
+import { registerBookingRoutes } from "./routes/booking.route";
+import { registerRewardRoutes } from "./routes/rewards.route";
+import { registerAdminRoutes } from "./routes/admin.route";
+const store = loadStore();
+const app = new Elysia().get("/", () => "Hello Elysia");
+registerLoyaltyRoutes(app, store);
+registerBookingRoutes(app, store);
+registerRewardRoutes(app, store);
+registerAdminRoutes(app, store);
+app.listen(3000);
+console.log(`🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`);

@@ -65,12 +65,20 @@ export interface DashboardResponse {
   loyaltyTier: LoyaltyTier;
   nextEligibleBookingDate: string;
   appliedPerks: string[];
+  lateCancellationWarningCount: number;
+  priorityStatus: "normal" | "LOW_PRIORITIED";
   rewardSuggestions: RewardOffer[];
   bookingHistory: Array<{
     id: string;
     vehiclePlate: string;
+    vehicleModel?: string;
+    service?: string;
     date: string;
+    time?: string;
+    points?: number;
     status: string;
+    cancelledAt?: string;
+    isLateCancellation?: boolean;
     appliedPerks: string[];
     note?: string;
   }>;

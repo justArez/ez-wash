@@ -1,5 +1,5 @@
 import type { DashboardResponse } from "../../models/loyalty.model";
-import "./loyalty-dashboard.css";
+import "./loyalty-dashboard.component.scss";
 
 interface LoyaltyDashboardProps {
   dashboard: DashboardResponse;

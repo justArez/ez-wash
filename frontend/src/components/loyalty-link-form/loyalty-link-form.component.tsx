@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import type { LinkAccountRequest } from "../../models/loyalty.model";
-import "./loyalty-link-form.css";
+import "./loyalty-link-form.component.scss";
 
 interface LoyaltyLinkFormProps {
   onLink: (payload: LinkAccountRequest) => Promise<void>;

@@ -1,22 +1,23 @@
-import { useMemo, useState } from "react";
-import Header from "./components/header.component";
-import Footer from "./components/footer.component";
-import AuthModal from "./components/auth-modal.component";
-import BookingModal from "./components/booking-modal.component";
-import HomePage from "./pages/home.page";
-import BookingPage from "./pages/booking.page";
-import PromoPage from "./pages/promo.page";
-import AdminLoginPage from "./pages/admin-login.page";
-import AdminDashboardPage from "./pages/admin-dashboard.page";
-import AdminPromoPage from "./pages/admin-promo.page";
-import AdminTierPage from "./pages/admin-tier.page";
-import AdminBookingsPage from "./pages/admin-bookings.page";
-import AdminUsersPage from "./pages/admin-users.page";
+import { useEffect, useMemo, useState } from "react";
+import Header from "./components/header/header.component";
+import Footer from "./components/footer/footer.component";
+import AuthModal from "./components/auth-modal/auth-modal.component";
+import BookingModal from "./components/booking-modal/booking-modal.component";
+import HomePage from "./pages/home/home.page";
+import BookingPage from "./pages/booking/booking.page";
+import PromoPage from "./pages/promo/promo.page";
+import AdminLoginPage from "./pages/admin-login/admin-login.page";
+import AdminDashboardPage from "./pages/admin-dashboard/admin-dashboard.page";
+import AdminPromoPage from "./pages/admin-promo/admin-promo.page";
+import AdminTierPage from "./pages/admin-tier/admin-tier.page";
+import AdminBookingsPage from "./pages/admin-bookings/admin-bookings.page";
+import AdminUsersPage from "./pages/admin-users/admin-users.page";
 import {
   linkLoyaltyAccount,
   fetchLoyaltyDashboard,
   createBooking,
 } from "./services/loyalty.service";
+import { DEMO_PHONE, demoDashboard } from "./services/loyalty.mock-data";
 import type {
   DashboardResponse,
   LinkAccountRequest,
@@ -55,7 +56,12 @@ const serviceOptions: ServiceOption[] = [
 
 function App() {
   const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
-  const [view, setView] = useState<ViewState>("home");
+  const viewFromPath = (): ViewState => {
+    if (window.location.pathname === "/bookings") return "bookings";
+    if (window.location.pathname === "/promo") return "promo";
+    return "home";
+  };
+  const [view, setView] = useState<ViewState>(viewFromPath);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -68,15 +74,41 @@ function App() {
 
   const isLoggedIn = Boolean(dashboard);
 
+  useEffect(() => {
+    const handlePopState = () => setView(viewFromPath());
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  const navigateTo = (target: string) => {
+    const path =
+      target === "bookings" || target === "/bookings"
+        ? "/bookings"
+        : target === "promo" || target === "/promo"
+          ? "/promo"
+          : "/";
+    const nextView =
+      path === "/bookings" ? "bookings" : path === "/promo" ? "promo" : "home";
+    window.history.pushState({}, "", path);
+    setView(nextView);
+  };
+
   const refreshDashboard = async (phone: string) => {
     setLoading(true);
     setError(null);
     setSuccess(null);
 
     try {
+      if (phone.trim() === DEMO_PHONE) {
+        setDashboard(demoDashboard);
+        setView(viewFromPath());
+        setSuccess("Demo account signed in successfully.");
+        return;
+      }
+
       const data = await fetchLoyaltyDashboard(phone);
       setDashboard(data);
-      setView("home");
+      setView(viewFromPath());
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to load dashboard.",
@@ -164,7 +196,7 @@ function App() {
         <PromoPage
           dashboard={dashboard}
           offers={dashboard?.rewardSuggestions ?? []}
-          onBack={() => setView("home")}
+          onBack={() => navigateTo("home")}
         />
       );
     }
@@ -259,22 +291,23 @@ function App() {
 
   return (
     <main className="app-shell">
-      {showLegacyShell && (
-        <Header
-          isLoggedIn={isLoggedIn}
-          username={username}
-          onNavigate={(target) => setView(target as ViewState)}
-          onOpenSignIn={() => {
-            setAuthMode("sign-in");
-            setShowAuthModal(true);
-          }}
-          onOpenSignUp={() => {
-            setAuthMode("sign-up");
-            setShowAuthModal(true);
-          }}
-          onOpenBookings={handleOpenBookings}
-        />
-      )}
+      <Header
+        isLoggedIn={isLoggedIn}
+        username={username}
+        currentPage={
+          view === "bookings" ? "bookings" : view === "promo" ? "promo" : "home"
+        }
+        onNavigate={navigateTo}
+        onOpenSignIn={() => {
+          setAuthMode("sign-in");
+          setShowAuthModal(true);
+        }}
+        onOpenSignUp={() => {
+          setAuthMode("sign-up");
+          setShowAuthModal(true);
+        }}
+        onOpenBookings={handleOpenBookings}
+      />
 
       {loading && <div className="status-message info">Loading...</div>}
       {success && <div className="status-message success">{success}</div>}

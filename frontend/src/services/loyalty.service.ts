@@ -50,6 +50,24 @@ export async function createBooking(request: BookingRequest) {
   }>(response);
 }
 
+export async function cancelBooking(bookingId: string, phone: string) {
+  const response = await fetch(
+    `${BASE_URL}/api/bookings/${encodeURIComponent(bookingId)}/cancel`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone }),
+    },
+  );
+  return handleJsonResponse<{
+    success: boolean;
+    booking: { id: string; status: string; isLateCancellation?: boolean };
+    warningCount: number;
+    priorityStatus: "normal" | "LOW_PRIORITIED";
+    isLateCancellation: boolean;
+  }>(response);
+}
+
 export async function fetchRewardSuggestions(
   phone: string,
 ): Promise<RewardOffer[]> {
