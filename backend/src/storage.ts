@@ -33,7 +33,19 @@ export function loadStore(): LoyaltyStore {
 
   try {
     const payload = readFileSync(STORE_PATH, "utf8");
-    return JSON.parse(payload) as LoyaltyStore;
+    const store = JSON.parse(payload) as LoyaltyStore;
+    for (const customer of store.customers) {
+      customer.lateCancellationWarningCount ??= 0;
+      customer.priorityStatus ??=
+        customer.lateCancellationWarningCount >= 3
+          ? "LOW_PRIORITIED"
+          : "normal";
+      customer.bookingHistory = customer.bookingHistory.map((booking) => ({
+        ...booking,
+        status: booking.status ?? "confirmed",
+      }));
+    }
+    return store;
   } catch (error) {
     writeFileSync(STORE_PATH, JSON.stringify(INITIAL_STORE, null, 2), "utf8");
     return INITIAL_STORE;

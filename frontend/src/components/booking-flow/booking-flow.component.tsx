@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { BookingRequest, Vehicle } from "../../models/loyalty.model";
 import { createBooking } from "../../services/loyalty.service";
-import "./booking-flow.css";
+import "./booking-flow.component.scss";
 
 interface BookingFlowProps {
   phone: string;

@@ -1,0 +1,50 @@
+{
+  "customers": [
+    {
+      "id": "customer-1",
+      "phone": "555-0100",
+      "licensePlates": ["ABC123"],
+      "tierId": "member",
+      "pointsBalance": 0,
+      "vehicles": [
+        {
+          "plate": "ABC123",
+          "model": "Toyota Camry",
+          "type": "car"
+        }
+      ],
+      "pointHistory": [],
+      "bookingHistory": [
+        {
+          "id": "booking-1",
+          "customerId": "customer-1",
+          "vehiclePlate": "ABC123",
+          "date": "2099-08-14T12:00:00.000Z",
+          "createdAt": "2026-08-13T00:00:00.000Z",
+          "appliedPerks": [],
+          "status": "cancelled",
+          "cancelledAt": "2026-08-13T13:40:39.186Z",
+          "isLateCancellation": false
+        }
+      ],
+      "lateCancellationWarningCount": 0,
+      "priorityStatus": "normal",
+      "createdAt": "2026-08-01T00:00:00.000Z",
+      "updatedAt": "2026-08-13T13:40:39.186Z"
+    }
+  ],
+  "tiers": [],
+  "rewardOffers": [],
+  "promotions": [],
+  "auditLogs": [
+    {
+      "id": "1786628439186-t93km7kb",
+      "actor": "customer-1",
+      "actionType": "booking-cancelled",
+      "entityType": "booking",
+      "entityId": "booking-1",
+      "timestamp": "2026-08-13T13:40:39.186Z",
+      "details": "Booking cancelled within the permitted notice period."
+    }
+  ]
+}

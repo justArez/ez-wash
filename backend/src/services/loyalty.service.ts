@@ -111,8 +111,85 @@ export function buildDashboard(store: LoyaltyStore, phone: string) {
     nextEligibleBookingDate: nextBookingDate,
     appliedPerks: getAppliedPerks(tier.id, store),
     rewardSuggestions: suggestRewards(customer, store),
-    bookingHistory: customer.bookingHistory.slice(-5).reverse(),
+    bookingHistory: customer.bookingHistory.slice().reverse(),
+    lateCancellationWarningCount: customer.lateCancellationWarningCount ?? 0,
+    priorityStatus:
+      customer.priorityStatus ??
+      ((customer.lateCancellationWarningCount ?? 0) >= 3
+        ? "LOW_PRIORITIED"
+        : "normal"),
     pointHistory: customer.pointHistory.slice(-10).reverse(),
+  };
+}
+
+export function cancelBooking(
+  store: LoyaltyStore,
+  phone: string,
+  bookingId: string,
+  now = new Date(),
+) {
+  const customer = findCustomer(store, phone);
+  if (!customer) {
+    throw new Error("Customer not found.");
+  }
+
+  const booking = customer.bookingHistory.find((item) => item.id === bookingId);
+  if (!booking) {
+    throw new Error("Booking not found for this customer.");
+  }
+
+  if (booking.status === "cancelled") {
+    const warningCount = customer.lateCancellationWarningCount ?? 0;
+    return {
+      success: true,
+      booking,
+      isLateCancellation: booking.isLateCancellation ?? false,
+      warningCount,
+      priorityStatus:
+        customer.priorityStatus ??
+        (warningCount >= 3 ? "LOW_PRIORITIED" : "normal"),
+    };
+  }
+
+  if (booking.status !== "confirmed") {
+    throw new Error("Only confirmed bookings can be cancelled.");
+  }
+
+  const scheduledTime = new Date(
+    booking.time ? `${booking.date}T${booking.time}` : booking.date,
+  ).getTime();
+  const isLateCancellation =
+    scheduledTime - now.getTime() <= 4 * 60 * 60 * 1000;
+  const warningCount =
+    (customer.lateCancellationWarningCount ?? 0) + (isLateCancellation ? 1 : 0);
+  const priorityStatus = warningCount >= 3 ? "LOW_PRIORITIED" : "normal";
+
+  booking.status = "cancelled";
+  booking.cancelledAt = now.toISOString();
+  booking.isLateCancellation = isLateCancellation;
+  customer.lateCancellationWarningCount = warningCount;
+  customer.priorityStatus = priorityStatus;
+  customer.updatedAt = now.toISOString();
+  store.auditLogs.push({
+    id: createId(),
+    actor: customer.id,
+    actionType: isLateCancellation
+      ? "late-cancellation-warning"
+      : "booking-cancelled",
+    entityType: "booking",
+    entityId: booking.id,
+    timestamp: now.toISOString(),
+    details: isLateCancellation
+      ? `Late cancellation warning ${warningCount} of 3.`
+      : "Booking cancelled within the permitted notice period.",
+  });
+
+  return {
+    success: true,
+    booking,
+    isLateCancellation,
+    warningCount,
+    priorityStatus,
   };
 }
 

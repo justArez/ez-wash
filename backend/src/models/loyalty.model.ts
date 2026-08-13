@@ -34,9 +34,15 @@ export interface Booking {
   customerId: string;
   vehiclePlate: string;
   date: string;
+  vehicleModel?: string;
+  service?: string;
+  time?: string;
   createdAt: string;
   appliedPerks: string[];
-  status: "confirmed" | "blocked";
+  points?: number;
+  status: "confirmed" | "blocked" | "cancelled" | "completed";
+  cancelledAt?: string;
+  isLateCancellation?: boolean;
   note?: string;
 }
 
@@ -79,6 +85,8 @@ export interface LoyaltyCustomer {
   vehicles: Vehicle[];
   pointHistory: PointTransaction[];
   bookingHistory: Booking[];
+  lateCancellationWarningCount?: number;
+  priorityStatus?: "normal" | "LOW_PRIORITIED";
   fullName?: string;
   username?: string;
   email?: string;
