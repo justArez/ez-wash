@@ -51,14 +51,14 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
         {/* CTA Button */}
         <button
           onClick={onCtaClick}
-          className="inline-block px-8 sm:px-10 py-3 sm:py-4 rounded-lg bg-white hover:bg-gray-100 text-blue-700 font-bold text-lg sm:text-xl transition-colors duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          className="my-3 px-4 py-3 rounded-lg bg-white hover:bg-gray-100 text-blue-700 font-bold transition-ease duration-200 shadow-lg hover:shadow-xl transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           aria-label="Book a car wash now"
         >
           Book Now
         </button>
 
         {/* Secondary info */}
-        <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row justify-center gap-6 sm:gap-8 text-sm sm:text-base text-blue-100">
+        <div className="flex flex-col sm:flex-row justify-center gap-6 sm:gap-8 text-sm sm:text-base text-blue-100">
           <div className="flex items-center justify-center gap-2">
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
               <path

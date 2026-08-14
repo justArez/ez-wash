@@ -7,15 +7,15 @@
 
 import React from "react";
 import type { PromotionCardProps } from "../../types/homepage.types";
-import { Badge } from "../ui/badge";
+import { Badge } from "../common/badge";
 import {
   Card,
   CardContent,
   CardFooter,
   CardHeader,
   CardTitle,
-} from "../ui/card";
-import { Button } from "../ui/button";
+} from "../common/card";
+import { Button } from "../common/button";
 import "./promotion-card.component.scss";
 
 export const PromotionCard: React.FC<PromotionCardProps> = ({

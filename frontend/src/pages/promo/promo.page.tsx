@@ -7,14 +7,9 @@ import type {
 interface PromoPageProps {
   dashboard: DashboardResponse | null;
   offers: RewardOffer[];
-  onBack: () => void;
 }
 
-export default function PromoPage({
-  dashboard,
-  offers,
-  onBack,
-}: PromoPageProps) {
+export default function PromoPage({ dashboard, offers }: PromoPageProps) {
   const isLoggedIn = Boolean(dashboard);
   const pointsBalance = dashboard?.pointsBalance ?? 0;
   const currentTier = dashboard?.tier?.name ?? "";
@@ -28,13 +23,6 @@ export default function PromoPage({
             View your current offers and eligibility based on your loyalty tier.
           </p>
         </div>
-        <button
-          className="button button-secondary"
-          type="button"
-          onClick={onBack}
-        >
-          Back
-        </button>
       </div>
 
       {!isLoggedIn ? (

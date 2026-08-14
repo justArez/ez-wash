@@ -137,7 +137,7 @@ export default function Header({
             onClick={() => handleNavigation(navItems[0])}
           >
             <img src="/favicon.png" alt="" className="header-brand__logo" />
-            <span>EzWash</span>
+            <span className="header-brand__name">EzWash</span>
           </button>
 
           <nav
@@ -158,7 +158,14 @@ export default function Header({
                 className="header-user"
                 onClick={() => onNavigate?.("/")}
               >
-                {username ?? "Member"}
+                <span className="header-user__name">
+                  {username ?? "Member"}
+                </span>
+                <img
+                  src={`https://dummyimage.com/100x100/eee/fff&text=${username ?? "Member"}`}
+                  alt=""
+                  className="header-user__avatar"
+                />
               </button>
             ) : (
               <>

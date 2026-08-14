@@ -20,7 +20,7 @@ export default function BookingPage({ dashboard }: BookingPageProps) {
   const [showAll, setShowAll] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [bookings, setBookings] = useState(dashboard.bookingHistory);
+  const [bookings, setBookings] = useState(dashboard.bookingHistory ?? []);
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(
     null,
   );
@@ -64,7 +64,7 @@ export default function BookingPage({ dashboard }: BookingPageProps) {
             getScheduledTime(left).getTime() -
             getScheduledTime(right).getTime(),
         )
-        .slice(0, 5),
+        .slice(0, 3),
     [bookings, now],
   );
 
@@ -123,12 +123,11 @@ export default function BookingPage({ dashboard }: BookingPageProps) {
     <main className="booking-page" aria-labelledby="booking-page-title">
       <section className="booking-intro">
         <div>
-          <span className="eyebrow">Customer workspace</span>
           <h1 id="booking-page-title">Your wash schedule</h1>
-          <p>
+          <span className="panel-copy">
             Keep upcoming appointments close and review every visit in one
             place.
-          </p>
+          </span>
         </div>
         {dashboard.priorityStatus === "LOW_PRIORITIED" && (
           <div className="priority-banner" role="status">
@@ -150,21 +149,11 @@ export default function BookingPage({ dashboard }: BookingPageProps) {
       <section className="booking-section">
         <div className="section-header">
           <div>
-            <span className="eyebrow">Next up</span>
-            <h2>My Active Bookings</h2>
+            <h2>Your Active Bookings</h2>
             <p className="panel-copy">
-              Arrive ready. Your closest appointments appear first.
+              Your incoming appointments. Closest appear first.
             </p>
           </div>
-          <button
-            className="secondary-button"
-            type="button"
-            onClick={() => setShowAll((prev) => !prev)}
-            aria-expanded={showAll}
-            aria-controls="booking-history"
-          >
-            {showAll ? "Hide history" : "See All"}
-          </button>
         </div>
 
         {activeBookings.length === 0 ? (
@@ -219,6 +208,17 @@ export default function BookingPage({ dashboard }: BookingPageProps) {
             })}
           </div>
         )}
+        <div className="flex justify-end mt-4">
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => setShowAll((prev) => !prev)}
+            aria-expanded={showAll}
+            aria-controls="booking-history"
+          >
+            {showAll ? "Hide history" : "See All"}
+          </button>
+        </div>
       </section>
 
       {showAll && (
