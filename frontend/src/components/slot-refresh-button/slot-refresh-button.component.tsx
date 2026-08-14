@@ -56,25 +56,6 @@ export const SlotRefreshButton: React.FC<SlotRefreshButtonProps> = ({
           />
         </svg>
       </button>
-
-      {/* Auto-refresh countdown */}
-      {showCountdown && (
-        <div className="text-sm text-gray-600 whitespace-nowrap">
-          Next refresh in{" "}
-          <span className="font-semibold">
-            {formatCountdown(nextRefreshCountdown)}
-          </span>
-        </div>
-      )}
-
-      {/* Hide countdown button */}
-      <button
-        onClick={() => setShowCountdown(!showCountdown)}
-        className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
-        aria-label="Toggle countdown display"
-      >
-        {showCountdown ? "✕" : "⋮"}
-      </button>
     </div>
   );
 };

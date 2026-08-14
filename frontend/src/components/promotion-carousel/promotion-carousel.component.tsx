@@ -78,10 +78,6 @@ export const PromotionCarousel: React.FC<PromotionCarouselProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-gray-800">Hot Promotions</h2>
-        <div className="text-sm text-gray-600">
-          Auto-advance in:{" "}
-          <span className="font-semibold">{carousel.countdown}s</span>
-        </div>
       </div>
 
       {/* Carousel container */}
