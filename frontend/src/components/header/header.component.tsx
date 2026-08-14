@@ -167,7 +167,7 @@ export default function Header({
                   className="header-auth header-auth--quiet"
                   onClick={() => handleAuth("sign-in")}
                 >
-                  Sign In
+                  Log In
                 </button>
                 <button
                   type="button"
@@ -220,7 +220,7 @@ export default function Header({
                     className="header-auth header-auth--quiet"
                     onClick={() => handleAuth("sign-in")}
                   >
-                    Sign In
+                    Log In
                   </button>
                   <button
                     type="button"
