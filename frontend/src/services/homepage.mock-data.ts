@@ -92,7 +92,13 @@ export const createMockTimeSlots = (days = 7): TimeSlot[] => {
             ? "booked"
             : "available";
       const currentBookings =
-        status === "booked" ? 4 : status === "available" ? timeIndex % 2 : 0;
+        status === "maintenance"
+          ? 0
+          : status === "booked"
+          ? 4
+          : timeIndex % 5;
+      const resolvedStatus =
+        status === "available" && currentBookings >= 4 ? "booked" : status;
 
       slots.push({
         id: `mock-slot-${dayOffset}-${hour}-${minute}`,
@@ -100,7 +106,7 @@ export const createMockTimeSlots = (days = 7): TimeSlot[] => {
         time: `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`,
         displayTime: formatTime(hour, minute),
         duration: 30,
-        status,
+        status: resolvedStatus,
         capacity: 4,
         currentBookings,
         dayOfWeek: date.toLocaleDateString("en-US", { weekday: "long" }),

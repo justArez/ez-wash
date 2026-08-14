@@ -3,15 +3,16 @@ import Header from "./components/header/header.component";
 import Footer from "./components/footer/footer.component";
 import AuthModal from "./components/auth-modal/auth-modal.component";
 import BookingModal from "./components/booking-modal/booking-modal.component";
+import Toast from "./components/toast/toast.component";
 import HomePage from "./pages/home/home.page";
 import BookingPage from "./pages/booking/booking.page";
 import PromoPage from "./pages/promo/promo.page";
-import AdminLoginPage from "./pages/admin-login/admin-login.page";
-import AdminDashboardPage from "./pages/admin-dashboard/admin-dashboard.page";
-import AdminPromoPage from "./pages/admin-promo/admin-promo.page";
-import AdminTierPage from "./pages/admin-tier/admin-tier.page";
-import AdminBookingsPage from "./pages/admin-bookings/admin-bookings.page";
-import AdminUsersPage from "./pages/admin-users/admin-users.page";
+import AdminLoginPage from "./pages/admin/admin-login/admin-login.page";
+import AdminDashboardPage from "./pages/admin/admin-dashboard/admin-dashboard.page";
+import AdminPromoPage from "./pages/admin/admin-promo/admin-promo.page";
+import AdminTierPage from "./pages/admin/admin-tier/admin-tier.page";
+import AdminBookingsPage from "./pages/admin/admin-bookings/admin-bookings.page";
+import AdminUsersPage from "./pages/admin/admin-users/admin-users.page";
 import {
   linkLoyaltyAccount,
   fetchLoyaltyDashboard,
@@ -62,13 +63,14 @@ function App() {
     return "home";
   };
   const [view, setView] = useState<ViewState>(viewFromPath);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [, setLoading] = useState(false);
+  const [, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>("sign-in");
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [adminToken, setAdminToken] = useState<string | null>(null);
+  const [showDemoToast, setShowDemoToast] = useState(false);
 
   const username = useMemo(() => dashboard?.phone ?? "", [dashboard]);
 
@@ -102,7 +104,7 @@ function App() {
       if (phone.trim() === DEMO_PHONE) {
         setDashboard(demoDashboard);
         setView(viewFromPath());
-        setSuccess("Demo account signed in successfully.");
+        setShowDemoToast(true);
         return;
       }
 
@@ -196,20 +198,12 @@ function App() {
         <PromoPage
           dashboard={dashboard}
           offers={dashboard?.rewardSuggestions ?? []}
-          onBack={() => navigateTo("home")}
         />
       );
     }
 
     if (view === "bookings") {
-      return isLoggedIn ? (
-        <BookingPage dashboard={dashboard as DashboardResponse} />
-      ) : (
-        <section className="card empty-state">
-          <h2>Sign in to view bookings</h2>
-          <p>The bookings page is available to logged-in customers only.</p>
-        </section>
-      );
+      return <BookingPage dashboard={dashboard as DashboardResponse} />;
     }
 
     if (view === "admin-login") {
@@ -287,8 +281,6 @@ function App() {
     );
   };
 
-  const showLegacyShell = view !== "home";
-
   return (
     <main className="app-shell">
       <Header
@@ -309,14 +301,15 @@ function App() {
         onOpenBookings={handleOpenBookings}
       />
 
-      {loading && <div className="status-message info">Loading...</div>}
       {success && <div className="status-message success">{success}</div>}
-      {error && <div className="status-message error">{error}</div>}
-
+      <Toast
+        message="Demo account signed in successfully."
+        visible={showDemoToast}
+        onClose={() => setShowDemoToast(false)}
+      />
       {renderContent()}
 
-      {showLegacyShell && <Footer />}
-
+      <Footer />
       <AuthModal
         visible={showAuthModal}
         mode={authMode}

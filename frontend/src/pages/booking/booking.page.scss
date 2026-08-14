@@ -20,21 +20,15 @@
 	align-items: end;
 	gap: 24px;
 	background: linear-gradient(135deg, #fff7ed, #ffffff 58%, #eff6ff);
-}
 
-.booking-intro h1 {
-	margin: 8px 0;
-	font-size: clamp(2rem, 4vw, 3.5rem);
-}
-
-.booking-intro p,
-.booking-section .panel-copy {
-	color: var(--text-secondary);
+	h1 {
+		margin: 8px 0;
+		font-size: clamp(2rem, 4vw, 3.5rem);
+	}
 }
 
 .booking-card-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 	gap: 16px;
 }
 
@@ -58,29 +52,20 @@
 	gap: 12px;
 }
 
-.booking-service,
-.booking-date-block strong {
-	color: var(--text-h);
+.booking-service {
 	font-weight: 800;
 }
 
 .booking-date-block {
 	align-items: baseline;
-}
 
-.booking-date-block span,
-.booking-vehicle,
-.booking-card-footer .note,
-.warning-copy {
-	color: var(--text-secondary);
+	strong {
+		font-weight: 800;
+	}
 }
 
 .booking-vehicle {
 	margin: 0;
-}
-
-.booking-vehicle span {
-	color: var(--border-strong);
 }
 
 .warning-copy {
@@ -104,13 +89,11 @@
 	padding: 14px 16px;
 	border: 1px solid rgba(185, 28, 28, 0.2);
 	border-radius: 14px;
-	color: var(--danger);
 	background: rgba(185, 28, 28, 0.06);
-}
 
-.priority-banner span {
-	color: var(--text-secondary);
-	font-size: 0.85rem;
+	span {
+		font-size: 0.85rem;
+	}
 }
 
 .booking-empty-state {
@@ -120,11 +103,6 @@
 	padding: 28px;
 	border: 1px dashed var(--border-strong);
 	border-radius: 16px;
-	color: var(--text-secondary);
-}
-
-.booking-empty-state strong {
-	color: var(--text-h);
 }
 
 .booking-table-wrap {
@@ -135,25 +113,25 @@
 	width: 100%;
 	border-collapse: collapse;
 	min-width: 680px;
-}
 
-.booking-table th,
-.booking-table td {
-	padding: 14px 12px;
-	border-bottom: 1px solid var(--border);
-	text-align: left;
-	vertical-align: middle;
-}
+	th,
+	td {
+		padding: 14px 12px;
+		border-bottom: 1px solid var(--border);
+		text-align: left;
+		vertical-align: middle;
+	}
 
-.booking-table th {
-	color: var(--text-secondary);
-	font-size: 0.78rem;
-	letter-spacing: 0.08em;
-	text-transform: uppercase;
-}
+	th {
+		color: var(--text-secondary);
+		font-size: 0.78rem;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+	}
 
-.booking-table td {
-	color: var(--text);
+	td {
+		color: var(--text);
+	}
 }
 
 .page-size-control {
@@ -162,14 +140,14 @@
 	gap: 10px;
 	color: var(--text-secondary);
 	font-size: 0.9rem;
-}
 
-.page-size-control select {
-	border: 1px solid var(--border);
-	border-radius: 10px;
-	padding: 8px 10px;
-	background: var(--surface);
-	color: var(--text);
+	select {
+		border: 1px solid var(--border);
+		border-radius: 10px;
+		padding: 8px 10px;
+		background: var(--surface);
+		color: var(--text);
+	}
 }
 
 .pagination-controls {
@@ -179,11 +157,11 @@
 
 .booking-confirmation {
 	max-width: 460px;
-}
 
-.booking-confirmation p {
-	color: var(--text-secondary);
-	line-height: 1.6;
+	p {
+		color: var(--text-secondary);
+		line-height: 1.6;
+	}
 }
 
 @media (max-width: 640px) {

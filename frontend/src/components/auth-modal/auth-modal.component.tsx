@@ -20,6 +20,7 @@ export default function AuthModal({
   onToggleMode,
 }: AuthModalProps) {
   const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
   const [email, setEmail] = useState("");
   const [plate, setPlate] = useState("");
   const [model, setModel] = useState("");
@@ -79,7 +80,16 @@ export default function AuthModal({
               className="input"
               value={phone}
               onChange={(event) => setPhone(event.target.value)}
-              placeholder="e.g. +1234567890"
+              placeholder="Enter your phone number"
+            />
+
+            <span>Password</span>
+            <input
+              className="input"
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Enter your password"
             />
           </label>
 
@@ -95,45 +105,11 @@ export default function AuthModal({
                   placeholder="you@example.com"
                 />
               </label>
-              <label className="form-field">
-                <span>Vehicle plate</span>
-                <input
-                  className="input"
-                  value={plate}
-                  onChange={(event) => setPlate(event.target.value)}
-                  placeholder="e.g. B123XYZ"
-                />
-              </label>
-              <label className="form-field">
-                <span>Vehicle model</span>
-                <input
-                  className="input"
-                  value={model}
-                  onChange={(event) => setModel(event.target.value)}
-                  placeholder="e.g. Toyota Camry"
-                />
-              </label>
-              <label className="form-field">
-                <span>Vehicle type</span>
-                <select
-                  className="input"
-                  value={type}
-                  onChange={(event) =>
-                    setType(event.target.value as "car" | "motorcycle")
-                  }
-                >
-                  <option value="car">Car</option>
-                  <option value="motorcycle">Motorcycle</option>
-                </select>
-              </label>
             </>
           )}
         </div>
 
         <div className="modal-actions">
-          <button className="button" type="button" onClick={handleSubmit}>
-            {mode === "sign-in" ? "Sign In" : "Create account"}
-          </button>
           <button
             className="secondary-button"
             type="button"
@@ -144,6 +120,9 @@ export default function AuthModal({
             {mode === "sign-in"
               ? "Create an account"
               : "Already have an account? Sign in"}
+          </button>
+          <button className="button" type="button" onClick={handleSubmit}>
+            {mode === "sign-in" ? "Sign In" : "Create account"}
           </button>
         </div>
       </div>

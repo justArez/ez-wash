@@ -42,7 +42,7 @@ export const demoDashboard: DashboardResponse = {
       vehiclePlate: "ABC123",
       vehicleModel: "Toyota Camry",
       service: "Premium Exterior Wash",
-      date: "2026-08-14",
+      date: "2026-08-15",
       time: "10:00",
       points: 5,
       status: "confirmed",

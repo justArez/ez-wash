@@ -12,7 +12,6 @@ import "./slot-card.component.scss";
 export const SlotCard: React.FC<SlotCardProps> = ({
   slot,
   onClick,
-  isSelected = false,
   showTime = true,
 }) => {
   const handleClick = () => {
@@ -21,19 +20,48 @@ export const SlotCard: React.FC<SlotCardProps> = ({
     }
   };
 
-  // Determine styling based on slot status
+  // Calculate fill percentage based on booked slots: bottom-up booked capacity
+  const bookedSlots = Math.max(
+    0,
+    Math.min(slot.currentBookings, slot.capacity),
+  );
+  const fillPercentage = Math.max(
+    0,
+    Math.min(100, (bookedSlots / slot.capacity) * 100),
+  );
+  const isFullyBooked = bookedSlots >= slot.capacity;
+
+  // Determine color-coded styling and gradient based on slot status
+  let borderClass = "";
+  let gradientBackground = "";
+
+  if (slot.isPast) {
+    gradientBackground =
+      "linear-gradient(to top, rgb(209, 213, 219) 0%, rgb(209, 213, 219) 100%)";
+  } else if (slot.status === "maintenance") {
+    gradientBackground =
+      "linear-gradient(to top, rgb(250, 204, 21) 0%, rgb(250, 204, 21) 100%)";
+  } else if (slot.status === "booked" || isFullyBooked) {
+    gradientBackground =
+      "linear-gradient(to top, rgb(239, 68, 68) 0%, rgb(239, 68, 68) 100%)";
+  } else if (slot.status === "available") {
+    borderClass = "border-2 border-green-500";
+    // Green fill from bottom up based on availability
+    gradientBackground =
+      fillPercentage <= 0
+        ? "transparent"
+        : `linear-gradient(to top, rgb(34, 197, 94) 0%, rgb(34, 197, 94) ${fillPercentage}%, transparent ${fillPercentage}%, transparent 100%)`;
+  }
+
   const baseClasses =
-    "p-4 rounded-lg border-2 transition-all duration-200 cursor-pointer";
-  const availableClasses = slot.isAvailable
-    ? "border-green-500 bg-white hover:bg-green-50 hover:shadow-md"
-    : "border-red-300 bg-gray-100 cursor-not-allowed opacity-60";
-  const selectedClasses = isSelected
-    ? "ring-2 ring-blue-500 ring-offset-2"
-    : "";
+    "p-2 rounded-lg transition-all duration-200 cursor-pointer";
+  const interactiveClasses = slot.isAvailable
+    ? "hover:scale-115"
+    : "cursor-not-allowed";
 
   return (
     <div
-      className={`${baseClasses} ${availableClasses} ${selectedClasses}`}
+      className={`${baseClasses} ${interactiveClasses}`}
       onClick={handleClick}
       role={slot.isAvailable ? "button" : "status"}
       tabIndex={slot.isAvailable ? 0 : -1}
@@ -42,7 +70,7 @@ export const SlotCard: React.FC<SlotCardProps> = ({
           handleClick();
         }
       }}
-      aria-label={`${slot.timeLabel} - ${slot.isPast ? "past" : slot.status}`}
+      aria-label={`${slot.timeLabel} - ${slot.isPast ? "past" : slot.status} (${bookedSlots}/${slot.capacity} booked)`}
       aria-disabled={!slot.isAvailable}
     >
       {/* Time is shown in the row header when this card is used in the table. */}
@@ -52,36 +80,16 @@ export const SlotCard: React.FC<SlotCardProps> = ({
         </div>
       )}
 
-      {/* Status badge */}
+      {/* Color-coded status square with fill from bottom */}
       <div className="flex justify-center">
-        {slot.isPast && (
-          <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-700">
-            Past
-          </span>
-        )}
-        {!slot.isPast && slot.status === "available" && (
-          <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-green-200 text-green-800">
-            Available
-          </span>
-        )}
-        {!slot.isPast && slot.status === "booked" && (
-          <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-red-200 text-red-800">
-            Booked
-          </span>
-        )}
-        {!slot.isPast && slot.status === "maintenance" && (
-          <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-yellow-200 text-yellow-800">
-            Maintenance
-          </span>
-        )}
+        <div
+          className={`w-8 h-8 rounded ${borderClass}`}
+          style={{
+            background: gradientBackground,
+          }}
+          aria-hidden="true"
+        />
       </div>
-
-      {/* Booking info (if not available) */}
-      {!slot.isAvailable && slot.currentBookings > 0 && (
-        <div className="text-xs text-gray-600 text-center mt-2">
-          {slot.currentBookings}/{slot.capacity} booked
-        </div>
-      )}
     </div>
   );
 };

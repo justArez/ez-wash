@@ -47,12 +47,17 @@ const isPastSlot = (slot: TimeSlot): boolean => {
 
 const addComputedFields = (slot: TimeSlot): TimeSlotWithComputedFields => {
   const isPast = isPastSlot(slot);
+  const effectiveStatus =
+    slot.status === "available" && slot.currentBookings >= slot.capacity
+      ? "booked"
+      : slot.status;
 
   return {
     ...slot,
+    status: effectiveStatus,
     isAvailable:
       !isPast &&
-      slot.status === "available" &&
+      effectiveStatus === "available" &&
       slot.currentBookings < slot.capacity,
     isPast,
     slotLabel: `${slot.dayOfWeek} (${slot.dayDisplayDate})`,
@@ -164,16 +169,40 @@ export const SlotCalendar: React.FC<SlotCalendarProps> = ({
     <div className="space-y-4">
       {/* Header with refresh button */}
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">
+        <h2 className="text-2xl font-bold text-gray">
           Available Washing Slots (7 Days)
         </h2>
+
+        {/* Legend */}
+        <div className="flex flex-wrap items-center justify-end gap-4 p-4 ml-70">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded border-2 border-green-500 bg-white" />
+            <span className="text-xs font-medium text-gray-700">Available</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded bg-gray-300" />
+            <span className="text-xs font-medium text-gray-700">Past</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded bg-red-500" />
+            <span className="text-xs font-medium text-gray-700">
+              Fully Booked
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded bg-yellow-400" />
+            <span className="text-xs font-medium text-gray-700">
+              Under Maintenance
+            </span>
+          </div>
+        </div>
+
         <SlotRefreshButton
           onRefresh={handleRefresh}
           nextRefreshCountdown={nextRefreshCountdown}
           isRefreshing={isRefreshing}
         />
       </div>
-
       {/* Loading skeleton */}
       {loading && slots.length === 0 && (
         <div className="space-y-6">
@@ -255,14 +284,6 @@ export const SlotCalendar: React.FC<SlotCalendarProps> = ({
           </table>
         </div>
       )}
-
-      {/* Info text */}
-      <div className="text-xs text-gray-500 text-center mt-6">
-        <p>
-          Slots automatically refresh every 5 minutes • Click a slot to book •
-          Your chosen slot requires login
-        </p>
-      </div>
     </div>
   );
 };

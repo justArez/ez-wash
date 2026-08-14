@@ -6,30 +6,20 @@
  * and resets the 5-minute auto-refresh countdown
  */
 
-import React, { useState } from "react";
+import React from "react";
 import type { SlotRefreshButtonProps } from "../../types/homepage.types";
 import "./slot-refresh-button.component.scss";
 
 export const SlotRefreshButton: React.FC<SlotRefreshButtonProps> = ({
   onRefresh,
-  nextRefreshCountdown,
   isRefreshing = false,
 }) => {
-  const [showCountdown, setShowCountdown] = useState(true);
-
   const handleRefresh = async () => {
     try {
       await onRefresh();
     } catch (error) {
       console.error("Failed to refresh slots:", error);
     }
-  };
-
-  // Format countdown as MM:SS
-  const formatCountdown = (seconds: number): string => {
-    const minutes = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${minutes}:${secs.toString().padStart(2, "0")}`;
   };
 
   return (
