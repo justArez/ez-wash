@@ -105,6 +105,40 @@ export default function AuthModal({
                   placeholder="you@example.com"
                 />
               </label>
+
+              <label className="form-field">
+                <span>Vehicle Plate</span>
+                <input
+                  className="input"
+                  value={plate}
+                  onChange={(event) => setPlate(event.target.value)}
+                  placeholder="e.g. 29A-12345"
+                />
+              </label>
+
+              <label className="form-field">
+                <span>Vehicle Model</span>
+                <input
+                  className="input"
+                  value={model}
+                  onChange={(event) => setModel(event.target.value)}
+                  placeholder="e.g. Mazda 3 / Honda SH"
+                />
+              </label>
+
+              <label className="form-field">
+                <span>Vehicle Type</span>
+                <select
+                  className="input"
+                  value={type}
+                  onChange={(event) =>
+                    setType(event.target.value as "car" | "motorcycle")
+                  }
+                >
+                  <option value="car">Car</option>
+                  <option value="motorcycle">Motorcycle</option>
+                </select>
+              </label>
             </>
           )}
         </div>

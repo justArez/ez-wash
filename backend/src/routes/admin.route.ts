@@ -48,6 +48,37 @@ function requireAdmin(ctx: any) {
 }
 
 export function registerAdminRoutes(app: any, store: LoyaltyStore) {
+  app.post("/api/admin/login", async (ctx: any) => {
+    const body = (await ctx.body) as { token?: string };
+    const token = body?.token?.trim();
+
+    if (!token) {
+      return new Response(
+        JSON.stringify({ error: "Admin token is required." }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    if (token !== ADMIN_TOKEN) {
+      return new Response(JSON.stringify({ error: "Invalid admin token." }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    return {
+      success: true,
+      adminUserInfo: {
+        token,
+        role: "admin",
+        username: "Administrator",
+      },
+    };
+  });
+
   app.get("/api/admin/tiers", (ctx: any) => {
     const authError = requireAdmin(ctx);
     if (authError) return authError;

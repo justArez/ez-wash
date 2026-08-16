@@ -29,6 +29,14 @@ body {
   margin: 0 auto;
 }
 
+body:has(.app-shell--admin),
+#root:has(.app-shell--admin),
+#root:has(.admin-layout) {
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+}
+
 button,
 input,
 select {
@@ -43,6 +51,12 @@ button {
   display: flex;
   flex-direction: column;
   gap: 24px;
+}
+
+.app-shell--admin {
+  gap: 0;
+  width: 100%;
+  max-width: 100%;
 }
 
 .eyebrow {

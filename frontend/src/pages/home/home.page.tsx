@@ -5,7 +5,6 @@ import { HeroBanner } from "../../components/hero-banner/hero-banner.component";
 import { PromotionCarousel } from "../../components/promotion-carousel/promotion-carousel.component";
 import { SlotCalendar } from "../../components/slot-calendar/slot-calendar.component";
 import type { Promotion, TimeSlot } from "../../types/homepage.types";
-import Footer from "../../components/footer/footer.component";
 
 interface HomePageProps {
   offers: RewardOffer[];
