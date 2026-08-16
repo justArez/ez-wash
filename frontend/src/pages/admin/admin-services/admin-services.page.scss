@@ -1,6 +1,6 @@
-.admin-users {
+.admin-services {
   width: 100%;
-  animation: usersFadeIn 0.3s ease-out;
+  animation: servicesFadeIn 0.3s ease-out;
 
   &__header {
     display: flex;
@@ -28,7 +28,7 @@
     margin-top: 4px;
   }
 
-  &__primary-btn {
+  &__add-btn {
     background: linear-gradient(135deg, var(--accent, #3a46ed) 0%, #4f5dff 100%);
     color: #ffffff;
     font-weight: 600;
@@ -41,7 +41,7 @@
     }
   }
 
-  /* KPI Grid */
+  /* KPI Cards */
   &__kpi-grid {
     display: grid;
     grid-template-columns: repeat(1, minmax(0, 1fr));
@@ -70,7 +70,7 @@
     }
   }
 
-  /* Main Card */
+  /* Main Table Card */
   &__table-card {
     background: #ffffff;
     border: 1px solid var(--border, #e8e6f3);
@@ -92,7 +92,7 @@
     }
   }
 
-  /* Tabs */
+  /* Category Filter Tabs */
   &__tabs {
     display: flex;
     flex-wrap: wrap;
@@ -168,6 +168,11 @@
     font-size: 13.5px;
   }
 
+  &__filter-group {
+    display: flex;
+    gap: 8px;
+  }
+
   &__select {
     padding: 8px 12px;
     font-size: 13px;
@@ -227,173 +232,139 @@
     }
   }
 
-  &__avatar {
+  &__item-cell {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  &__icon-box {
     width: 36px;
     height: 36px;
     border-radius: 10px;
     background: var(--surface-strong, #f1efff);
-    color: var(--accent, #3a46ed);
-    font-weight: 700;
-    font-size: 13px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
   }
 
+  &__feature-tag {
+    font-size: 10.5px;
+    padding: 2px 6px;
+    background: #f1f5f9;
+    color: #475569;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+
+  &__cat-badge {
+    font-weight: 500;
+    font-size: 11.5px;
+    padding: 3px 8px;
+  }
+
   &__status-pill {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
     padding: 4px 10px;
     border-radius: 999px;
     font-size: 11px;
     font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
 
     &--active {
       background: #ecfdf5;
       color: #059669;
-    }
 
-    &--low-priority {
-      background: #fffbeb;
-      color: #b45309;
+      &:hover {
+        background: #d1fae5;
+      }
     }
 
     &--inactive {
-      background: #f1f5f9;
-      color: #64748b;
-    }
-  }
-
-  /* Points Controls */
-  &__points-cell {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  &__points-value {
-    font-size: 13.5px;
-    font-weight: 700;
-    color: var(--text, #1e1b4b);
-    min-width: 68px;
-
-    span {
-      font-size: 11px;
-      font-weight: 400;
-      color: var(--text-secondary, #676375);
-      margin-left: 3px;
-    }
-  }
-
-  &__points-controls {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    background: transparent;
-    padding: 0;
-    border: none;
-  }
-
-  &__point-btn {
-    width: 24px;
-    height: 24px;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    border: 1px solid var(--border, #e8e6f3);
-    background: #ffffff;
-    color: var(--text, #1e1b4b);
-    cursor: pointer;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-    transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
-
-    &:hover {
-      background: var(--accent, #3a46ed);
-      color: #ffffff;
-      border-color: var(--accent, #3a46ed);
-      transform: scale(1.08);
-      box-shadow: 0 2px 6px rgba(58, 70, 237, 0.25);
-    }
-
-    &:active {
-      transform: scale(0.92);
-    }
-
-    &--edit {
-      color: var(--accent, #3a46ed);
+      background: #fef2f2;
+      color: #dc2626;
 
       &:hover {
-        background: var(--accent, #3a46ed);
-        color: #ffffff;
+        background: #fee2e2;
       }
     }
   }
 
-  &__points-edit-box {
-    display: inline-flex;
+  /* Modal */
+  &__modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
     align-items: center;
-    gap: 4px;
+    justify-content: center;
+    padding: 16px;
   }
 
-  &__points-input {
-    width: 72px;
-    padding: 3px 6px;
-    font-size: 12.5px;
-    font-weight: 600;
-    border: 1px solid var(--accent, #3a46ed);
-    border-radius: 6px;
-    outline: none;
+  &__modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(4px);
+  }
+
+  &__modal-dialog {
+    position: relative;
+    width: 100%;
+    max-width: 540px;
+    background: #ffffff;
+    border-radius: 20px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+    animation: modalScaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  &__modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--border, #e8e6f3);
+    background: var(--surface-strong, #faf9fe);
+  }
+
+  &__modal-form {
+    padding: 24px;
+  }
+
+  &__modal-select,
+  &__modal-textarea {
+    width: 100%;
+    padding: 9px 12px;
+    font-size: 13.5px;
+    border: 1px solid var(--border, #e8e6f3);
+    border-radius: 8px;
     background: #ffffff;
     color: var(--text, #1e1b4b);
-    box-shadow: 0 0 0 2px rgba(58, 70, 237, 0.14);
-  }
 
-  &__points-save-btn {
-    width: 22px;
-    height: 22px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 6px;
-    background: #ecfdf5;
-    color: #059669;
-    border: 1px solid #a7f3d0;
-    cursor: pointer;
-    padding: 0;
-    transition: all 0.15s ease;
-
-    &:hover {
-      background: #059669;
-      color: #ffffff;
+    &:focus {
+      outline: none;
+      border-color: var(--accent, #3a46ed);
+      box-shadow: 0 0 0 3px rgba(58, 70, 237, 0.12);
     }
   }
 
-  &__points-cancel-btn {
-    width: 22px;
-    height: 22px;
+  &__modal-footer {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 6px;
-    background: #fef2f2;
-    color: #dc2626;
-    border: 1px solid #fecaca;
-    cursor: pointer;
-    padding: 0;
-    transition: all 0.15s ease;
-
-    &:hover {
-      background: #dc2626;
-      color: #ffffff;
-    }
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border, #e8e6f3);
   }
 }
 
-@keyframes usersFadeIn {
+@keyframes servicesFadeIn {
   from {
     opacity: 0;
     transform: translateY(6px);
@@ -401,5 +372,16 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes modalScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }

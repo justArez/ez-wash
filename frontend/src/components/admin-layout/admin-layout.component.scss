@@ -1,0 +1,560 @@
+$rail-slot-width: 96px;
+$rail-collapsed-width: 72px;
+$rail-expanded-width: 244px;
+$rail-left-gutter: calc((#{$rail-slot-width} - #{$rail-collapsed-width}) / 2); // 12px
+
+.admin-layout {
+  display: flex;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 100vh;
+  background: var(--bg, #f8f7ff);
+  position: relative;
+  padding-left: $rail-slot-width;
+}
+
+/* =========================================================
+   Vertical Dynamic Island Navigation Rail (Floating Centered Island)
+   ========================================================= */
+.dynamic-island-rail {
+  position: fixed;
+  left: $rail-left-gutter;
+  top: 50%;
+  transform: translateY(-50%); /* Vertically centered on the screen viewport */
+  height: auto;
+  max-height: calc(100vh - 32px);
+  background: linear-gradient(175deg, #2b1f80 0%, #1c1458 55%, #140d3f 100%);
+  color: #ffffff;
+  border-radius: 28px;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  z-index: 50;
+  overflow: hidden;
+  box-shadow:
+    0 20px 44px -8px rgba(25, 10, 75, 0.48),
+    0 0 0 1px rgba(255, 255, 255, 0.14),
+    inset 0 1px 2px rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  transition:
+    width 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+    border-radius 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+    padding 0.32s ease,
+    box-shadow 0.32s ease;
+
+  &--expanded {
+    width: $rail-expanded-width;
+    padding: 20px 14px;
+    box-shadow:
+      0 24px 52px -6px rgba(18, 7, 60, 0.58),
+      0 0 0 1px rgba(255, 255, 255, 0.18),
+      inset 0 1px 2px rgba(255, 255, 255, 0.25);
+  }
+
+  &--collapsed {
+    width: $rail-collapsed-width;
+    padding: 20px 10px;
+    border-radius: 36px;
+  }
+
+  /* Top Action Bar (Dedicated slot for Toggle button at fixed height) */
+  &__top-bar {
+    display: flex;
+    align-items: center;
+    height: 28px;
+    margin-bottom: 12px;
+    width: 100%;
+    transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+
+    .dynamic-island-rail--expanded & {
+      justify-content: flex-end;
+      padding-right: 2px;
+    }
+
+    .dynamic-island-rail--collapsed & {
+      justify-content: center;
+      padding-right: 0;
+    }
+  }
+
+  &__toggle-btn {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: rgba(255, 255, 255, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    outline: none;
+
+    .dynamic-island-rail--collapsed & {
+      width: 28px;
+      height: 28px;
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.24);
+      color: #ffffff;
+      transform: scale(1.08);
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    &:active {
+      transform: scale(0.95);
+    }
+  }
+
+  /* Brand / Avatar Row (Dedicated slot directly below toggle) */
+  &__brand {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    padding-bottom: 16px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+    transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+
+    .dynamic-island-rail--expanded & {
+      justify-content: flex-start;
+      gap: 10px;
+    }
+
+    .dynamic-island-rail--collapsed & {
+      justify-content: center;
+      gap: 0;
+      padding-bottom: 14px;
+    }
+  }
+
+  &__logo-badge {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, var(--accent, #3a46ed) 0%, var(--accent-strong, #3721b6) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    position: relative;
+    box-shadow: 0 6px 14px -3px rgba(58, 70, 237, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+    &:hover {
+      transform: scale(1.05);
+      box-shadow: 0 8px 18px -2px rgba(58, 70, 237, 0.65);
+    }
+  }
+
+  &__logo-sparkle {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    color: #ffd166;
+  }
+
+  &__brand-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    animation: railFadeIn 0.25s ease-out;
+  }
+
+  &__title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1.2;
+    letter-spacing: -0.3px;
+  }
+
+  &__subtitle {
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.6);
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+  }
+
+  /* Navigation Body */
+  &__nav {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    margin-top: 14px;
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    &::-webkit-scrollbar {
+      width: 3px;
+    }
+    &::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+    }
+  }
+
+  &__items-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    border: none;
+    outline: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 16px;
+    padding: 10px 12px;
+    color: rgba(255, 255, 255, 0.78);
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    gap: 12px;
+    font-weight: 500;
+    font-size: 13.5px;
+    text-align: left;
+    user-select: none;
+
+    .dynamic-island-rail--collapsed & {
+      justify-content: center;
+      padding: 10px 0;
+      gap: 0;
+    }
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.09);
+      color: #ffffff;
+      transform: translateY(-1px);
+    }
+
+    &:active {
+      transform: scale(0.98);
+    }
+
+    &--active {
+      background: linear-gradient(135deg, var(--accent, #3a46ed) 0%, #4f5dff 100%);
+      color: #ffffff !important;
+      font-weight: 600;
+      box-shadow:
+        0 6px 18px -4px rgba(58, 70, 237, 0.55),
+        inset 0 1px 1px rgba(255, 255, 255, 0.32);
+
+      &:hover {
+        background: linear-gradient(135deg, var(--accent, #3a46ed) 0%, #4f5dff 100%);
+        transform: translateY(-1px);
+      }
+    }
+  }
+
+  &__item-icon-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  &__item-icon {
+    transition: transform 0.2s ease;
+
+    .dynamic-island-rail__item:hover & {
+      transform: scale(1.12);
+    }
+  }
+
+  &__active-glow {
+    position: absolute;
+    bottom: -3px;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.9);
+
+    .dynamic-island-rail--expanded & {
+      display: none;
+    }
+  }
+
+  &__item-label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: -0.2px;
+    animation: railFadeIn 0.22s ease-out;
+  }
+
+  &__item-badge {
+    margin-left: auto;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.16);
+    color: #ffffff;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    animation: railFadeIn 0.22s ease-out;
+  }
+
+  /* Footer & Sign Out */
+  &__footer {
+    margin-top: auto;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  &__signout-btn {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    border: 1px solid rgba(248, 113, 113, 0.22);
+    outline: none;
+    background: rgba(239, 68, 68, 0.1);
+    cursor: pointer;
+    border-radius: 16px;
+    padding: 9px 12px;
+    color: #fca5a5;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    gap: 10px;
+    font-size: 13.5px;
+    font-weight: 500;
+
+    .dynamic-island-rail--collapsed & {
+      justify-content: center;
+      padding: 9px 0;
+      gap: 0;
+    }
+
+    &:hover {
+      background: rgba(239, 68, 68, 0.22);
+      color: #ffffff;
+      border-color: rgba(248, 113, 113, 0.4);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
+    }
+
+    &:active {
+      transform: scale(0.98);
+    }
+  }
+
+  &__signout-icon-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  &__signout-label {
+    white-space: nowrap;
+    animation: railFadeIn 0.22s ease-out;
+  }
+}
+
+@keyframes railFadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* =========================================================
+   Admin Content Container
+   ========================================================= */
+.admin-content {
+  flex: 1;
+  min-width: 0;
+  padding: 24px 32px 32px 28px;
+  background:
+    radial-gradient(circle at top right, rgba(58, 70, 237, 0.07), transparent 35%),
+    radial-gradient(circle at bottom left, rgba(55, 33, 182, 0.04), transparent 30%),
+    var(--bg, #f8f7ff);
+
+  // Override any dark-mode utility classes for admin panels to enforce cohesive light theme
+  .dark\:bg-slate-950,
+  .dark\:bg-slate-900,
+  .dark\:text-slate-50,
+  .dark\:text-slate-400,
+  .dark\:border-slate-800 {
+    background-color: transparent;
+  }
+
+  // Common card style inside admin content
+  .rounded-lg,
+  .rounded-xl {
+    border-radius: 16px;
+  }
+
+  [class*="border-slate-200"],
+  [class*="border-gray-200"],
+  [class*="border-gray-300"],
+  [class*="border-slate-800"] {
+    border-color: var(--border, #e8e6f3);
+  }
+
+  // Ensure card backgrounds inside admin content are clean white
+  > section > .rounded-lg,
+  > section > div > .rounded-lg,
+  > section .rounded-lg.border,
+  > section .border.rounded-lg {
+    background-color: #ffffff;
+    border-color: var(--border, #e8e6f3);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
+  }
+
+  // Admin pages utility color mappings with Customer theme palette
+  .text-gray-900,
+  .text-slate-950 {
+    color: var(--text, #1e1b4b);
+  }
+
+  .text-gray-700,
+  .text-gray-600,
+  .text-slate-500 {
+    color: var(--text-secondary, #676375);
+  }
+
+  .border-gray-300,
+  .border-slate-200,
+  .border-b,
+  .border-t,
+  .border {
+    border-color: var(--border, #e8e6f3);
+  }
+
+  .bg-gray-50 {
+    background-color: var(--surface-strong, #f9f8ff);
+  }
+
+  .hover\:bg-gray-50:hover {
+    background-color: rgba(58, 70, 237, 0.03);
+  }
+
+  input,
+  select,
+  textarea {
+    border-color: var(--border, #e8e6f3);
+    background-color: #ffffff;
+    color: var(--text, #1e1b4b);
+  }
+
+  input:focus,
+  select:focus,
+  textarea:focus {
+    border-color: var(--accent, #3a46ed);
+    box-shadow: 0 0 0 3px rgba(58, 70, 237, 0.14);
+    outline: none;
+  }
+
+  .bg-blue-100 {
+    background-color: rgba(58, 70, 237, 0.12);
+  }
+
+  .text-blue-600 {
+    color: var(--accent, #3a46ed);
+  }
+
+  .border-blue-500 {
+    border-color: var(--accent, #3a46ed);
+  }
+
+  > :first-child {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  .dynamic-island-rail {
+    margin: 10px 0 10px 10px;
+    height: calc(100vh - 20px);
+  }
+
+  .admin-content {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-layout {
+    flex-direction: column;
+  }
+
+  .dynamic-island-rail {
+    position: relative;
+    top: 0;
+    height: auto;
+    margin: 12px 12px 0 12px;
+    width: calc(100% - 24px) !important;
+    border-radius: 24px;
+    padding: 12px 16px;
+
+    &__header {
+      padding-bottom: 8px;
+    }
+
+    &__items-group {
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
+
+    &__item {
+      flex: 1;
+      min-width: 44px;
+      justify-content: center;
+    }
+
+    &__footer {
+      display: none;
+    }
+  }
+}
+
+.admin-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.admin-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-content::-webkit-scrollbar-thumb {
+  background: var(--border-strong, #d7d3eb);
+  border-radius: 4px;
+
+  &:hover {
+    background: var(--accent, #3a46ed);
+  }
+}

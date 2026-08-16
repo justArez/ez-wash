@@ -4,20 +4,25 @@ import Footer from "./components/footer/footer.component";
 import AuthModal from "./components/auth-modal/auth-modal.component";
 import BookingModal from "./components/booking-modal/booking-modal.component";
 import Toast from "./components/toast/toast.component";
-import HomePage from "./pages/home/home.page";
-import BookingPage from "./pages/booking/booking.page";
-import PromoPage from "./pages/promo/promo.page";
-import AdminLoginPage from "./pages/admin/admin-login/admin-login.page";
-import AdminDashboardPage from "./pages/admin/admin-dashboard/admin-dashboard.page";
-import AdminPromoPage from "./pages/admin/admin-promo/admin-promo.page";
-import AdminTierPage from "./pages/admin/admin-tier/admin-tier.page";
-import AdminBookingsPage from "./pages/admin/admin-bookings/admin-bookings.page";
-import AdminUsersPage from "./pages/admin/admin-users/admin-users.page";
+import { PageRenderer } from "./components/page-renderer/page-renderer.component";
+import type { ViewState } from "./router";
+import {
+  getViewFromPath,
+  getPathFromView,
+  isAdminView,
+  useRouter,
+} from "./router";
 import {
   linkLoyaltyAccount,
   fetchLoyaltyDashboard,
   createBooking,
 } from "./services/loyalty.service";
+import {
+  loginAdmin,
+  saveAdminUserInfo,
+  loadAdminUserInfo,
+  clearAdminUserInfo,
+} from "./services/admin-auth.service";
 import { DEMO_PHONE, demoDashboard } from "./services/loyalty.mock-data";
 import type {
   DashboardResponse,
@@ -27,18 +32,9 @@ import type {
 } from "./models/loyalty.model";
 import "./App.css";
 
-type ViewState =
-  | "home"
-  | "bookings"
-  | "promo"
-  | "admin-login"
-  | "admin-dashboard"
-  | "admin-promo"
-  | "admin-tier"
-  | "admin-bookings"
-  | "admin-users";
-
 type AuthMode = "sign-in" | "sign-up";
+
+const LOYALTY_STORAGE_KEY = "ezwash-dashboard";
 
 const availableSlots = [
   "Today 09:00",
@@ -55,45 +51,84 @@ const serviceOptions: ServiceOption[] = [
   { id: "tire", label: "Tire shine", price: 6 },
 ];
 
+const saveDashboardToStorage = (dashboardData: DashboardResponse) => {
+  window.localStorage.setItem(
+    LOYALTY_STORAGE_KEY,
+    JSON.stringify(dashboardData),
+  );
+};
+
+const loadDashboardFromStorage = (): DashboardResponse | null => {
+  try {
+    const value = window.localStorage.getItem(LOYALTY_STORAGE_KEY);
+    return value ? (JSON.parse(value) as DashboardResponse) : null;
+  } catch {
+    return null;
+  }
+};
+
 function App() {
-  const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
-  const viewFromPath = (): ViewState => {
-    if (window.location.pathname === "/bookings") return "bookings";
-    if (window.location.pathname === "/promo") return "promo";
-    return "home";
-  };
-  const [view, setView] = useState<ViewState>(viewFromPath);
+  const initialDashboard = loadDashboardFromStorage();
+  const initialAdminUserInfo = loadAdminUserInfo();
+
+  const [dashboard, setDashboard] = useState<DashboardResponse | null>(
+    initialDashboard,
+  );
+  const [adminUserInfo, setAdminUserInfo] = useState<{
+    token: string;
+    role: string;
+    username: string;
+  } | null>(initialAdminUserInfo);
   const [, setLoading] = useState(false);
-  const [, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>("sign-in");
   const [showBookingModal, setShowBookingModal] = useState(false);
-  const [adminToken, setAdminToken] = useState<string | null>(null);
   const [showDemoToast, setShowDemoToast] = useState(false);
 
+  // Initialize view based on current path and auth state
+  const [view, setView] = useState<ViewState>(() => {
+    const pathView = getViewFromPath(window.location.pathname);
+
+    // Redirect unauthenticated users away from protected routes
+    if (!initialDashboard && pathView === "bookings") {
+      return "home";
+    }
+
+    if (
+      !initialAdminUserInfo &&
+      isAdminView(pathView) &&
+      pathView !== "admin-login"
+    ) {
+      return "admin-login";
+    }
+
+    if (initialAdminUserInfo && pathView === "admin-login") {
+      return "admin-dashboard";
+    }
+
+    return pathView;
+  });
+
+  const { navigateTo } = useRouter({
+    view,
+    setView,
+    isLoggedIn: Boolean(dashboard),
+    isAdminLoggedIn: Boolean(adminUserInfo?.token),
+  });
+
   const username = useMemo(() => dashboard?.phone ?? "", [dashboard]);
-
   const isLoggedIn = Boolean(dashboard);
+  const isAdminLoggedIn = Boolean(adminUserInfo?.token);
 
+  // Sync view with URL on mount
   useEffect(() => {
-    const handlePopState = () => setView(viewFromPath());
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, []);
-
-  const navigateTo = (target: string) => {
-    const path =
-      target === "bookings" || target === "/bookings"
-        ? "/bookings"
-        : target === "promo" || target === "/promo"
-          ? "/promo"
-          : "/";
-    const nextView =
-      path === "/bookings" ? "bookings" : path === "/promo" ? "promo" : "home";
-    window.history.pushState({}, "", path);
-    setView(nextView);
-  };
+    const pathView = getViewFromPath(window.location.pathname);
+    if (pathView !== view) {
+      window.history.replaceState({}, "", getPathFromView(view));
+    }
+  }, [view]);
 
   const refreshDashboard = async (phone: string) => {
     setLoading(true);
@@ -103,19 +138,20 @@ function App() {
     try {
       if (phone.trim() === DEMO_PHONE) {
         setDashboard(demoDashboard);
-        setView(viewFromPath());
+        saveDashboardToStorage(demoDashboard);
         setShowDemoToast(true);
         return;
       }
 
       const data = await fetchLoyaltyDashboard(phone);
       setDashboard(data);
-      setView(viewFromPath());
+      saveDashboardToStorage(data);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to load dashboard.",
       );
       setDashboard(null);
+      window.localStorage.removeItem(LOYALTY_STORAGE_KEY);
     } finally {
       setLoading(false);
     }
@@ -145,16 +181,29 @@ function App() {
     }
   };
 
-  const handleAdminLogin = (token: string) => {
-    if (!token.trim()) {
-      setError("Admin token is required.");
+  const handleAdminLogin = async (username: string, password: string) => {
+    if (!username.trim() || !password.trim()) {
+      setError("Username and password are required.");
       return;
     }
-    setAdminToken(token.trim());
-    setView("admin-dashboard");
+
+    setLoading(true);
     setError(null);
-    setSuccess("Admin signed in successfully.");
-    setShowAuthModal(false);
+    setSuccess(null);
+
+    try {
+      const adminInfo = await loginAdmin(username.trim(), password.trim());
+      saveAdminUserInfo(adminInfo);
+      setAdminUserInfo(adminInfo);
+      setView("admin-dashboard");
+      window.history.pushState({}, "", getPathFromView("admin-dashboard"));
+      setSuccess("Admin signed in successfully.");
+      setShowAuthModal(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Admin login failed.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleOpenBookings = () => {
@@ -192,124 +241,77 @@ function App() {
     }
   };
 
-  const renderContent = () => {
-    if (view === "promo") {
-      return (
-        <PromoPage
-          dashboard={dashboard}
-          offers={dashboard?.rewardSuggestions ?? []}
-        />
-      );
-    }
+  const handleAdminNavigate = (viewId: string) => {
+    const nextView = viewId as ViewState;
+    window.history.pushState({}, "", getPathFromView(nextView));
+    setView(nextView);
+  };
 
-    if (view === "bookings") {
-      return <BookingPage dashboard={dashboard as DashboardResponse} />;
-    }
+  const handleAdminSignOut = () => {
+    setAdminUserInfo(null);
+    clearAdminUserInfo();
+    window.history.pushState({}, "", getPathFromView("home"));
+    setView("home");
+  };
 
-    if (view === "admin-login") {
-      return <AdminLoginPage onLogin={handleAdminLogin} />;
+  const handleNavigate = (target: string) => {
+    const result = navigateTo(target);
+    if (!result.authorized && result.reason === "customer-auth-required") {
+      setAuthMode("sign-in");
+      setShowAuthModal(true);
     }
-
-    if (view.startsWith("admin") && adminToken) {
-      return (
-        <section className="admin-shell">
-          <aside className="admin-sidebar card">
-            <h3>Admin console</h3>
-            <button
-              className="nav-item"
-              type="button"
-              onClick={() => setView("admin-dashboard")}
-            >
-              Dashboard
-            </button>
-            <button
-              className="nav-item"
-              type="button"
-              onClick={() => setView("admin-bookings")}
-            >
-              Bookings
-            </button>
-            <button
-              className="nav-item"
-              type="button"
-              onClick={() => setView("admin-promo")}
-            >
-              Promo
-            </button>
-            <button
-              className="nav-item"
-              type="button"
-              onClick={() => setView("admin-tier")}
-            >
-              Tier Config
-            </button>
-            <button
-              className="nav-item"
-              type="button"
-              onClick={() => setView("admin-users")}
-            >
-              Users
-            </button>
-            <button
-              className="button button-secondary"
-              type="button"
-              onClick={() => {
-                setAdminToken(null);
-                setView("home");
-              }}
-            >
-              Sign out
-            </button>
-          </aside>
-          <div className="admin-content">
-            {view === "admin-dashboard" && <AdminDashboardPage />}
-            {view === "admin-bookings" && <AdminBookingsPage />}
-            {view === "admin-promo" && <AdminPromoPage />}
-            {view === "admin-tier" && <AdminTierPage />}
-            {view === "admin-users" && <AdminUsersPage />}
-          </div>
-        </section>
-      );
-    }
-
-    return (
-      <HomePage
-        offers={dashboard?.rewardSuggestions ?? []}
-        availableSlots={availableSlots}
-        onBook={handleOpenBookings}
-      />
-    );
   };
 
   return (
-    <main className="app-shell">
-      <Header
-        isLoggedIn={isLoggedIn}
-        username={username}
-        currentPage={
-          view === "bookings" ? "bookings" : view === "promo" ? "promo" : "home"
-        }
-        onNavigate={navigateTo}
-        onOpenSignIn={() => {
-          setAuthMode("sign-in");
-          setShowAuthModal(true);
-        }}
-        onOpenSignUp={() => {
-          setAuthMode("sign-up");
-          setShowAuthModal(true);
-        }}
-        onOpenBookings={handleOpenBookings}
-      />
+    <main
+      className={`app-shell ${isAdminView(view) ? "app-shell--admin" : ""}`}
+    >
+      {!isAdminView(view) && (
+        <Header
+          isLoggedIn={isLoggedIn}
+          username={username}
+          currentPage={
+            view === "bookings"
+              ? "bookings"
+              : view === "promo"
+                ? "promo"
+                : "home"
+          }
+          onNavigate={handleNavigate}
+          onOpenSignIn={() => {
+            setAuthMode("sign-in");
+            setShowAuthModal(true);
+          }}
+          onOpenSignUp={() => {
+            setAuthMode("sign-up");
+            setShowAuthModal(true);
+          }}
+          onOpenBookings={handleOpenBookings}
+        />
+      )}
 
       {success && <div className="status-message success">{success}</div>}
+      {error && <div className="status-message error">{error}</div>}
       <Toast
         message="Demo account signed in successfully."
         visible={showDemoToast}
         onClose={() => setShowDemoToast(false)}
       />
-      {renderContent()}
 
-      <Footer />
+      <PageRenderer
+        view={view}
+        dashboard={dashboard}
+        adminLoggedIn={isAdminLoggedIn}
+        onAdminNavigate={handleAdminNavigate}
+        onAdminSignOut={handleAdminSignOut}
+        onAdminLogin={handleAdminLogin}
+        onOpenBookings={handleOpenBookings}
+        offersList={dashboard?.rewardSuggestions ?? []}
+        availableSlots={availableSlots}
+      />
+
+      {!isAdminView(view) && <Footer />}
+
       <AuthModal
         visible={showAuthModal}
         mode={authMode}
