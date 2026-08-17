@@ -10,7 +10,6 @@ import {
   DollarSign,
   CalendarCheck2,
   Clock,
-  Sparkles,
   TrendingUp,
   Activity,
   Car,
@@ -18,17 +17,22 @@ import {
   AlertCircle,
   XCircle,
 } from "lucide-react";
+import type {
+  AdminDashboardMetrics,
+  AdminRecentActivity,
+  AdminWeeklyBooking,
+} from "@/models/loyalty.model";
 import "./admin-dashboard.page.scss";
 
 export default function AdminDashboardPage() {
-  const metrics = {
+  const metrics: AdminDashboardMetrics = {
     totalRevenueToday: "$1,200",
     activeBookings: 150,
     availableSlots: 50,
     bayOccupancy: "4 / 5 Active",
   };
 
-  const weeklyBookings = [
+  const weeklyBookings: AdminWeeklyBooking[] = [
     { day: "Sun", count: 4 },
     { day: "Mon", count: 3 },
     { day: "Tue", count: 4 },
@@ -38,34 +42,7 @@ export default function AdminDashboardPage() {
     { day: "Sat", count: 2 },
   ];
 
-  const bayStatus = [
-    {
-      bay: "Wash Bay 1",
-      type: "Touchless Tunnel",
-      status: "active",
-      eta: "4 mins",
-    },
-    {
-      bay: "Wash Bay 2",
-      type: "High-Pressure Jet",
-      status: "active",
-      eta: "12 mins",
-    },
-    {
-      bay: "Wash Bay 3",
-      type: "Hand Detail Station",
-      status: "maintenance",
-      eta: "Under Calibration",
-    },
-    {
-      bay: "Wash Bay 4",
-      type: "Ceramic Seal Bay",
-      status: "active",
-      eta: "8 mins",
-    },
-  ];
-
-  const recentActivity = [
+  const recentActivity: AdminRecentActivity[] = [
     {
       name: "John Doe",
       phone: "555-1234",

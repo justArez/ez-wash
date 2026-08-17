@@ -61,7 +61,13 @@ const saveDashboardToStorage = (dashboardData: DashboardResponse) => {
 const loadDashboardFromStorage = (): DashboardResponse | null => {
   try {
     const value = window.localStorage.getItem(LOYALTY_STORAGE_KEY);
-    return value ? (JSON.parse(value) as DashboardResponse) : null;
+    if (!value) return null;
+    const parsed = JSON.parse(value) as DashboardResponse;
+    if (parsed.phone === DEMO_PHONE) {
+      saveDashboardToStorage(demoDashboard);
+      return demoDashboard;
+    }
+    return parsed;
   } catch {
     return null;
   }
@@ -306,6 +312,10 @@ function App() {
         onAdminSignOut={handleAdminSignOut}
         onAdminLogin={handleAdminLogin}
         onOpenBookings={handleOpenBookings}
+        onOpenSignIn={() => {
+          setAuthMode("sign-in");
+          setShowAuthModal(true);
+        }}
         offersList={dashboard?.rewardSuggestions ?? []}
         availableSlots={availableSlots}
       />

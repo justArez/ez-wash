@@ -30,6 +30,123 @@ export interface ServiceOption {
   price: number;
 }
 
+export type AdminTier = "PLATINUM" | "GOLD" | "SILVER" | "MEMBER";
+
+export type AdminBookingStatus =
+  | "PENDING"
+  | "CONFIRMED"
+  | "COMPLETED"
+  | "CANCELLED";
+
+export interface AdminBooking {
+  id: string;
+  customer: string;
+  phone: string;
+  tier: AdminTier;
+  vehicle: string;
+  timeSlot: string;
+  services: string;
+  status: AdminBookingStatus;
+}
+
+export type AdminPromotionTier = AdminTier | "GENERAL";
+
+export type AdminPromotionStatus = "ACTIVE" | "INACTIVE" | "EXPIRED";
+
+export interface AdminPromotion {
+  id: string;
+  promoName: string;
+  description: string;
+  tierRequired: AdminPromotionTier;
+  pointPrice: number | string;
+  status: AdminPromotionStatus;
+  validRange: string;
+}
+
+export type AdminServiceCategory =
+  | "Exterior Wash"
+  | "Interior Detailing"
+  | "Full Package"
+  | "Add-on";
+
+export interface AdminService {
+  id: string;
+  name: string;
+  category: AdminServiceCategory;
+  description: string;
+  durationMinutes: number;
+  price: number;
+  popularityCount: number;
+  status: "ACTIVE" | "INACTIVE";
+  features: string[];
+}
+
+export interface AdminTierDefinition {
+  id: string;
+  level: string;
+  pointThreshold: number;
+  multiplier: string;
+  discount: string;
+  description: string;
+  perks: string[];
+}
+
+export interface AdminTierSet {
+  id: string;
+  name: string;
+  status: "Active" | "Inactive";
+  description: string;
+  tiers: AdminTierDefinition[];
+}
+
+export interface AdminUser {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  mostActiveVehicle: string;
+  points: number;
+  status: "Active" | "Inactive" | "Low Priority";
+  tier: "Platinum" | "Gold" | "Silver" | "Member";
+}
+
+export interface AdminDashboardMetrics {
+  totalRevenueToday: string;
+  activeBookings: number;
+  availableSlots: number;
+  bayOccupancy: string;
+}
+
+export interface AdminWeeklyBooking {
+  day: string;
+  count: number;
+}
+
+export interface AdminBayStatus {
+  bay: string;
+  type: string;
+  status: "active" | "maintenance";
+  eta: string;
+}
+
+export interface AdminRecentActivity {
+  name: string;
+  phone: string;
+  vehicle: string;
+  service: string;
+  time: string;
+  status: "Completed" | "In Progress" | "Cancelled";
+}
+
+export interface AdminDashboardData {
+  metrics: AdminDashboardMetrics;
+  weeklyBookings: AdminWeeklyBooking[];
+  bayStatus: AdminBayStatus[];
+  recentActivity: AdminRecentActivity[];
+}
+
+export * from "./promo.model";
+
 export type AvailableSlot = string;
 
 export interface BookingRequest {

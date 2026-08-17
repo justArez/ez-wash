@@ -16,30 +16,13 @@ import {
   Trash2,
   CheckCircle2,
   Sparkles,
-  Layers,
-  Award,
-  Zap,
   X,
 } from "lucide-react";
+import type {
+  AdminTierDefinition as Tier,
+  AdminTierSet as TierSet,
+} from "@/models/loyalty.model";
 import "./admin-tier.page.scss";
-
-export interface Tier {
-  id: string;
-  level: string;
-  pointThreshold: number;
-  multiplier: string;
-  discount: string;
-  description: string;
-  perks: string[];
-}
-
-export interface TierSet {
-  id: string;
-  name: string;
-  status: "Active" | "Inactive";
-  description: string;
-  tiers: Tier[];
-}
 
 const INITIAL_TIER_SETS: TierSet[] = [
   {
@@ -172,9 +155,6 @@ export default function AdminTierPage() {
 
   // Active Set
   const activeSet = tierSets.find((s) => s.status === "Active") || tierSets[0];
-  const totalTierSets = tierSets.length;
-  const totalTiersCount = activeSet?.tiers.length || 0;
-  const highestTier = activeSet?.tiers[activeSet.tiers.length - 1];
 
   const handleSetActiveSet = (id: string) => {
     setTierSets((prev) =>

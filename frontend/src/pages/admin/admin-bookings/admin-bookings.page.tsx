@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
-  CalendarCheck2,
   Plus,
   Search,
   Clock,
@@ -18,119 +17,21 @@ import {
   CheckCircle2,
   AlertCircle,
   XCircle,
-  Hourglass,
   Edit2,
   Trash2,
 } from "lucide-react";
+import type { AdminBooking } from "@/models/loyalty.model";
+import { initialAdminBookings } from "@/services/loyalty.mock-data";
 import "./admin-bookings.page.scss";
-
-interface Booking {
-  id: string;
-  customer: string;
-  phone: string;
-  tier: "PLATINUM" | "GOLD" | "SILVER" | "MEMBER";
-  vehicle: string;
-  timeSlot: string;
-  services: string;
-  status: "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED";
-}
 
 export default function AdminBookingsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
 
-  const [bookings, setBookings] = useState<Booking[]>([
-    {
-      id: "BK-103607",
-      customer: "Alex Harrison",
-      phone: "555-0101",
-      tier: "PLATINUM",
-      vehicle: "Toyota Camry (29A-8821)",
-      timeSlot: "Today 10:45 AM",
-      services: "Platinum Signature Detail",
-      status: "PENDING",
-    },
-    {
-      id: "BK-106438",
-      customer: "Jessica Taylor",
-      phone: "555-0102",
-      tier: "PLATINUM",
-      vehicle: "Toyota RAV4 (30E-4412)",
-      timeSlot: "Today 10:45 AM",
-      services: "Hydro-Ceramic Coat Wash",
-      status: "PENDING",
-    },
-    {
-      id: "BK-109483",
-      customer: "David Miller",
-      phone: "555-0103",
-      tier: "GOLD",
-      vehicle: "Honda CR-V (29K-9122)",
-      timeSlot: "Today 10:35 AM",
-      services: "Deluxe Exterior & Wheel Clean",
-      status: "PENDING",
-    },
-    {
-      id: "BK-107524",
-      customer: "Marcus Vance",
-      phone: "555-0104",
-      tier: "MEMBER",
-      vehicle: "Ford Ranger (51C-1290)",
-      timeSlot: "Today 10:45 AM",
-      services: "Express Touchless",
-      status: "CONFIRMED",
-    },
-    {
-      id: "BK-107526",
-      customer: "Elena Rostova",
-      phone: "555-0105",
-      tier: "PLATINUM",
-      vehicle: "Audi A6 (30H-5555)",
-      timeSlot: "Today 10:45 AM",
-      services: "Premium Total Shine Package",
-      status: "CONFIRMED",
-    },
-    {
-      id: "BK-107527",
-      customer: "William Chen",
-      phone: "555-0106",
-      tier: "SILVER",
-      vehicle: "Mazda 3 (29D-7819)",
-      timeSlot: "Today 10:35 AM",
-      services: "Express Touchless + Tire Shine",
-      status: "CONFIRMED",
-    },
-    {
-      id: "BK-107912",
-      customer: "Rachel Green",
-      phone: "555-0107",
-      tier: "GOLD",
-      vehicle: "BMW 330i (30A-9012)",
-      timeSlot: "Today 10:00 AM",
-      services: "Deluxe Exterior + Interior Wipe",
-      status: "COMPLETED",
-    },
-    {
-      id: "BK-107533",
-      customer: "Tom Walker",
-      phone: "555-0108",
-      tier: "MEMBER",
-      vehicle: "Kia Seltos (29H-3145)",
-      timeSlot: "Today 09:30 AM",
-      services: "Basic Rinse & Run",
-      status: "CANCELLED",
-    },
-  ]);
+  const [bookings, setBookings] =
+    useState<AdminBooking[]>(initialAdminBookings);
 
   const totalBookings = bookings.length;
-  const pendingCount = bookings.filter((b) => b.status === "PENDING").length;
-  const confirmedCount = bookings.filter(
-    (b) => b.status === "CONFIRMED",
-  ).length;
-  const completedCount = bookings.filter(
-    (b) => b.status === "COMPLETED",
-  ).length;
-
   const filteredBookings = bookings.filter((booking) => {
     const matchesSearch =
       booking.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -148,7 +49,7 @@ export default function AdminBookingsPage() {
     setBookings((prev) =>
       prev.map((b) => {
         if (b.id !== id) return b;
-        const nextStatus: Record<string, Booking["status"]> = {
+        const nextStatus: Record<string, AdminBooking["status"]> = {
           PENDING: "CONFIRMED",
           CONFIRMED: "COMPLETED",
           COMPLETED: "CANCELLED",
@@ -165,7 +66,7 @@ export default function AdminBookingsPage() {
     }
   };
 
-  const getTierBadge = (tier: Booking["tier"]) => {
+  const getTierBadge = (tier: AdminBooking["tier"]) => {
     switch (tier) {
       case "PLATINUM":
         return (

@@ -14,8 +14,6 @@ import {
   Plus,
   Search,
   Clock,
-  TrendingUp,
-  Layers,
   Edit2,
   Trash2,
   CheckCircle2,
@@ -25,25 +23,11 @@ import {
   ShieldCheck,
   Zap,
 } from "lucide-react";
+import type {
+  AdminService as ServiceItem,
+  AdminServiceCategory as ServiceCategory,
+} from "@/models/loyalty.model";
 import "./admin-services.page.scss";
-
-export type ServiceCategory =
-  | "Exterior Wash"
-  | "Interior Detailing"
-  | "Full Package"
-  | "Add-on";
-
-export interface ServiceItem {
-  id: string;
-  name: string;
-  category: ServiceCategory;
-  description: string;
-  durationMinutes: number;
-  price: number;
-  popularityCount: number;
-  status: "ACTIVE" | "INACTIVE";
-  features: string[];
-}
 
 const INITIAL_SERVICES: ServiceItem[] = [
   {
@@ -307,15 +291,6 @@ export default function AdminServicesPage() {
 
   // KPI calculations
   const totalCount = services.length;
-  const activeCount = services.filter((s) => s.status === "ACTIVE").length;
-  const inactiveCount = totalCount - activeCount;
-  const mostPopular = [...services].sort(
-    (a, b) => b.popularityCount - a.popularityCount,
-  )[0];
-  const avgDuration = Math.round(
-    services.reduce((acc, s) => acc + s.durationMinutes, 0) /
-      (services.length || 1),
-  );
 
   const categoryCounts = {
     All: totalCount,

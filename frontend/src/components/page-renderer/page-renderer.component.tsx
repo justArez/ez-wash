@@ -20,7 +20,8 @@ export interface PageRendererProps {
   onAdminNavigate: (view: string) => void;
   onAdminSignOut: () => void;
   onAdminLogin: (username: string, password: string) => Promise<void>;
-  onOpenBookings: () => void;
+  onOpenBookings: (promoContext?: string) => void;
+  onOpenSignIn?: () => void;
   offersList: any[];
   availableSlots: string[];
 }
@@ -33,6 +34,7 @@ export function PageRenderer({
   onAdminSignOut,
   onAdminLogin,
   onOpenBookings,
+  onOpenSignIn,
   offersList,
   availableSlots,
 }: PageRendererProps) {
@@ -69,7 +71,14 @@ export function PageRenderer({
 
   // Customer pages
   if (view === "promo") {
-    return <PromoPage dashboard={dashboard} offers={offersList} />;
+    return (
+      <PromoPage
+        dashboard={dashboard}
+        offers={offersList}
+        onOpenSignIn={onOpenSignIn}
+        onOpenBookings={onOpenBookings}
+      />
+    );
   }
 
   if (view === "bookings") {

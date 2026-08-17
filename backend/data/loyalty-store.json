@@ -4,8 +4,8 @@
       "id": "customer-1",
       "phone": "555-0100",
       "licensePlates": ["ABC123"],
-      "tierId": "member",
-      "pointsBalance": 0,
+      "tierId": "gold",
+      "pointsBalance": 1500,
       "vehicles": [
         {
           "plate": "ABC123",

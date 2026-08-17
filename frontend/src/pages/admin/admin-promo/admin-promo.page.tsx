@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
-  Tag,
   Plus,
   Search,
   Sparkles,
@@ -22,19 +21,9 @@ import {
   Edit2,
   Trash2,
   X,
-  Award,
 } from "lucide-react";
+import type { AdminPromotion as Promotion } from "@/models/loyalty.model";
 import "./admin-promo.page.scss";
-
-interface Promotion {
-  id: string;
-  promoName: string;
-  description: string;
-  tierRequired: "PLATINUM" | "GOLD" | "SILVER" | "GENERAL";
-  pointPrice: number | string;
-  status: "ACTIVE" | "INACTIVE" | "EXPIRED";
-  validRange: string;
-}
 
 const INITIAL_PROMOTIONS: Promotion[] = [
   {
@@ -104,8 +93,6 @@ export default function AdminPromoPage() {
   });
 
   const totalCount = promotions.length;
-  const activeCount = promotions.filter((p) => p.status === "ACTIVE").length;
-  const expiredCount = promotions.filter((p) => p.status === "EXPIRED").length;
 
   const filteredPromos = promotions.filter((promo) => {
     const matchesSearch =

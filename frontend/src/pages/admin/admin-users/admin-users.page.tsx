@@ -10,13 +10,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
-  Users,
   Plus,
   Minus,
   Search,
-  Award,
   AlertTriangle,
-  UserCheck,
   CheckCircle2,
   Clock,
   Edit2,
@@ -27,18 +24,8 @@ import {
   Check,
   X,
 } from "lucide-react";
+import type { AdminUser as User } from "@/models/loyalty.model";
 import "./admin-users.page.scss";
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  mostActiveVehicle: string;
-  points: number;
-  status: "Active" | "Inactive" | "Low Priority";
-  tier: "Platinum" | "Gold" | "Silver" | "Member";
-}
 
 const INITIAL_USERS: User[] = [
   {
@@ -116,13 +103,6 @@ export default function AdminUsersPage() {
   const [pointsInputVal, setPointsInputVal] = useState<string>("");
 
   const totalCount = users.length;
-  const activeCount = users.filter((u) => u.status === "Active").length;
-  const vipCount = users.filter(
-    (u) => u.tier === "Platinum" || u.tier === "Gold",
-  ).length;
-  const lowPriorityCount = users.filter(
-    (u) => u.status === "Low Priority",
-  ).length;
 
   const filteredUsers = users.filter((user) => {
     const matchesSearch =
