@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -21,8 +21,15 @@ import {
   Edit2,
   Trash2,
   X,
+  RefreshCw,
 } from "lucide-react";
 import type { AdminPromotion as Promotion } from "@/models/loyalty.model";
+import {
+  createAdminPromotion,
+  deleteAdminPromotion,
+  fetchAdminPromotions,
+  updateAdminPromotion,
+} from "@/services/admin.service";
 import "./admin-promo.page.scss";
 
 const INITIAL_PROMOTIONS: Promotion[] = [
@@ -54,28 +61,11 @@ const INITIAL_PROMOTIONS: Promotion[] = [
     status: "ACTIVE",
     validRange: "08.01 - 08.31",
   },
-  {
-    id: "PRM-104",
-    promoName: "GENERAL Tire Shine Add-on Perk",
-    description: "Free tire shine upgrade on any exterior wash booking.",
-    tierRequired: "GENERAL",
-    pointPrice: "0 pts",
-    status: "ACTIVE",
-    validRange: "08.01 - 08.31",
-  },
-  {
-    id: "PRM-105",
-    promoName: "Early Bird Summer Splash",
-    description: "Archived promotional campaign from previous quarter.",
-    tierRequired: "GENERAL",
-    pointPrice: "250 pts",
-    status: "EXPIRED",
-    validRange: "06.01 - 06.30",
-  },
 ];
 
 export default function AdminPromoPage() {
   const [promotions, setPromotions] = useState<Promotion[]>(INITIAL_PROMOTIONS);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [tierFilter, setTierFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -91,6 +81,42 @@ export default function AdminPromoPage() {
     status: "ACTIVE" as Promotion["status"],
     validRange: "08.01 - 09.30",
   });
+
+  const loadPromotions = async () => {
+    try {
+      setLoading(true);
+      const data = await fetchAdminPromotions();
+      if (data && data.length > 0) {
+        const mapped: Promotion[] = data.map((p) => ({
+          id: p.id,
+          promoName: p.promoName || p.name || p.title || "Promotion",
+          description: p.description || "",
+          tierRequired: (p.tierRequired ||
+            (p.requiredTier?.toUpperCase() as any) ||
+            "GENERAL") as Promotion["tierRequired"],
+          pointPrice:
+            typeof p.pointPrice === "number"
+              ? `${p.pointPrice} pts`
+              : String(p.pointPrice || "0 pts"),
+          status: (p.status ||
+            (p.isActive ? "ACTIVE" : "INACTIVE")) as Promotion["status"],
+          validRange:
+            p.validRange ||
+            `${p.startDate || ""} - ${p.endDate || ""}` ||
+            "Active Campaign",
+        }));
+        setPromotions(mapped);
+      }
+    } catch (err) {
+      console.warn("Failed to fetch admin promotions, using fallback:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadPromotions();
+  }, []);
 
   const totalCount = promotions.length;
 
@@ -134,55 +160,76 @@ export default function AdminPromoPage() {
     setIsModalOpen(true);
   };
 
-  const handleSavePromo = (e: React.FormEvent) => {
+  const handleSavePromo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.promoName.trim()) return;
 
-    if (editingPromo) {
-      setPromotions((prev) =>
-        prev.map((p) =>
-          p.id === editingPromo.id
-            ? {
-                ...p,
-                promoName: formData.promoName,
-                description: formData.description,
-                tierRequired: formData.tierRequired,
-                pointPrice: formData.pointPrice,
-                status: formData.status,
-                validRange: formData.validRange,
-              }
-            : p,
-        ),
-      );
-    } else {
-      const newPromo: Promotion = {
-        id: `PRM-${Math.floor(100 + Math.random() * 900)}`,
-        promoName: formData.promoName,
-        description: formData.description,
-        tierRequired: formData.tierRequired,
-        pointPrice: formData.pointPrice,
-        status: formData.status,
-        validRange: formData.validRange,
-      };
-      setPromotions((prev) => [newPromo, ...prev]);
+    const numericPrice =
+      parseInt(formData.pointPrice.replace(/[^0-9]/g, ""), 10) || 0;
+
+    try {
+      if (editingPromo) {
+        await updateAdminPromotion(editingPromo.id, {
+          name: formData.promoName,
+          title: formData.promoName,
+          promoName: formData.promoName,
+          description: formData.description,
+          tierRequired: formData.tierRequired,
+          pointPrice: numericPrice,
+          status: formData.status,
+          validRange: formData.validRange,
+          isActive: formData.status === "ACTIVE",
+        });
+      } else {
+        await createAdminPromotion({
+          name: formData.promoName,
+          title: formData.promoName,
+          promoName: formData.promoName,
+          description: formData.description,
+          tierRequired: formData.tierRequired,
+          pointPrice: numericPrice,
+          status: formData.status,
+          validRange: formData.validRange,
+          isActive: formData.status === "ACTIVE",
+        });
+      }
+
+      setIsModalOpen(false);
+      loadPromotions();
+    } catch (err: any) {
+      alert(`Failed to save promotion: ${err.message}`);
     }
-
-    setIsModalOpen(false);
   };
 
-  const handleToggleStatus = (id: string) => {
+  const handleToggleStatus = async (id: string) => {
+    const promo = promotions.find((p) => p.id === id);
+    if (!promo) return;
+
+    const next = promo.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
     setPromotions((prev) =>
-      prev.map((p) => {
-        if (p.id !== id) return p;
-        const next = p.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
-        return { ...p, status: next };
-      }),
+      prev.map((p) => (p.id === id ? { ...p, status: next } : p)),
     );
+
+    try {
+      await updateAdminPromotion(id, {
+        status: next,
+        isActive: next === "ACTIVE",
+      });
+    } catch (err) {
+      console.error("Failed to toggle promotion status:", err);
+      loadPromotions();
+    }
   };
 
-  const handleDelete = (id: string, name: string) => {
-    if (window.confirm(`Delete promotion "${name}"?`)) {
-      setPromotions((prev) => prev.filter((p) => p.id !== id));
+  const handleDelete = async (id: string, name: string) => {
+    if (!window.confirm(`Delete promotion "${name}"?`)) return;
+
+    setPromotions((prev) => prev.filter((p) => p.id !== id));
+    try {
+      await deleteAdminPromotion(id);
+    } catch (err) {
+      console.error("Failed to delete promotion on server:", err);
+      loadPromotions();
     }
   };
 
@@ -222,10 +269,22 @@ export default function AdminPromoPage() {
             deals, and tier perks.
           </p>
         </div>
-        <Button onClick={handleOpenCreate} className="admin-promo__primary-btn">
-          <Plus className="w-4 h-4 mr-1.5" />
-          Create New Promo
-        </Button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={loadPromotions}
+            className="text-xs text-gray-600 hover:text-gray-900 bg-white border border-gray-200 rounded-md px-2.5 py-1.5 flex items-center gap-1.5 transition-colors"
+          >
+            <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+            Refresh
+          </button>
+          <Button
+            onClick={handleOpenCreate}
+            className="admin-promo__primary-btn"
+          >
+            <Plus className="w-4 h-4 mr-1.5" />
+            Create New Promo
+          </Button>
+        </div>
       </div>
 
       {/* Main Table Card */}

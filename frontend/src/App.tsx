@@ -222,21 +222,39 @@ function App() {
     setShowBookingModal(true);
   };
 
-  const handleConfirmBooking = async (slot: string, vehicle: Vehicle) => {
+  const handleConfirmBooking = async (
+    slot: string,
+    vehicle: Vehicle,
+    selectedServices?: string[],
+    overridePhone?: string,
+  ) => {
     setShowBookingModal(false);
     setLoading(true);
     setError(null);
     setSuccess(null);
 
+    const bookingPhone = overridePhone || dashboard?.phone || "";
+    if (!bookingPhone) {
+      setError("Phone number is required for booking.");
+      setLoading(false);
+      return;
+    }
+
     try {
+      const requestedDate = slot.includes("Tomorrow")
+        ? new Date(Date.now() + 86400000).toISOString().split("T")[0]
+        : new Date().toISOString().split("T")[0];
+
       await createBooking({
-        phone: dashboard?.phone ?? "",
+        phone: bookingPhone,
         vehiclePlate: vehicle.plate,
-        requestedDate: slot,
+        requestedDate,
+        serviceId: selectedServices?.[0],
+        time: slot,
       });
-      setSuccess("Booking confirmed successfully.");
-      if (dashboard?.phone) {
-        await refreshDashboard(dashboard.phone);
+      setSuccess("Booking confirmed successfully!");
+      if (bookingPhone) {
+        await refreshDashboard(bookingPhone);
       }
     } catch (err) {
       setError(

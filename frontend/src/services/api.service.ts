@@ -165,8 +165,29 @@ export async function fetchPromotions(): Promise<Promotion[]> {
     );
 
     if (response.status === "success" && response.data) {
-      setCachedData(cacheKey, response.data);
-      return response.data;
+      const mappedPromos: Promotion[] = response.data.map((p: any) => ({
+        id: p.id,
+        name: p.name || p.title || "Special Promotion",
+        description: p.description || "",
+        discountPercentage: p.discountPercentage ?? 10,
+        loyaltyPointsRequired:
+          p.loyaltyPointsRequired ??
+          (typeof p.pointPrice === "number" ? p.pointPrice : 0),
+        loyaltyPointsValue: p.loyaltyPointsValue ?? 100,
+        expiryDate: p.expiryDate || p.validUntil || p.endDate || "2026-12-31",
+        category: (p.category === "discount" ||
+        p.category === "points_bonus" ||
+        p.category === "new_member"
+          ? p.category
+          : "discount") as any,
+        terms: p.terms || "Standard loyalty terms and conditions apply.",
+        isActive: p.isActive !== false,
+        createdAt: p.createdAt || new Date().toISOString(),
+        updatedAt: p.updatedAt || new Date().toISOString(),
+      }));
+
+      setCachedData(cacheKey, mappedPromos);
+      return mappedPromos;
     }
 
     throw new Error(response.message || "Failed to fetch promotions");

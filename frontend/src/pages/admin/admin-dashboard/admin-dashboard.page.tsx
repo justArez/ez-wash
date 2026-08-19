@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -16,23 +17,25 @@ import {
   CheckCircle2,
   AlertCircle,
   XCircle,
+  RefreshCw,
 } from "lucide-react";
 import type {
   AdminDashboardMetrics,
   AdminRecentActivity,
   AdminWeeklyBooking,
 } from "@/models/loyalty.model";
+import { fetchAdminDashboardData } from "@/services/admin.service";
 import "./admin-dashboard.page.scss";
 
 export default function AdminDashboardPage() {
-  const metrics: AdminDashboardMetrics = {
+  const [metrics, setMetrics] = useState<AdminDashboardMetrics>({
     totalRevenueToday: "$1,200",
     activeBookings: 150,
     availableSlots: 50,
     bayOccupancy: "4 / 5 Active",
-  };
+  });
 
-  const weeklyBookings: AdminWeeklyBooking[] = [
+  const [weeklyBookings, setWeeklyBookings] = useState<AdminWeeklyBooking[]>([
     { day: "Sun", count: 4 },
     { day: "Mon", count: 3 },
     { day: "Tue", count: 4 },
@@ -40,42 +43,37 @@ export default function AdminDashboardPage() {
     { day: "Thu", count: 3 },
     { day: "Fri", count: 6 },
     { day: "Sat", count: 2 },
-  ];
+  ]);
 
-  const recentActivity: AdminRecentActivity[] = [
-    {
-      name: "John Doe",
-      phone: "555-1234",
-      vehicle: "Toyota Camry (29A-1234)",
-      service: "Ceramic High-Gloss Wash",
-      time: "12:08 PM",
-      status: "Completed",
-    },
-    {
-      name: "Jane Smith",
-      phone: "555-5678",
-      vehicle: "Honda Accord (30F-9876)",
-      service: "Deluxe Exterior & Wheel Clean",
-      time: "12:06 PM",
-      status: "In Progress",
-    },
-    {
-      name: "Bob Johnson",
-      phone: "555-9999",
-      vehicle: "Ford F-150 (51C-4432)",
-      service: "Express Touchless",
-      time: "10:09 AM",
-      status: "Cancelled",
-    },
-    {
-      name: "Sarah Lee",
-      phone: "555-4421",
-      vehicle: "Mazda CX-5 (29B-7711)",
-      service: "Platinum Signature Detail",
-      time: "09:45 AM",
-      status: "Completed",
-    },
-  ];
+  const [recentActivity, setRecentActivity] = useState<AdminRecentActivity[]>(
+    [],
+  );
+  const [loading, setLoading] = useState(true);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const data = await fetchAdminDashboardData();
+      if (data) {
+        if (data.metrics) setMetrics(data.metrics);
+        if (data.weeklyBookings) setWeeklyBookings(data.weeklyBookings);
+        if (data.recentActivity) setRecentActivity(data.recentActivity);
+      }
+    } catch (err) {
+      console.warn(
+        "Failed to fetch live admin dashboard data, using fallback:",
+        err,
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const maxWeeklyCount = Math.max(...weeklyBookings.map((w) => w.count), 1);
 
   return (
     <section className="admin-dashboard">
@@ -89,6 +87,13 @@ export default function AdminDashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={loadData}
+            className="text-xs text-gray-600 hover:text-gray-900 bg-white border border-gray-200 rounded-md px-2.5 py-1 flex items-center gap-1.5 transition-colors"
+          >
+            <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
+            Refresh
+          </button>
           <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 flex items-center gap-1.5 py-1 px-3">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             Live System Active
@@ -186,8 +191,10 @@ export default function AdminDashboardPage() {
                   <div className="admin-dashboard__bar-wrap">
                     <div
                       className="admin-dashboard__bar"
-                      style={{ height: `${(item.count / 6) * 100}%` }}
-                      title={`${item.day}: ${item.count * 25} total washes`}
+                      style={{
+                        height: `${(item.count / maxWeeklyCount) * 100}%`,
+                      }}
+                      title={`${item.day}: ${item.count} total washes`}
                     />
                   </div>
                   <span className="admin-dashboard__bar-label">{item.day}</span>

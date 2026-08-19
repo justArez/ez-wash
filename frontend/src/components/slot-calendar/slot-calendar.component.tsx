@@ -45,6 +45,27 @@ const isPastSlot = (slot: TimeSlot): boolean => {
   return hour * 60 + minute <= currentMinutes;
 };
 
+const getClosestTime = (times: string[]): string | null => {
+  if (times.length === 0) return null;
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+  let closest = times[0];
+  let minDiff = Infinity;
+
+  for (const time of times) {
+    const [hour, minute] = time.split(":").map(Number);
+    const slotMinutes = hour * 60 + minute;
+    const diff = Math.abs(slotMinutes - currentMinutes);
+    if (diff < minDiff) {
+      minDiff = diff;
+      closest = time;
+    }
+  }
+
+  return closest;
+};
+
 const addComputedFields = (slot: TimeSlot): TimeSlotWithComputedFields => {
   const isPast = isPastSlot(slot);
   const effectiveStatus =
@@ -73,6 +94,9 @@ export const SlotCalendar: React.FC<SlotCalendarProps> = ({
 }) => {
   const { slots, loading, error, refetch, nextRefreshCountdown } = useSlots(7);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const tableContainerRef = React.useRef<HTMLDivElement>(null);
+  const theadRef = React.useRef<HTMLTableSectionElement>(null);
+  const rowRefs = React.useRef<Map<string, HTMLTableRowElement>>(new Map());
 
   // Notify parent of loading state
   useEffect(() => {
@@ -121,6 +145,32 @@ export const SlotCalendar: React.FC<SlotCalendarProps> = ({
         slotByDayAndTime: matrix,
       };
     }, [slots]);
+
+  // Auto-scroll to closest timeslot from current time
+  useEffect(() => {
+    if (!loading && sortedTimes.length > 0) {
+      const closestTime = getClosestTime(sortedTimes);
+      if (!closestTime) return;
+
+      const rowEl = rowRefs.current.get(closestTime);
+      const container = tableContainerRef.current;
+      if (rowEl && container) {
+        requestAnimationFrame(() => {
+          const containerRect = container.getBoundingClientRect();
+          const rowRect = rowEl.getBoundingClientRect();
+          const theadHeight = theadRef.current?.offsetHeight ?? 0;
+          const currentScrollTop = container.scrollTop;
+          const targetScrollTop =
+            currentScrollTop + (rowRect.top - containerRect.top) - theadHeight;
+
+          container.scrollTo({
+            top: Math.max(0, targetScrollTop),
+            behavior: "smooth",
+          });
+        });
+      }
+    }
+  }, [loading, sortedTimes]);
 
   // Error state
   if (error && !loading) {
@@ -223,11 +273,14 @@ export const SlotCalendar: React.FC<SlotCalendarProps> = ({
 
       {/* Transposed slots table */}
       {!loading && computedSlots.length > 0 && (
-        <div className="hide-scrollbar overflow-x-auto rounded-lg border border-gray-200">
-          <table className="min-w-[980px] w-full border-collapse bg-white">
-            <thead className="bg-gray-50">
+        <div
+          ref={tableContainerRef}
+          className="max-h-[420px] overflow-auto hide-scrollbar rounded-lg border border-gray-200"
+        >
+          <table className="min-w-[980px] w-full border-separate border-spacing-0 bg-white">
+            <thead ref={theadRef}>
               <tr>
-                <th className="sticky left-0 z-10 w-28 border-b border-r border-gray-200 px-3 py-4 text-left text-sm font-semibold text-gray-700">
+                <th className="sticky left-0 top-0 z-30 w-28 border-b border-r border-gray-200 bg-gray-50 px-3 py-4 text-left text-sm font-semibold text-gray-700">
                   Time
                 </th>
                 {sortedDays.map((dayLabel) => {
@@ -235,7 +288,7 @@ export const SlotCalendar: React.FC<SlotCalendarProps> = ({
                   return (
                     <th
                       key={dayLabel}
-                      className="min-w-[120px] border-b border-gray-200 px-3 py-4 text-center text-sm font-semibold text-gray-700"
+                      className="sticky top-0 z-20 min-w-[120px] border-b border-gray-200 bg-gray-50 px-3 py-4 text-center text-sm font-semibold text-gray-700"
                     >
                       <span className="block">{day}</span>
                       <span className="mt-1 block text-xs font-normal text-gray-500">
@@ -250,9 +303,15 @@ export const SlotCalendar: React.FC<SlotCalendarProps> = ({
               {sortedTimes.map((time) => (
                 <tr
                   key={time}
-                  className="border-b border-gray-100 last:border-b-0"
+                  ref={(el) => {
+                    if (el) {
+                      rowRefs.current.set(time, el);
+                    } else {
+                      rowRefs.current.delete(time);
+                    }
+                  }}
                 >
-                  <th className="sticky left-0 z-10 border-r border-gray-200 bg-white px-3 py-3 text-left text-sm font-medium text-gray-600">
+                  <th className="sticky left-0 z-10 border-b border-r border-gray-200 bg-white px-3 py-3 text-left text-sm font-medium text-gray-600">
                     {computedSlots.find((slot) => slot.time === time)
                       ?.timeLabel ?? time}
                   </th>
@@ -261,7 +320,7 @@ export const SlotCalendar: React.FC<SlotCalendarProps> = ({
                     return (
                       <td
                         key={`${dayLabel}-${time}`}
-                        className="p-2 align-middle"
+                        className="border-b border-gray-100 p-2 align-middle"
                       >
                         {slot ? (
                           <SlotCard

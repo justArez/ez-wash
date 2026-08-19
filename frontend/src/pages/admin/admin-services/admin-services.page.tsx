@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -22,11 +22,18 @@ import {
   Droplets,
   ShieldCheck,
   Zap,
+  RefreshCw,
 } from "lucide-react";
 import type {
   AdminService as ServiceItem,
   AdminServiceCategory as ServiceCategory,
 } from "@/models/loyalty.model";
+import {
+  createAdminService,
+  deleteAdminService,
+  fetchAdminServices,
+  updateAdminService,
+} from "@/services/admin.service";
 import "./admin-services.page.scss";
 
 const INITIAL_SERVICES: ServiceItem[] = [
@@ -66,205 +73,11 @@ const INITIAL_SERVICES: ServiceItem[] = [
     status: "ACTIVE",
     features: ["Ceramic Sealant", "Underbody Wash", "Rain Repellent"],
   },
-  {
-    id: "SRV-004",
-    name: "Commercial Fleet Exterior",
-    category: "Exterior Wash",
-    description:
-      "Heavy-duty exterior wash tailored for vans, SUVs and fleet trucks.",
-    durationMinutes: 35,
-    price: 45.0,
-    popularityCount: 42,
-    status: "ACTIVE",
-    features: ["Heavy Mud Prep", "Dual High-Pressure", "Streak-Free Finish"],
-  },
-  {
-    id: "SRV-005",
-    name: "Basic Rinse & Run",
-    category: "Exterior Wash",
-    description: "Quick 10-minute water blast rinse for dusty daily drivers.",
-    durationMinutes: 10,
-    price: 10.0,
-    popularityCount: 18,
-    status: "INACTIVE",
-    features: ["High-Pressure Rinse", "Air Dry"],
-  },
-  {
-    id: "SRV-006",
-    name: "Standard Interior Vacuum & Wipe",
-    category: "Interior Detailing",
-    description:
-      "Floor mats vacuuming, dash dusting, and window streak-free wiping.",
-    durationMinutes: 25,
-    price: 30.0,
-    popularityCount: 88,
-    status: "ACTIVE",
-    features: ["Deep Vacuum", "Dash & Console Wipe", "Window Clarity"],
-  },
-  {
-    id: "SRV-007",
-    name: "Deep Steam Sanitation",
-    category: "Interior Detailing",
-    description:
-      "Thermal vapor sanitization of AC vents, door cards, and fabric seats.",
-    durationMinutes: 45,
-    price: 55.0,
-    popularityCount: 76,
-    status: "ACTIVE",
-    features: ["Steam Disinfection", "AC Vent Clean", "Odor Eliminator"],
-  },
-  {
-    id: "SRV-008",
-    name: "Leather Conditioning & Guard",
-    category: "Interior Detailing",
-    description:
-      "pH-balanced gentle clean and rich conditioner application for leather seats.",
-    durationMinutes: 40,
-    price: 60.0,
-    popularityCount: 65,
-    status: "ACTIVE",
-    features: ["Leather Cleaner", "UV Guard Balm", "Matte Finish"],
-  },
-  {
-    id: "SRV-009",
-    name: "Pet Hair & Stain Extraction",
-    category: "Interior Detailing",
-    description:
-      "Intense dog/cat hair removal and heated carpet shampoo extraction.",
-    durationMinutes: 50,
-    price: 70.0,
-    popularityCount: 52,
-    status: "ACTIVE",
-    features: [
-      "Specialty Fur Brush",
-      "Hot Water Extractor",
-      "Enzyme Neutralizer",
-    ],
-  },
-  {
-    id: "SRV-010",
-    name: "Premium Total Shine Package",
-    category: "Full Package",
-    description:
-      "Full exterior ceramic wash + deep interior vacuum and dressing.",
-    durationMinutes: 55,
-    price: 75.0,
-    popularityCount: 142,
-    status: "ACTIVE",
-    features: [
-      "Exterior Ceramic Wash",
-      "Tire & Rim Dressing",
-      "Full Cabin Detail",
-    ],
-  },
-  {
-    id: "SRV-011",
-    name: "Platinum Signature Restoration",
-    category: "Full Package",
-    description:
-      "Top-tier package with paint clay bar, machine glaze, and interior shampoo.",
-    durationMinutes: 90,
-    price: 140.0,
-    popularityCount: 62,
-    status: "ACTIVE",
-    features: [
-      "Clay Bar Decon",
-      "Machine Polish",
-      "Leather Care",
-      "Glass Sealant",
-    ],
-  },
-  {
-    id: "SRV-012",
-    name: "Executive Express Duo",
-    category: "Full Package",
-    description:
-      "Quick turnaround simultaneous interior clean and exterior wash.",
-    durationMinutes: 30,
-    price: 45.0,
-    popularityCount: 115,
-    status: "ACTIVE",
-    features: ["2-Man Fast Track", "Exterior Foam Wash", "Cabin Vacuum"],
-  },
-  {
-    id: "SRV-013",
-    name: "Winter Protection Shield",
-    category: "Full Package",
-    description:
-      "Underbody salt removal, anti-corrosion barrier, and hydrophobic wax.",
-    durationMinutes: 45,
-    price: 65.0,
-    popularityCount: 48,
-    status: "ACTIVE",
-    features: [
-      "Salt Neutralizer",
-      "Chassis Rust Guard",
-      "Windshield Rain Repel",
-    ],
-  },
-  {
-    id: "SRV-014",
-    name: "Showroom Mirror Finish",
-    category: "Full Package",
-    description:
-      "Complete multi-step detail, wheel ceramic, engine bay wash & ozone treatment.",
-    durationMinutes: 120,
-    price: 195.0,
-    popularityCount: 29,
-    status: "ACTIVE",
-    features: ["Engine Bay Detail", "Ozone Odor Purge", "Wheel Off Coating"],
-  },
-  {
-    id: "SRV-015",
-    name: "Basic Combo Duo (Legacy)",
-    category: "Full Package",
-    description: "Archived package superseded by Executive Express.",
-    durationMinutes: 30,
-    price: 35.0,
-    popularityCount: 12,
-    status: "INACTIVE",
-    features: ["Simple Wash", "Dry"],
-  },
-  {
-    id: "SRV-016",
-    name: "Engine Bay Degrease & Dressing",
-    category: "Add-on",
-    description:
-      "Safe degreasing of hood underside and engine compartment with protective shine.",
-    durationMinutes: 20,
-    price: 25.0,
-    popularityCount: 38,
-    status: "ACTIVE",
-    features: ["Water-safe Prep", "Grease Dissolver", "Satin Dressing"],
-  },
-  {
-    id: "SRV-017",
-    name: "Headlight Oxidation Restoration",
-    category: "Add-on",
-    description:
-      "Wet sanding, polish, and UV clear-coat protection for foggy yellow headlights.",
-    durationMinutes: 30,
-    price: 40.0,
-    popularityCount: 45,
-    status: "ACTIVE",
-    features: ["3-Stage Wet Sand", "Micro-Compound", "UV Cured Seal"],
-  },
-  {
-    id: "SRV-018",
-    name: "Ozone Odor Elimination Bomb",
-    category: "Add-on",
-    description:
-      "30-minute high-output ozone generator treatment killing smoke and bacteria.",
-    durationMinutes: 30,
-    price: 30.0,
-    popularityCount: 56,
-    status: "ACTIVE",
-    features: ["Microbial Purge", "Smoke Neutralizer", "Fresh Air Purge"],
-  },
 ];
 
 export default function AdminServicesPage() {
   const [services, setServices] = useState<ServiceItem[]>(INITIAL_SERVICES);
+  const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -288,6 +101,24 @@ export default function AdminServicesPage() {
     status: "ACTIVE" as "ACTIVE" | "INACTIVE",
     featuresText: "",
   });
+
+  const loadServices = async () => {
+    try {
+      setLoading(true);
+      const data = await fetchAdminServices();
+      if (data && data.length > 0) {
+        setServices(data);
+      }
+    } catch (err) {
+      console.warn("Failed to fetch admin services, using fallback:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadServices();
+  }, []);
 
   // KPI calculations
   const totalCount = services.length;
@@ -361,7 +192,7 @@ export default function AdminServicesPage() {
   };
 
   // Save Service (Create / Update)
-  const handleSaveService = (e: React.FormEvent) => {
+  const handleSaveService = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim()) return;
 
@@ -370,62 +201,72 @@ export default function AdminServicesPage() {
       .map((f) => f.trim())
       .filter(Boolean);
 
-    if (editingService) {
-      setServices((prev) =>
-        prev.map((item) =>
-          item.id === editingService.id
-            ? {
-                ...item,
-                name: formData.name,
-                category: formData.category,
-                description: formData.description,
-                durationMinutes: Number(formData.durationMinutes),
-                price: Number(formData.price),
-                status: formData.status,
-                features: parsedFeatures.length
-                  ? parsedFeatures
-                  : item.features,
-              }
-            : item,
-        ),
-      );
-    } else {
-      const newService: ServiceItem = {
-        id: `SRV-0${services.length + 1}`,
-        name: formData.name,
-        category: formData.category,
-        description: formData.description,
-        durationMinutes: Number(formData.durationMinutes),
-        price: Number(formData.price),
-        popularityCount: 0,
-        status: formData.status,
-        features: parsedFeatures.length ? parsedFeatures : ["Standard Care"],
-      };
-      setServices((prev) => [newService, ...prev]);
-    }
+    try {
+      if (editingService) {
+        await updateAdminService(editingService.id, {
+          name: formData.name,
+          category: formData.category,
+          description: formData.description,
+          durationMinutes: Number(formData.durationMinutes),
+          price: Number(formData.price),
+          status: formData.status,
+          features: parsedFeatures.length
+            ? parsedFeatures
+            : editingService.features,
+        });
+      } else {
+        await createAdminService({
+          name: formData.name,
+          category: formData.category,
+          description: formData.description,
+          durationMinutes: Number(formData.durationMinutes),
+          price: Number(formData.price),
+          status: formData.status,
+          features: parsedFeatures.length ? parsedFeatures : ["Standard Care"],
+        });
+      }
 
-    setIsModalOpen(false);
+      setIsModalOpen(false);
+      loadServices();
+    } catch (err: any) {
+      alert(`Failed to save service: ${err.message}`);
+    }
   };
 
   // Toggle Active Status
-  const handleToggleStatus = (id: string) => {
+  const handleToggleStatus = async (id: string) => {
+    const srv = services.find((s) => s.id === id);
+    if (!srv) return;
+
+    const newStatus = srv.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
     setServices((prev) =>
-      prev.map((s) =>
-        s.id === id
-          ? { ...s, status: s.status === "ACTIVE" ? "INACTIVE" : "ACTIVE" }
-          : s,
-      ),
+      prev.map((s) => (s.id === id ? { ...s, status: newStatus } : s)),
     );
+
+    try {
+      await updateAdminService(id, { status: newStatus });
+    } catch (err) {
+      console.error("Failed to toggle service status:", err);
+      loadServices();
+    }
   };
 
   // Delete Service
-  const handleDelete = (id: string, name: string) => {
+  const handleDelete = async (id: string, name: string) => {
     if (
-      window.confirm(
+      !window.confirm(
         `Are you sure you want to remove "${name}" from the catalog?`,
       )
     ) {
-      setServices((prev) => prev.filter((s) => s.id !== id));
+      return;
+    }
+
+    setServices((prev) => prev.filter((s) => s.id !== id));
+    try {
+      await deleteAdminService(id);
+    } catch (err) {
+      console.error("Failed to delete service on server:", err);
+      loadServices();
     }
   };
 
@@ -455,10 +296,22 @@ export default function AdminServicesPage() {
             add-on options.
           </p>
         </div>
-        <Button onClick={handleOpenCreate} className="admin-services__add-btn">
-          <Plus className="w-4 h-4 mr-1.5" />
-          Add Service
-        </Button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={loadServices}
+            className="text-xs text-gray-600 hover:text-gray-900 bg-white border border-gray-200 rounded-md px-2.5 py-1.5 flex items-center gap-1.5 transition-colors"
+          >
+            <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+            Refresh
+          </button>
+          <Button
+            onClick={handleOpenCreate}
+            className="admin-services__add-btn"
+          >
+            <Plus className="w-4 h-4 mr-1.5" />
+            Add Service
+          </Button>
+        </div>
       </div>
 
       {/* Main Catalog Card */}

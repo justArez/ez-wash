@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -23,8 +23,17 @@ import {
   Car,
   Check,
   X,
+  RefreshCw,
+  RotateCcw,
 } from "lucide-react";
 import type { AdminUser as User } from "@/models/loyalty.model";
+import {
+  adjustAdminUserPoints,
+  createAdminUser,
+  fetchAdminUsers,
+  resetAdminUserWarnings,
+  updateAdminUser,
+} from "@/services/admin.service";
 import "./admin-users.page.scss";
 
 const INITIAL_USERS: User[] = [
@@ -58,49 +67,47 @@ const INITIAL_USERS: User[] = [
     status: "Active",
     tier: "Gold",
   },
-  {
-    id: "USR-004",
-    name: "Daniel Evans",
-    email: "daniel.evans@email.com",
-    phone: "555-0104",
-    mostActiveVehicle: "Mazda CX-5 (51C-4421)",
-    points: 1100,
-    status: "Active",
-    tier: "Silver",
-  },
-  {
-    id: "USR-005",
-    name: "Emma Watson",
-    email: "emma.watson@email.com",
-    phone: "555-0105",
-    mostActiveVehicle: "Mercedes C300 (30F-1111)",
-    points: 8900,
-    status: "Active",
-    tier: "Platinum",
-  },
-  {
-    id: "USR-006",
-    name: "Frank Castle",
-    email: "frank.castle@email.com",
-    phone: "555-0106",
-    mostActiveVehicle: "Ford Mustang (29H-7777)",
-    points: 50,
-    status: "Inactive",
-    tier: "Member",
-  },
 ];
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>(INITIAL_USERS);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [tierFilter, setTierFilter] = useState("All Tiers");
   const [statusFilter, setStatusFilter] = useState("All");
+
+  // Create User Modal
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newPhone, setNewPhone] = useState("");
+  const [newName, setNewName] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [newPlate, setNewPlate] = useState("");
+  const [newModel, setNewModel] = useState("");
+  const [newPoints, setNewPoints] = useState(0);
 
   // Points inline edit state
   const [editingPointsUserId, setEditingPointsUserId] = useState<string | null>(
     null,
   );
   const [pointsInputVal, setPointsInputVal] = useState<string>("");
+
+  const loadUsers = async () => {
+    try {
+      setLoading(true);
+      const data = await fetchAdminUsers();
+      if (data && data.length > 0) {
+        setUsers(data);
+      }
+    } catch (err) {
+      console.warn("Failed to fetch admin users, using fallback:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
 
   const totalCount = users.length;
 
@@ -120,7 +127,7 @@ export default function AdminUsersPage() {
 
   const DEFAULT_POINT_ADJUST_STEP = 100;
 
-  const handleAdjustPoints = (userId: string, delta: number) => {
+  const handleAdjustPoints = async (userId: string, delta: number) => {
     setUsers((prev) =>
       prev.map((u) => {
         if (u.id !== userId) return u;
@@ -128,6 +135,17 @@ export default function AdminUsersPage() {
         return { ...u, points: newPts };
       }),
     );
+
+    try {
+      await adjustAdminUserPoints(
+        userId,
+        delta,
+        `Manual admin adjustment (${delta > 0 ? "+" : ""}${delta})`,
+      );
+    } catch (err) {
+      console.error("Failed to adjust points on server:", err);
+      loadUsers();
+    }
   };
 
   const handleStartEditPoints = (user: User) => {
@@ -135,14 +153,90 @@ export default function AdminUsersPage() {
     setPointsInputVal(user.points.toString());
   };
 
-  const handleSavePoints = (userId: string) => {
+  const handleSavePoints = async (userId: string) => {
     const parsed = parseInt(pointsInputVal, 10);
-    if (!isNaN(parsed) && parsed >= 0) {
+    const currentUser = users.find((u) => u.id === userId);
+    if (!isNaN(parsed) && parsed >= 0 && currentUser) {
+      const delta = parsed - currentUser.points;
       setUsers((prev) =>
         prev.map((u) => (u.id === userId ? { ...u, points: parsed } : u)),
       );
+
+      if (delta !== 0) {
+        try {
+          await adjustAdminUserPoints(userId, delta, "Manual points override");
+        } catch (err) {
+          console.error("Failed to update points:", err);
+          loadUsers();
+        }
+      }
     }
     setEditingPointsUserId(null);
+  };
+
+  const handleResetWarnings = async (userId: string) => {
+    if (
+      !window.confirm(
+        "Reset late cancellation strikes and restore normal priority status?",
+      )
+    )
+      return;
+
+    try {
+      await resetAdminUserWarnings(userId);
+      setUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, status: "Active" } : u)),
+      );
+    } catch (err) {
+      console.error("Failed to reset warnings:", err);
+      loadUsers();
+    }
+  };
+
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPhone.trim()) return;
+
+    try {
+      await createAdminUser({
+        phone: newPhone.trim(),
+        fullName: newName.trim() || undefined,
+        email: newEmail.trim() || undefined,
+        pointsBalance: Number(newPoints) || 0,
+        initialVehicle: newPlate.trim()
+          ? {
+              plate: newPlate.trim(),
+              model: newModel.trim() || "Standard Vehicle",
+              type: "car",
+            }
+          : undefined,
+      });
+
+      setShowCreateModal(false);
+      setNewPhone("");
+      setNewName("");
+      setNewEmail("");
+      setNewPlate("");
+      setNewModel("");
+      setNewPoints(0);
+      loadUsers();
+    } catch (err: any) {
+      alert(`Failed to create user: ${err.message}`);
+    }
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!window.confirm(`Deactivate account for ${name} (${id})?`)) return;
+
+    try {
+      await updateAdminUser(id, { status: "Inactive" });
+      setUsers((prev) =>
+        prev.map((u) => (u.id === id ? { ...u, status: "Inactive" } : u)),
+      );
+    } catch (err) {
+      console.error("Failed to deactivate user:", err);
+      loadUsers();
+    }
   };
 
   const handlePointsKeyDown = (
@@ -182,12 +276,6 @@ export default function AdminUsersPage() {
     }
   };
 
-  const handleDelete = (id: string, name: string) => {
-    if (window.confirm(`Remove user ${name} (${id})?`)) {
-      setUsers((prev) => prev.filter((u) => u.id !== id));
-    }
-  };
-
   return (
     <section className="admin-users">
       {/* Header */}
@@ -199,10 +287,22 @@ export default function AdminUsersPage() {
             standing.
           </p>
         </div>
-        <Button className="admin-users__primary-btn">
-          <Plus className="w-4 h-4 mr-1.5" />
-          Add Customer
-        </Button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={loadUsers}
+            className="text-xs text-gray-600 hover:text-gray-900 bg-white border border-gray-200 rounded-md px-2.5 py-1.5 flex items-center gap-1.5 transition-colors"
+          >
+            <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+            Refresh
+          </button>
+          <Button
+            className="admin-users__primary-btn"
+            onClick={() => setShowCreateModal(true)}
+          >
+            <Plus className="w-4 h-4 mr-1.5" />
+            Add Customer
+          </Button>
+        </div>
       </div>
 
       {/* Main Table Card */}
@@ -439,6 +539,18 @@ export default function AdminUsersPage() {
 
                       <td className="text-right">
                         <div className="flex items-center justify-end gap-1">
+                          {user.status === "Low Priority" && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 px-2 text-xs text-amber-600 hover:text-amber-800 hover:bg-amber-50 flex items-center gap-1"
+                              onClick={() => handleResetWarnings(user.id)}
+                              title="Reset late cancellation penalty strikes"
+                            >
+                              <RotateCcw size={12} />
+                              Reset Strike
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"
@@ -458,6 +570,109 @@ export default function AdminUsersPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Create Customer Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 border border-gray-100 animate-in fade-in zoom-in duration-150">
+            <h3 className="text-lg font-bold text-gray-900 mb-1">
+              Add New Customer
+            </h3>
+            <p className="text-xs text-gray-500 mb-4">
+              Register a customer profile with contact and vehicle information.
+            </p>
+
+            <form onSubmit={handleCreateUser} className="space-y-3">
+              <div>
+                <label className="text-xs font-semibold text-gray-700 block mb-1">
+                  Phone Number *
+                </label>
+                <Input
+                  required
+                  placeholder="e.g. 555-0199"
+                  value={newPhone}
+                  onChange={(e) => setNewPhone(e.target.value)}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs font-semibold text-gray-700 block mb-1">
+                    Full Name
+                  </label>
+                  <Input
+                    placeholder="e.g. John Doe"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-700 block mb-1">
+                    Email
+                  </label>
+                  <Input
+                    type="email"
+                    placeholder="e.g. john@example.com"
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs font-semibold text-gray-700 block mb-1">
+                    Initial Plate
+                  </label>
+                  <Input
+                    placeholder="e.g. 29A-1234"
+                    value={newPlate}
+                    onChange={(e) => setNewPlate(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-700 block mb-1">
+                    Vehicle Model
+                  </label>
+                  <Input
+                    placeholder="e.g. Toyota Camry"
+                    value={newModel}
+                    onChange={(e) => setNewModel(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-gray-700 block mb-1">
+                  Initial Points Balance
+                </label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={newPoints}
+                  onChange={(e) => setNewPoints(Number(e.target.value))}
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowCreateModal(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  Create Account
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -17,16 +17,21 @@ import {
   CheckCircle2,
   Sparkles,
   X,
+  RefreshCw,
 } from "lucide-react";
 import type {
   AdminTierDefinition as Tier,
   AdminTierSet as TierSet,
 } from "@/models/loyalty.model";
+import {
+  fetchAdminTierSets,
+  updateAdminTierSet,
+} from "@/services/admin.service";
 import "./admin-tier.page.scss";
 
 const INITIAL_TIER_SETS: TierSet[] = [
   {
-    id: "SET-A",
+    id: "default-tier-set",
     name: "Standard Loyalty Tier Set A",
     status: "Active",
     description:
@@ -39,95 +44,49 @@ const INITIAL_TIER_SETS: TierSet[] = [
         multiplier: "1.0x",
         discount: "0%",
         description: "Default starting tier upon registration.",
-        perks: ["Earn 1 pt per $1", "Standard booking window (3 days)"],
+        perks: ["Earn 1 pt per $1", "Standard booking window (7 days)"],
       },
       {
         id: "T-02",
         level: "Silver",
-        pointThreshold: 1000,
+        pointThreshold: 500,
         multiplier: "1.25x",
-        discount: "10% off add-ons",
+        discount: "5%",
         description: "Frequent wash customer with fast track booking.",
         perks: [
           "1.25x Points Multiplier",
-          "5-day booking window",
+          "10-day booking window",
           "Free Tire Shine voucher",
         ],
       },
       {
         id: "T-03",
         level: "Gold",
-        pointThreshold: 5000,
+        pointThreshold: 1500,
         multiplier: "1.5x",
-        discount: "20% off all services",
+        discount: "10%",
         description:
-          "VIP regular with priority bay scheduling and free monthly wash.",
+          "VIP regular with priority bay scheduling and free monthly wax.",
         perks: [
           "1.5x Points Multiplier",
-          "7-day booking window",
-          "1 Free Wash / Month",
-          "Priority Line",
+          "12-day booking window",
+          "Free Premium Wax",
         ],
       },
       {
         id: "T-04",
         level: "Platinum",
-        pointThreshold: 10000,
+        pointThreshold: 3000,
         multiplier: "2.0x",
-        discount: "30% off all services",
+        discount: "15%",
         description:
           "Top-tier executive tier with free detailing and dedicated support.",
         perks: [
           "2.0x Points Multiplier",
           "14-day booking window",
-          "Free Full Detail / Quarter",
+          "Free Full Detail",
           "Zero Wait Guarantee",
         ],
-      },
-    ],
-  },
-  {
-    id: "SET-B",
-    name: "Promotional Summer Tier Set B",
-    status: "Inactive",
-    description:
-      "Alternative tier system with lower thresholds for seasonal promotional campaigns.",
-    tiers: [
-      {
-        id: "T-11",
-        level: "Member",
-        pointThreshold: 0,
-        multiplier: "1.0x",
-        discount: "0%",
-        description: "Default entry level.",
-        perks: ["Earn 1 pt per $1"],
-      },
-      {
-        id: "T-12",
-        level: "Bronze",
-        pointThreshold: 500,
-        multiplier: "1.15x",
-        discount: "5%",
-        description: "Introductory reward level.",
-        perks: ["1.15x Points", "Basic Discount"],
-      },
-      {
-        id: "T-13",
-        level: "Silver",
-        pointThreshold: 1200,
-        multiplier: "1.3x",
-        discount: "15%",
-        description: "Mid-tier summer perk.",
-        perks: ["1.3x Points", "Free Add-on"],
-      },
-      {
-        id: "T-14",
-        level: "Platinum",
-        pointThreshold: 4500,
-        multiplier: "1.75x",
-        discount: "25%",
-        description: "Accelerated VIP tier.",
-        perks: ["1.75x Points", "Priority Lane", "Free Express Washes"],
       },
     ],
   },
@@ -135,14 +94,17 @@ const INITIAL_TIER_SETS: TierSet[] = [
 
 export default function AdminTierPage() {
   const [tierSets, setTierSets] = useState<TierSet[]>(INITIAL_TIER_SETS);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"manage-sets" | "create-set">(
     "manage-sets",
   );
-  const [selectedSetId, setSelectedSetId] = useState<string>("SET-A");
+  const [selectedSetId, setSelectedSetId] =
+    useState<string>("default-tier-set");
 
   // Modal State for adding/editing a tier
   const [isTierModalOpen, setIsTierModalOpen] = useState(false);
-  const [editingTierSetId, setEditingTierSetId] = useState<string>("SET-A");
+  const [editingTierSetId, setEditingTierSetId] =
+    useState<string>("default-tier-set");
   const [editingTier, setEditingTier] = useState<Tier | null>(null);
   const [tierFormData, setTierFormData] = useState({
     level: "",
@@ -153,10 +115,49 @@ export default function AdminTierPage() {
     perksText: "",
   });
 
-  // Active Set
-  const activeSet = tierSets.find((s) => s.status === "Active") || tierSets[0];
+  const loadTierSets = async () => {
+    try {
+      setLoading(true);
+      const data = await fetchAdminTierSets();
+      if (data && data.length > 0) {
+        // Map any tier sets to AdminTierSet shape
+        const mapped: TierSet[] = data.map((s) => ({
+          id: s.id,
+          name: s.name,
+          status: s.status,
+          description: s.description || "",
+          tiers: (s.tiers || []).map((t: any) => ({
+            id: t.id,
+            level: t.level || t.name || "Member",
+            pointThreshold: t.pointThreshold ?? 0,
+            multiplier: t.multiplier || `${t.pointRate || 1}x`,
+            discount: t.discount || "0%",
+            description: t.description || "",
+            perks: t.perks || [],
+          })),
+        }));
+        setTierSets(mapped);
+        const active = mapped.find((s) => s.status === "Active") || mapped[0];
+        if (active) setSelectedSetId(active.id);
+      }
+    } catch (err) {
+      console.warn("Failed to fetch admin tier sets, using fallback:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const handleSetActiveSet = (id: string) => {
+  useEffect(() => {
+    loadTierSets();
+  }, []);
+
+  // Active Set
+  const activeSet =
+    tierSets.find((s) => s.status === "Active") ||
+    tierSets[0] ||
+    INITIAL_TIER_SETS[0];
+
+  const handleSetActiveSet = async (id: string) => {
     setTierSets((prev) =>
       prev.map((s) => ({
         ...s,
@@ -164,6 +165,13 @@ export default function AdminTierPage() {
       })),
     );
     setSelectedSetId(id);
+
+    try {
+      await updateAdminTierSet(id, { status: "Active" });
+    } catch (err) {
+      console.error("Failed to activate tier set on server:", err);
+      loadTierSets();
+    }
   };
 
   const handleOpenAddTier = (setId: string) => {
@@ -194,7 +202,7 @@ export default function AdminTierPage() {
     setIsTierModalOpen(true);
   };
 
-  const handleSaveTier = (e: React.FormEvent) => {
+  const handleSaveTier = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!tierFormData.level.trim()) return;
 
@@ -203,59 +211,78 @@ export default function AdminTierPage() {
       .map((p) => p.trim())
       .filter(Boolean);
 
+    const targetSet = tierSets.find((s) => s.id === editingTierSetId);
+    if (!targetSet) return;
+
+    let updatedTiers: Tier[];
+    if (editingTier) {
+      updatedTiers = targetSet.tiers.map((t) =>
+        t.id === editingTier.id
+          ? {
+              ...t,
+              level: tierFormData.level,
+              pointThreshold: Number(tierFormData.pointThreshold),
+              multiplier: tierFormData.multiplier,
+              discount: tierFormData.discount,
+              description: tierFormData.description,
+              perks: perks.length ? perks : t.perks,
+            }
+          : t,
+      );
+    } else {
+      const newTier: Tier = {
+        id: `T-${Date.now().toString().slice(-4)}`,
+        level: tierFormData.level,
+        pointThreshold: Number(tierFormData.pointThreshold),
+        multiplier: tierFormData.multiplier,
+        discount: tierFormData.discount,
+        description: tierFormData.description,
+        perks: perks.length ? perks : ["Custom loyalty benefit"],
+      };
+      updatedTiers = [...targetSet.tiers, newTier].sort(
+        (a, b) => a.pointThreshold - b.pointThreshold,
+      );
+    }
+
     setTierSets((prev) =>
-      prev.map((set) => {
-        if (set.id !== editingTierSetId) return set;
-
-        if (editingTier) {
-          return {
-            ...set,
-            tiers: set.tiers.map((t) =>
-              t.id === editingTier.id
-                ? {
-                    ...t,
-                    level: tierFormData.level,
-                    pointThreshold: Number(tierFormData.pointThreshold),
-                    multiplier: tierFormData.multiplier,
-                    discount: tierFormData.discount,
-                    description: tierFormData.description,
-                    perks: perks.length ? perks : t.perks,
-                  }
-                : t,
-            ),
-          };
-        } else {
-          const newTier: Tier = {
-            id: `T-${Date.now().toString().slice(-4)}`,
-            level: tierFormData.level,
-            pointThreshold: Number(tierFormData.pointThreshold),
-            multiplier: tierFormData.multiplier,
-            discount: tierFormData.discount,
-            description: tierFormData.description,
-            perks: perks.length ? perks : ["Custom loyalty benefit"],
-          };
-          return {
-            ...set,
-            tiers: [...set.tiers, newTier].sort(
-              (a, b) => a.pointThreshold - b.pointThreshold,
-            ),
-          };
-        }
-      }),
+      prev.map((s) =>
+        s.id === editingTierSetId ? { ...s, tiers: updatedTiers } : s,
+      ),
     );
-
     setIsTierModalOpen(false);
+
+    try {
+      await updateAdminTierSet(editingTierSetId, {
+        tiers: updatedTiers as any,
+      });
+    } catch (err) {
+      console.error("Failed to save tier set on server:", err);
+      loadTierSets();
+    }
   };
 
-  const handleDeleteTier = (setId: string, tierId: string, level: string) => {
-    if (window.confirm(`Delete tier "${level}" from this set?`)) {
-      setTierSets((prev) =>
-        prev.map((set) =>
-          set.id === setId
-            ? { ...set, tiers: set.tiers.filter((t) => t.id !== tierId) }
-            : set,
-        ),
-      );
+  const handleDeleteTier = async (
+    setId: string,
+    tierId: string,
+    level: string,
+  ) => {
+    if (!window.confirm(`Delete tier "${level}" from this set?`)) return;
+
+    const targetSet = tierSets.find((s) => s.id === setId);
+    if (!targetSet) return;
+
+    const updatedTiers = targetSet.tiers.filter((t) => t.id !== tierId);
+    setTierSets((prev) =>
+      prev.map((s) => (s.id === setId ? { ...s, tiers: updatedTiers } : s)),
+    );
+
+    try {
+      await updateAdminTierSet(setId, {
+        tiers: updatedTiers as any,
+      });
+    } catch (err) {
+      console.error("Failed to update tier set on server:", err);
+      loadTierSets();
     }
   };
 
@@ -271,6 +298,13 @@ export default function AdminTierPage() {
           </p>
         </div>
         <div className="admin-tier__header-actions">
+          <button
+            onClick={loadTierSets}
+            className="text-xs text-gray-600 hover:text-gray-900 bg-white border border-gray-200 rounded-md px-2.5 py-1.5 flex items-center gap-1.5 transition-colors"
+          >
+            <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+            Refresh
+          </button>
           <Button
             onClick={() => handleOpenAddTier(activeSet.id)}
             className="admin-tier__primary-btn"

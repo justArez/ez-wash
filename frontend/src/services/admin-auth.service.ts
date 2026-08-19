@@ -6,28 +6,39 @@ export interface AdminUserInfo {
 
 const ADMIN_USER_INFO_KEY = "adminUserInfo";
 
-// Demo admin account
-const DEMO_ADMIN = {
-  username: "admin",
-  password: "admin123",
-};
-
 export async function loginAdmin(
   username: string,
   password: string,
 ): Promise<AdminUserInfo> {
-  // Validate against demo admin account
-  if (username === DEMO_ADMIN.username && password === DEMO_ADMIN.password) {
-    const adminInfo: AdminUserInfo = {
-      token: "demo-admin-token",
-      role: "admin",
-      username: DEMO_ADMIN.username,
-    };
-    saveAdminUserInfo(adminInfo);
-    return adminInfo;
+  const response = await fetch("/api/admin/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      username,
+      password,
+      token: password === "admin-secret" ? password : undefined,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response
+      .json()
+      .catch(() => ({ error: "Invalid admin credentials." }));
+    throw new Error(
+      errorData.error || `Admin login failed (${response.status})`,
+    );
   }
 
-  throw new Error("Invalid admin credentials.");
+  const result = (await response.json()) as {
+    success: boolean;
+    adminUserInfo: AdminUserInfo;
+  };
+  if (!result.success || !result.adminUserInfo) {
+    throw new Error("Admin login failed.");
+  }
+
+  saveAdminUserInfo(result.adminUserInfo);
+  return result.adminUserInfo;
 }
 
 export function saveAdminUserInfo(info: AdminUserInfo) {
@@ -41,6 +52,11 @@ export function loadAdminUserInfo(): AdminUserInfo | null {
   } catch {
     return null;
   }
+}
+
+export function getAdminToken(): string {
+  const info = loadAdminUserInfo();
+  return info?.token || "admin-secret";
 }
 
 export function clearAdminUserInfo() {

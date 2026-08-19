@@ -1,12 +1,16 @@
 import type {
   BookingRequest,
+  ClaimedPromo,
   DashboardResponse,
   LinkAccountRequest,
   LinkAccountResponse,
+  Promotion,
   RewardOffer,
+  ServiceItem,
+  TimeSlot,
 } from "../models/loyalty.model";
 
-const BASE_URL = "http://localhost:3000";
+const BASE_URL = "";
 
 async function handleJsonResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
@@ -36,6 +40,103 @@ export async function fetchLoyaltyDashboard(
   return handleJsonResponse<DashboardResponse>(response);
 }
 
+export async function fetchCustomerLookup(phone: string) {
+  const response = await fetch(
+    `${BASE_URL}/api/loyalty/customer?phone=${encodeURIComponent(phone)}`,
+  );
+  return handleJsonResponse<{
+    id: string;
+    phone: string;
+    fullName?: string;
+    email?: string;
+    tier: any;
+    tierId: string;
+    pointsBalance: number;
+    vehicles: any[];
+    priorityStatus?: string;
+  }>(response);
+}
+
+export async function fetchClaimedPromos(
+  phone: string,
+): Promise<ClaimedPromo[]> {
+  const response = await fetch(
+    `${BASE_URL}/api/loyalty/claimed-promos?phone=${encodeURIComponent(phone)}`,
+  );
+  const data = await handleJsonResponse<{
+    status: string;
+    count: number;
+    data: ClaimedPromo[];
+  }>(response);
+  return data.data;
+}
+
+export async function claimPromo(
+  promotionId: string,
+  phone: string,
+): Promise<{
+  success: boolean;
+  claimedPromo: ClaimedPromo;
+  pointsBalance: number;
+}> {
+  const response = await fetch(
+    `${BASE_URL}/api/promotions/${encodeURIComponent(promotionId)}/claim`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone }),
+    },
+  );
+  return handleJsonResponse<{
+    status: string;
+    message: string;
+    claimedPromo: ClaimedPromo;
+    pointsBalance: number;
+    success: boolean;
+  }>(response);
+}
+
+export async function fetchPublicServices(
+  onlyActive = true,
+): Promise<ServiceItem[]> {
+  const response = await fetch(
+    `${BASE_URL}/api/services?onlyActive=${onlyActive}`,
+  );
+  const data = await handleJsonResponse<{
+    status: string;
+    count: number;
+    data: ServiceItem[];
+  }>(response);
+  return data.data;
+}
+
+export async function fetchPublicPromotions(
+  category?: string,
+  tier?: string,
+): Promise<Promotion[]> {
+  const params = new URLSearchParams();
+  if (category) params.append("category", category);
+  if (tier) params.append("tier", tier);
+  const query = params.toString() ? `?${params.toString()}` : "";
+  const response = await fetch(`${BASE_URL}/api/promotions${query}`);
+  const data = await handleJsonResponse<{
+    status: string;
+    count: number;
+    data: Promotion[];
+  }>(response);
+  return data.data;
+}
+
+export async function fetchPublicSlots(days = 7): Promise<TimeSlot[]> {
+  const response = await fetch(`${BASE_URL}/api/slots?days=${days}`);
+  const data = await handleJsonResponse<{
+    status: string;
+    count: number;
+    data: TimeSlot[];
+  }>(response);
+  return data.data;
+}
+
 export async function createBooking(request: BookingRequest) {
   const response = await fetch(`${BASE_URL}/api/bookings`, {
     method: "POST",
@@ -47,6 +148,19 @@ export async function createBooking(request: BookingRequest) {
     booking?: unknown;
     reason?: string;
     nextEligibleBookingDate?: string;
+  }>(response);
+}
+
+export async function fetchCustomerBookings(phone: string) {
+  const response = await fetch(
+    `${BASE_URL}/api/bookings/my-bookings?phone=${encodeURIComponent(phone)}`,
+  );
+  return handleJsonResponse<{
+    status: string;
+    totalCount: number;
+    activeCount: number;
+    activeBookings: any[];
+    bookingHistory: any[];
   }>(response);
 }
 

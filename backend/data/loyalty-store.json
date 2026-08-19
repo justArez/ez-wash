@@ -1,50 +1,154 @@
 {
   "customers": [
     {
-      "id": "customer-1",
-      "phone": "555-0100",
-      "licensePlates": ["ABC123"],
+      "id": "cust-test-1",
+      "phone": "555-1234",
+      "licensePlates": [
+        "ABC1234"
+      ],
       "tierId": "gold",
-      "pointsBalance": 1500,
+      "pointsBalance": 550,
       "vehicles": [
         {
-          "plate": "ABC123",
-          "model": "Toyota Camry",
+          "plate": "ABC1234",
+          "model": "Sedan",
           "type": "car"
         }
       ],
-      "pointHistory": [],
+      "pointHistory": [
+        {
+          "id": "1787132080210-c17td4ur",
+          "type": "earn",
+          "amount": 50,
+          "date": "2026-08-19T09:34:40.210Z",
+          "description": "Customer goodwill bonus"
+        }
+      ],
       "bookingHistory": [
         {
-          "id": "booking-1",
-          "customerId": "customer-1",
-          "vehiclePlate": "ABC123",
-          "date": "2099-08-14T12:00:00.000Z",
-          "createdAt": "2026-08-13T00:00:00.000Z",
+          "id": "bk-1",
+          "customerId": "cust-test-1",
+          "vehiclePlate": "ABC1234",
+          "date": "2026-08-25",
+          "timeSlot": "10:00",
+          "time": "10:00",
+          "status": "confirmed",
           "appliedPerks": [],
-          "status": "cancelled",
-          "cancelledAt": "2026-08-13T13:40:39.186Z",
-          "isLateCancellation": false
+          "createdAt": "2026-08-19T09:34:40.193Z"
         }
       ],
       "lateCancellationWarningCount": 0,
       "priorityStatus": "normal",
-      "createdAt": "2026-08-01T00:00:00.000Z",
-      "updatedAt": "2026-08-13T13:40:39.186Z"
+      "createdAt": "2026-08-19T09:34:40.193Z",
+      "updatedAt": "2026-08-19T09:34:40.210Z"
     }
   ],
   "tiers": [],
   "rewardOffers": [],
-  "promotions": [],
+  "promotions": [
+    {
+      "id": "promo-1",
+      "name": "Test 10% Discount",
+      "title": "Test 10% Discount",
+      "description": "Test description",
+      "category": "discount",
+      "discountPercentage": 10,
+      "pointPrice": 100,
+      "applicableTiers": [
+        "gold",
+        "platinum"
+      ],
+      "requiredTier": "GOLD",
+      "applicableVehicleModels": [],
+      "startDate": "2026-08-01",
+      "endDate": "2026-12-31",
+      "status": "ACTIVE",
+      "isActive": true
+    }
+  ],
   "auditLogs": [
     {
-      "id": "1786628439186-t93km7kb",
-      "actor": "customer-1",
-      "actionType": "booking-cancelled",
-      "entityType": "booking",
-      "entityId": "booking-1",
-      "timestamp": "2026-08-13T13:40:39.186Z",
-      "details": "Booking cancelled within the permitted notice period."
+      "id": "1787132080210-9gasknzx",
+      "timestamp": "2026-08-19T09:34:40.210Z",
+      "actor": "admin",
+      "actionType": "adjust-points",
+      "entityType": "customer",
+      "entityId": "cust-test-1",
+      "details": "Adjusted points: +50 pts. Reason: Customer goodwill bonus"
+    }
+  ],
+  "services": [
+    {
+      "id": "srv-basic-wash",
+      "name": "Basic Exterior Wash",
+      "category": "Exterior Wash",
+      "description": "Touchless high-pressure foam wash, wheel rinse, and spot-free air dry.",
+      "durationMinutes": 20,
+      "price": 15,
+      "popularityCount": 340,
+      "status": "ACTIVE",
+      "isActive": true,
+      "features": [
+        "High-pressure rinse",
+        "Foam bath",
+        "Tire shine",
+        "Air dry"
+      ],
+      "label": "Basic Wash ($15 / 20min)"
+    },
+    {
+      "id": "srv-deluxe-wash",
+      "name": "Deluxe Polish & Wax",
+      "category": "Full Package",
+      "description": "Full exterior wash + clearcoat protection sealant and hand rim polish.",
+      "durationMinutes": 35,
+      "price": 30,
+      "popularityCount": 512,
+      "status": "ACTIVE",
+      "isActive": true,
+      "features": [
+        "Everything in Basic",
+        "Carnauba wax shield",
+        "Underbody chassis spray",
+        "Interior quick vacuum"
+      ],
+      "label": "Deluxe Polish ($30 / 35min)"
+    },
+    {
+      "id": "srv-interior-detail",
+      "name": "Interior Deep Detail",
+      "category": "Interior Detailing",
+      "description": "Steam sanitation, leather conditioning, dashboard polish, and upholstery extraction.",
+      "durationMinutes": 50,
+      "price": 65,
+      "popularityCount": 189,
+      "status": "ACTIVE",
+      "isActive": true,
+      "features": [
+        "Deep steam sanitization",
+        "Leather UV protectant",
+        "Odor elimination treatment",
+        "Glass crystal polish"
+      ],
+      "label": "Interior Deep ($65 / 50min)"
+    },
+    {
+      "id": "srv-ceramic-coating",
+      "name": "Ceramic Shield Detailing",
+      "category": "Full Package",
+      "description": "Ultimate paint protection with multi-layer nano-ceramic coating and rain repel.",
+      "durationMinutes": 75,
+      "price": 120,
+      "popularityCount": 95,
+      "status": "ACTIVE",
+      "isActive": true,
+      "features": [
+        "Full exterior & interior",
+        "9H Ceramic paint sealant",
+        "Rain-X windshield coating",
+        "6-month shine warranty"
+      ],
+      "label": "Ceramic Shield ($120 / 75min)"
     }
   ]
 }

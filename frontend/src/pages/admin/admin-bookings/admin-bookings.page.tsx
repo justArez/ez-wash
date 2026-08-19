@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -17,25 +17,55 @@ import {
   CheckCircle2,
   AlertCircle,
   XCircle,
-  Edit2,
   Trash2,
+  RefreshCw,
 } from "lucide-react";
 import type { AdminBooking } from "@/models/loyalty.model";
-import { initialAdminBookings } from "@/services/loyalty.mock-data";
+import {
+  createAdminBooking,
+  deleteAdminBooking,
+  fetchAdminBookings,
+  updateAdminBooking,
+} from "@/services/admin.service";
 import "./admin-bookings.page.scss";
 
 export default function AdminBookingsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
+  const [bookings, setBookings] = useState<AdminBooking[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newPhone, setNewPhone] = useState("");
+  const [newPlate, setNewPlate] = useState("");
+  const [newModel, setNewModel] = useState("");
+  const [newDate, setNewDate] = useState(
+    new Date().toISOString().split("T")[0],
+  );
+  const [newTimeSlot, setNewTimeSlot] = useState("10:00 AM");
+  const [newServiceName, setNewServiceName] = useState("Basic Exterior Wash");
 
-  const [bookings, setBookings] =
-    useState<AdminBooking[]>(initialAdminBookings);
+  const loadBookings = async () => {
+    try {
+      setLoading(true);
+      const data = await fetchAdminBookings();
+      setBookings(data || []);
+    } catch (err) {
+      console.warn("Failed to fetch admin bookings, using fallback:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadBookings();
+  }, []);
 
   const totalBookings = bookings.length;
   const filteredBookings = bookings.filter((booking) => {
     const matchesSearch =
       booking.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       booking.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      booking.phone.toLowerCase().includes(searchQuery.toLowerCase()) ||
       booking.vehicle.toLowerCase().includes(searchQuery.toLowerCase()) ||
       booking.services.toLowerCase().includes(searchQuery.toLowerCase());
 
@@ -45,24 +75,65 @@ export default function AdminBookingsPage() {
     return matchesSearch && matchesStatus;
   });
 
-  const handleToggleStatus = (id: string) => {
+  const handleToggleStatus = async (id: string) => {
+    const current = bookings.find((b) => b.id === id);
+    if (!current) return;
+
+    const nextStatusMap: Record<string, AdminBooking["status"]> = {
+      PENDING: "CONFIRMED",
+      CONFIRMED: "COMPLETED",
+      COMPLETED: "CANCELLED",
+      CANCELLED: "PENDING",
+    };
+    const nextStatus = nextStatusMap[current.status] || "CONFIRMED";
+
+    // Optimistic UI update
     setBookings((prev) =>
-      prev.map((b) => {
-        if (b.id !== id) return b;
-        const nextStatus: Record<string, AdminBooking["status"]> = {
-          PENDING: "CONFIRMED",
-          CONFIRMED: "COMPLETED",
-          COMPLETED: "CANCELLED",
-          CANCELLED: "PENDING",
-        };
-        return { ...b, status: nextStatus[b.status] };
-      }),
+      prev.map((b) => (b.id === id ? { ...b, status: nextStatus } : b)),
     );
+
+    try {
+      await updateAdminBooking(id, {
+        status: nextStatus.toLowerCase() as any,
+      });
+    } catch (err) {
+      console.error("Failed to update booking status on server:", err);
+      loadBookings();
+    }
   };
 
-  const handleDelete = (id: string) => {
-    if (window.confirm(`Cancel and remove booking ${id}?`)) {
-      setBookings((prev) => prev.filter((b) => b.id !== id));
+  const handleDelete = async (id: string) => {
+    if (!window.confirm(`Cancel and remove booking ${id}?`)) return;
+
+    setBookings((prev) => prev.filter((b) => b.id !== id));
+    try {
+      await deleteAdminBooking(id);
+    } catch (err) {
+      console.error("Failed to delete booking on server:", err);
+      loadBookings();
+    }
+  };
+
+  const handleCreateBooking = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPhone || !newPlate || !newDate) return;
+
+    try {
+      await createAdminBooking({
+        phone: newPhone,
+        vehiclePlate: newPlate,
+        vehicleModel: newModel || "Standard Vehicle",
+        date: newDate,
+        timeSlot: newTimeSlot,
+        serviceName: newServiceName,
+      });
+      setShowCreateModal(false);
+      setNewPhone("");
+      setNewPlate("");
+      setNewModel("");
+      loadBookings();
+    } catch (err: any) {
+      alert(`Failed to create booking: ${err.message}`);
     }
   };
 
@@ -102,10 +173,22 @@ export default function AdminBookingsPage() {
             queues.
           </p>
         </div>
-        <Button className="admin-bookings__primary-btn">
-          <Plus className="w-4 h-4 mr-1.5" />
-          New Reservation
-        </Button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={loadBookings}
+            className="text-xs text-gray-600 hover:text-gray-900 bg-white border border-gray-200 rounded-md px-2.5 py-1.5 flex items-center gap-1.5 transition-colors"
+          >
+            <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+            Refresh
+          </button>
+          <Button
+            className="admin-bookings__primary-btn"
+            onClick={() => setShowCreateModal(true)}
+          >
+            <Plus className="w-4 h-4 mr-1.5" />
+            New Reservation
+          </Button>
+        </div>
       </div>
 
       {/* Main Table Card */}
@@ -154,7 +237,7 @@ export default function AdminBookingsPage() {
             <div className="admin-bookings__search-wrap">
               <Search className="admin-bookings__search-icon" size={16} />
               <Input
-                placeholder="Search by customer name, plate, vehicle model, or booking ID..."
+                placeholder="Search by customer name, phone, plate, vehicle model, or booking ID..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="admin-bookings__search-input"
@@ -238,14 +321,6 @@ export default function AdminBookingsPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-8 w-8 p-0 text-gray-600"
-                            title="Edit booking"
-                          >
-                            <Edit2 size={14} />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
                             className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
                             onClick={() => handleDelete(b.id)}
                             title="Cancel booking"
@@ -262,6 +337,109 @@ export default function AdminBookingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Create Booking Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 border border-gray-100 animate-in fade-in zoom-in duration-150">
+            <h3 className="text-lg font-bold text-gray-900 mb-1">
+              Create Reservation
+            </h3>
+            <p className="text-xs text-gray-500 mb-4">
+              Manually record a walk-in or phone reservation.
+            </p>
+
+            <form onSubmit={handleCreateBooking} className="space-y-3">
+              <div>
+                <label className="text-xs font-semibold text-gray-700 block mb-1">
+                  Customer Phone *
+                </label>
+                <Input
+                  required
+                  placeholder="e.g. 555-0100"
+                  value={newPhone}
+                  onChange={(e) => setNewPhone(e.target.value)}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs font-semibold text-gray-700 block mb-1">
+                    License Plate *
+                  </label>
+                  <Input
+                    required
+                    placeholder="e.g. 29A-12345"
+                    value={newPlate}
+                    onChange={(e) => setNewPlate(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-700 block mb-1">
+                    Vehicle Model
+                  </label>
+                  <Input
+                    placeholder="e.g. Honda Civic"
+                    value={newModel}
+                    onChange={(e) => setNewModel(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs font-semibold text-gray-700 block mb-1">
+                    Date *
+                  </label>
+                  <Input
+                    type="date"
+                    required
+                    value={newDate}
+                    onChange={(e) => setNewDate(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-700 block mb-1">
+                    Time Slot
+                  </label>
+                  <Input
+                    placeholder="e.g. 10:00 AM"
+                    value={newTimeSlot}
+                    onChange={(e) => setNewTimeSlot(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-gray-700 block mb-1">
+                  Service Package
+                </label>
+                <Input
+                  placeholder="e.g. Deluxe Polish & Wax"
+                  value={newServiceName}
+                  onChange={(e) => setNewServiceName(e.target.value)}
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowCreateModal(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  Create Booking
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
