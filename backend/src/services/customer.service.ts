@@ -20,8 +20,10 @@ export function getAllCustomers(
   if (options?.query) {
     const q = options.query.toLowerCase().trim();
     list = list.filter((c) => {
-      const matchPhone = c.phone.toLowerCase().includes(q);
-      const matchName = c.fullName?.toLowerCase().includes(q);
+      const matchPhone = c.phone?.toLowerCase().includes(q);
+      const matchName =
+        c.fullName?.toLowerCase().includes(q) ||
+        c.username?.toLowerCase().includes(q);
       const matchEmail = c.email?.toLowerCase().includes(q);
       const matchPlates = c.licensePlates?.some((p) =>
         p.toLowerCase().includes(q),

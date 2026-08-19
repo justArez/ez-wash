@@ -230,6 +230,7 @@ export interface LoyaltyCustomer {
   status?: "Active" | "Inactive" | "Low Priority";
   fullName?: string;
   username?: string;
+  password?: string;
   email?: string;
   createdAt: string;
   updatedAt: string;

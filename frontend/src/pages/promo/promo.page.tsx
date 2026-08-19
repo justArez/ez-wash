@@ -37,8 +37,7 @@ export default function PromoPage({
   onOpenBookings,
 }: PromoPageProps) {
   const isLoggedIn = Boolean(dashboard);
-  const currentTier =
-    dashboard?.tier?.name || dashboard?.loyaltyTier?.name || "Member";
+  const currentTier = dashboard?.tier?.name || "Member";
   const [pointsBalance, setPointsBalance] = useState<number>(
     () => dashboard?.pointsBalance ?? 0,
   );
@@ -181,18 +180,16 @@ export default function PromoPage({
       const result = await claimPromo(promo.id, dashboard.phone);
       if (result.success && result.claimedPromo) {
         setPointsBalance(result.pointsBalance);
-        dashboard.pointsBalance = result.pointsBalance;
         setClaimedPromos((prev) => [result.claimedPromo, ...prev]);
         appendClaimedPromo(result.claimedPromo, dashboard.customerId);
 
         setClaimToast(`Claimed "${promo.title}"! Added to Your Promos.`);
         setTimeout(() => setClaimToast(null), 4000);
       }
-    } catch (err: any) {
+    } catch {
       // Fallback local claim
       const newBalance = pointsBalance - promo.pointPrice;
       setPointsBalance(newBalance);
-      if (dashboard) dashboard.pointsBalance = newBalance;
 
       const newVoucher: ClaimedPromo = {
         id: `claim-${Date.now()}`,
@@ -221,7 +218,7 @@ export default function PromoPage({
   };
 
   return (
-    <div className="promo-page-container flex flex-col gap-8 max-w-6xl mx-auto px-4 py-6">
+    <div className="promo-page-container flex flex-col gap-8 max-w-7xl w-full">
       {/* Toast notification */}
       {claimToast && (
         <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white text-xs font-semibold px-4 py-3 rounded-xl shadow-xl border border-indigo-500/30 flex items-center gap-2 animate-slideUp">
@@ -238,60 +235,62 @@ export default function PromoPage({
         onOpenSignIn={onOpenSignIn}
       />
 
-      {/* Section 1: Global Active Promotions Banner */}
-      <GlobalPromoBanner promotions={globalPromos} />
+      <div className="flex flex-col gap-8 p-8 bg-white rounded-[20px] border border-[#e8e6f3] shadow-[0_12px_28px_rgba(58,70,237,0.18)]">
+        {/* Section 1: Global Active Promotions Banner */}
+        <GlobalPromoBanner promotions={globalPromos} />
 
-      {/* Section 2: Your Promos (Claimed) */}
-      <ClaimedPromosSection
-        claimedPromos={claimedPromos}
-        onUseNow={handleUseClaimedPromo}
-        isLoggedIn={isLoggedIn}
-      />
+        {/* Section 2: Your Promos (Claimed) */}
+        <ClaimedPromosSection
+          claimedPromos={claimedPromos}
+          onUseNow={handleUseClaimedPromo}
+          isLoggedIn={isLoggedIn}
+        />
 
-      {/* Section 3: Acclaimable Promos by Tier */}
-      <div className="flex flex-col gap-6">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-xl font-bold text-[#2c264f]">
-            Acclaimable Promos (By Tier)
-          </h2>
-          <p className="text-xs text-[#676375]">
-            Select an offer below to redeem with your available wash points.
-          </p>
-        </div>
+        {/* Section 3: Acclaimable Promos by Tier */}
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-xl font-bold text-[#2c264f]">
+              Acclaimable Promos (By Tier)
+            </h2>
+            <p className="text-xs text-[#676375]">
+              Select an offer below to redeem with your available wash points.
+            </p>
+          </div>
 
-        <div className="flex flex-col gap-8">
-          <TierPromoSection
-            title="Silver Tier & Above"
-            promos={silverPromos}
-            isLoggedIn={isLoggedIn}
-            currentTier={currentTier}
-            pointsBalance={pointsBalance}
-            onClaim={handleClaimPromo}
-            onOpenSignIn={onOpenSignIn}
-            isSubmitting={isSubmittingClaim}
-          />
+          <div className="flex flex-col gap-8">
+            <TierPromoSection
+              title="Silver Tier & Above"
+              promos={silverPromos}
+              isLoggedIn={isLoggedIn}
+              currentTier={currentTier}
+              pointsBalance={pointsBalance}
+              onClaim={handleClaimPromo}
+              onOpenSignIn={onOpenSignIn}
+              isSubmitting={isSubmittingClaim}
+            />
 
-          <TierPromoSection
-            title="Gold Tier & Above"
-            promos={goldPromos}
-            isLoggedIn={isLoggedIn}
-            currentTier={currentTier}
-            pointsBalance={pointsBalance}
-            onClaim={handleClaimPromo}
-            onOpenSignIn={onOpenSignIn}
-            isSubmitting={isSubmittingClaim}
-          />
+            <TierPromoSection
+              title="Gold Tier & Above"
+              promos={goldPromos}
+              isLoggedIn={isLoggedIn}
+              currentTier={currentTier}
+              pointsBalance={pointsBalance}
+              onClaim={handleClaimPromo}
+              onOpenSignIn={onOpenSignIn}
+              isSubmitting={isSubmittingClaim}
+            />
 
-          <TierPromoSection
-            title="Platinum Tier"
-            promos={platinumPromos}
-            isLoggedIn={isLoggedIn}
-            currentTier={currentTier}
-            pointsBalance={pointsBalance}
-            onClaim={handleClaimPromo}
-            onOpenSignIn={onOpenSignIn}
-            isSubmitting={isSubmittingClaim}
-          />
+            <TierPromoSection
+              title="Platinum Tier"
+              promos={platinumPromos}
+              isLoggedIn={isLoggedIn}
+              currentTier={currentTier}
+              pointsBalance={pointsBalance}
+              onClaim={handleClaimPromo}
+              onOpenSignIn={onOpenSignIn}
+              isSubmitting={isSubmittingClaim}
+            />
+          </div>
         </div>
       </div>
     </div>

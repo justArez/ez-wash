@@ -20,7 +20,8 @@
   },
   "devDependencies": {
     "bun-types": "latest",
+    "concurrently": "^10.0.5",
     "drizzle-kit": "^0.31.10"
   },
-  "module": "src/index.js"
+  "module": "src/index.ts"
 }

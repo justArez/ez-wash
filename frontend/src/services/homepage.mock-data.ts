@@ -71,7 +71,7 @@ export const mockPromotions: Promotion[] = [
 
 export const createMockTimeSlots = (days = 7): TimeSlot[] => {
   const slots: TimeSlot[] = [];
-  const times = Array.from({ length: 19 }, (_, index) => {
+  const times = Array.from({ length: 17 }, (_, index) => {
     const totalMinutes = 9 * 60 + index * 30;
     return {
       hour: Math.floor(totalMinutes / 60),
@@ -92,11 +92,7 @@ export const createMockTimeSlots = (days = 7): TimeSlot[] => {
             ? "booked"
             : "available";
       const currentBookings =
-        status === "maintenance"
-          ? 0
-          : status === "booked"
-          ? 4
-          : timeIndex % 5;
+        status === "maintenance" ? 0 : status === "booked" ? 4 : timeIndex % 5;
       const resolvedStatus =
         status === "available" && currentBookings >= 4 ? "booked" : status;
 

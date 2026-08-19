@@ -350,11 +350,20 @@ export interface BookingRequest {
   time?: string;
 }
 
+export interface LoginCredentials {
+  username: string;
+  password?: string;
+}
+
 export interface LinkAccountRequest {
-  phone: string;
-  plate: string;
-  model: string;
-  type: VehicleType;
+  phone?: string;
+  plate?: string;
+  model?: string;
+  type?: VehicleType;
+  username?: string;
+  password?: string;
+  email?: string;
+  fullName?: string;
 }
 
 export interface LinkAccountResponse {
@@ -371,10 +380,12 @@ export interface LinkAccountResponse {
 export interface DashboardResponse {
   customerId: string;
   phone: string;
+  username?: string;
+  fullName?: string;
+  email?: string;
   tier: LoyaltyTier;
   pointsBalance: number;
   vehicles: Vehicle[];
-  loyaltyTier: LoyaltyTier;
   nextEligibleBookingDate: string;
   appliedPerks: string[];
   lateCancellationWarningCount: number;

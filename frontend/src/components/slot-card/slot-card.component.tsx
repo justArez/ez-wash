@@ -12,6 +12,7 @@ import "./slot-card.component.scss";
 export const SlotCard: React.FC<SlotCardProps> = ({
   slot,
   onClick,
+  isSelected = false,
   showTime = true,
 }) => {
   const handleClick = () => {
@@ -31,33 +32,47 @@ export const SlotCard: React.FC<SlotCardProps> = ({
   );
   const isFullyBooked = bookedSlots >= slot.capacity;
 
-  // Determine color-coded styling and gradient based on slot status
-  let borderClass = "";
-  let gradientBackground = "";
+  const isUnavailable =
+    slot.isTierLocked ||
+    slot.isPast ||
+    slot.status === "maintenance" ||
+    slot.status === "booked" ||
+    isFullyBooked;
+  const borderClass = slot.isTierLocked
+    ? "border border-gray-400/80"
+    : isUnavailable
+      ? ""
+      : "border-2 border-green-500";
 
-  if (slot.isPast) {
-    gradientBackground =
-      "linear-gradient(to top, rgb(209, 213, 219) 0%, rgb(209, 213, 219) 100%)";
-  } else if (slot.status === "maintenance") {
-    gradientBackground =
-      "linear-gradient(to top, rgb(250, 204, 21) 0%, rgb(250, 204, 21) 100%)";
-  } else if (slot.status === "booked" || isFullyBooked) {
-    gradientBackground =
-      "linear-gradient(to top, rgb(239, 68, 68) 0%, rgb(239, 68, 68) 100%)";
-  } else if (slot.status === "available") {
-    borderClass = "border-2 border-green-500";
-    // Green fill from bottom up based on availability
-    gradientBackground =
-      fillPercentage <= 0
-        ? "transparent"
-        : `linear-gradient(to top, rgb(34, 197, 94) 0%, rgb(34, 197, 94) ${fillPercentage}%, transparent ${fillPercentage}%, transparent 100%)`;
-  }
+  const getGradientBackground = (): string => {
+    if (slot.isTierLocked) {
+      return "repeating-linear-gradient(-45deg, rgb(156, 163, 175) 0, rgb(156, 163, 175) 3px, rgb(229, 231, 235) 3px, rgb(229, 231, 235) 7px)";
+    }
+    if (slot.isPast) {
+      return "linear-gradient(to top, rgb(209, 213, 219) 0%, rgb(209, 213, 219) 100%)";
+    }
+    if (slot.status === "maintenance") {
+      return "linear-gradient(to top, rgb(250, 204, 21) 0%, rgb(250, 204, 21) 100%)";
+    }
+    if (slot.status === "booked" || isFullyBooked) {
+      return "linear-gradient(to top, rgb(239, 68, 68) 0%, rgb(239, 68, 68) 100%)";
+    }
+    return fillPercentage <= 0
+      ? "transparent"
+      : `linear-gradient(to top, rgb(34, 197, 94) 0%, rgb(34, 197, 94) ${fillPercentage}%, transparent ${fillPercentage}%, transparent 100%)`;
+  };
+
+  const gradientBackground = getGradientBackground();
 
   const baseClasses =
     "p-2 rounded-lg transition-all duration-200 cursor-pointer";
   const interactiveClasses = slot.isAvailable
     ? "hover:scale-115"
-    : "cursor-not-allowed";
+    : "cursor-not-allowed opacity-90";
+
+  const tooltipLabel = slot.isTierLocked
+    ? `${slot.timeLabel} - Tier locked (${slot.tierLockReason || "Requires higher tier window"})`
+    : `${slot.timeLabel} - ${slot.isPast ? "past" : slot.status} (${bookedSlots}/${slot.capacity} booked)`;
 
   return (
     <div
@@ -70,7 +85,8 @@ export const SlotCard: React.FC<SlotCardProps> = ({
           handleClick();
         }
       }}
-      aria-label={`${slot.timeLabel} - ${slot.isPast ? "past" : slot.status} (${bookedSlots}/${slot.capacity} booked)`}
+      aria-label={tooltipLabel}
+      title={slot.isTierLocked ? "Outside your tier booking window" : undefined}
       aria-disabled={!slot.isAvailable}
     >
       {/* Time is shown in the row header when this card is used in the table. */}
@@ -83,7 +99,7 @@ export const SlotCard: React.FC<SlotCardProps> = ({
       {/* Color-coded status square with fill from bottom */}
       <div className="flex justify-center">
         <div
-          className={`w-8 h-8 rounded ${borderClass}`}
+          className={`w-8 h-8 rounded ${borderClass} ${isSelected ? "ring-2 ring-primary ring-offset-2 scale-110" : ""}`}
           style={{
             background: gradientBackground,
           }}

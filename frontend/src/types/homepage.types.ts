@@ -42,8 +42,10 @@ export interface TimeSlot {
  * TimeSlotWithComputedFields - TimeSlot with derived UI values
  */
 export interface TimeSlotWithComputedFields extends TimeSlot {
-  isAvailable: boolean; // Computed: status === 'available' && currentBookings < capacity
+  isAvailable: boolean; // Computed: status === 'available' && currentBookings < capacity && !isPast && !isTierLocked
   isPast: boolean; // Computed: the slot's local date/time has already passed
+  isTierLocked?: boolean; // Computed: outside logged-in customer's tier booking window
+  tierLockReason?: string;
   slotLabel: string; // Computed: "${dayOfWeek} (${dayDisplayDate})"
   timeLabel: string; // Computed: displayTime
 }
@@ -156,6 +158,9 @@ export interface SlotCalendarProps {
   onSlotClick: (slot: TimeSlot) => void;
   onLoadingChange?: (loading: boolean) => void;
   onErrorChange?: (error: string | null) => void;
+  dashboard?: any;
+  initialTierId?: string;
+  advanceDays?: number;
 }
 
 export interface SlotRefreshButtonProps {
@@ -190,6 +195,7 @@ export interface HeroBannerProps {
 export interface HeaderProps {
   currentPage?: string;
   onNavigate?: (path: string) => void;
+  onSignOut?: () => void;
 }
 
 export interface FooterProps {

@@ -35,6 +35,16 @@
 		color: #fff;
 	}
 
+	&--error {
+		background: #dc2626;
+		color: #fff;
+	}
+
+	&--info {
+		background: #4f46e5;
+		color: #fff;
+	}
+
 	&__message {
 		flex: 1;
 		font-weight: 600;

@@ -74,14 +74,14 @@ export const PromotionCarousel: React.FC<PromotionCarouselProps> = ({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="w-full space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">Hot Promotions</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-2xl font-bold text-gray-800">Current Promotions</h2>
       </div>
 
       {/* Carousel container */}
-      <div className="relative">
+      <div className="relative w-full">
         {/* Loading state */}
         {loading ? (
           <div className="grid grid-cols-1 gap-4 pb-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -113,11 +113,11 @@ export const PromotionCarousel: React.FC<PromotionCarouselProps> = ({
                 {/* Previous button */}
                 <button
                   onClick={carousel.previous}
-                  className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-6 z-10 p-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white transition-colors shadow-lg"
+                  className="absolute left-1 sm:-left-3 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white transition-colors shadow-lg cursor-pointer"
                   aria-label="Previous promotions"
                 >
                   <svg
-                    className="w-6 h-6"
+                    className="w-5 h-5"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -134,11 +134,11 @@ export const PromotionCarousel: React.FC<PromotionCarouselProps> = ({
                 {/* Next button */}
                 <button
                   onClick={carousel.advance}
-                  className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-6 z-10 p-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white transition-colors shadow-lg"
+                  className="absolute right-1 sm:-right-3 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white transition-colors shadow-lg cursor-pointer"
                   aria-label="Next promotions"
                 >
                   <svg
-                    className="w-6 h-6"
+                    className="w-5 h-5"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"

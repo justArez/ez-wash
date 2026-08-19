@@ -85,6 +85,7 @@ export function PageRenderer({
     if (!dashboard) {
       return (
         <HomePage
+          dashboard={dashboard}
           offers={[]}
           availableSlots={availableSlots}
           onBook={onOpenBookings}
@@ -97,6 +98,7 @@ export function PageRenderer({
   // Home page (default)
   return (
     <HomePage
+      dashboard={dashboard}
       offers={offersList}
       availableSlots={availableSlots}
       onBook={onOpenBookings}

@@ -6,6 +6,7 @@ interface ToastProps {
   visible: boolean;
   onClose: () => void;
   duration?: number;
+  type?: "success" | "error" | "info";
 }
 
 export default function Toast({
@@ -13,6 +14,7 @@ export default function Toast({
   visible,
   onClose,
   duration = 3500,
+  type = "success",
 }: ToastProps) {
   useEffect(() => {
     if (!visible) return;
@@ -24,7 +26,7 @@ export default function Toast({
 
   return (
     <div className="toast-viewport" role="status" aria-live="polite">
-      <div className="toast toast--success">
+      <div className={`toast toast--${type}`}>
         <span className="toast__message">{message}</span>
         <button
           type="button"

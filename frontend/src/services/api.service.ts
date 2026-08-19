@@ -220,15 +220,8 @@ export async function fetchSlots(days: number = 7): Promise<TimeSlot[]> {
     const response = await fetchWithRetry<TimeSlotsResponse>(url, undefined, 0);
 
     if (response.status === "success" && response.data) {
-      // Filter out past times
-      const now = new Date();
-      const filteredSlots = response.data.filter((slot) => {
-        const slotDateTime = new Date(`${slot.date}T${slot.time}`);
-        return slotDateTime > now;
-      });
-
-      setCachedData(cacheKey, filteredSlots);
-      return filteredSlots;
+      setCachedData(cacheKey, response.data);
+      return response.data;
     }
 
     throw new Error(response.message || "Failed to fetch slots");

@@ -20,7 +20,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
 }) => {
   return (
     <div
-      className="relative w-full py-16 sm:py-20 lg:py-32 px-4 sm:px-6 lg:px-8 rounded-lg overflow-hidden bg-gradient-to-r from-blue-600 to-blue-800 shadow-lg"
+      className="relative w-full py-12 sm:py-16 lg:py-24 px-6 sm:px-8 lg:px-12 rounded-2xl overflow-hidden bg-gradient-to-r from-blue-600 to-blue-800 shadow-md"
       style={{
         backgroundImage: `linear-gradient(rgba(37, 99, 235, 0.9), rgba(30, 58, 138, 0.9))`,
       }}

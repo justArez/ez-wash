@@ -5,17 +5,321 @@ import {
   promotions,
   rewardOffers,
   serviceItems,
+  loyaltyCustomers,
+  vehicles,
+  bookings,
 } from "./schema";
+import { writeFileSync, existsSync, mkdirSync } from "fs";
+import { join } from "path";
+import { fileURLToPath } from "url";
+import {
+  TIERS,
+  DEFAULT_PROMOTIONS,
+  DEFAULT_REWARD_OFFERS,
+} from "../models/loyalty.model";
+import { DEFAULT_SERVICES } from "../services/service.service";
+import { DEFAULT_TIER_SETS } from "../services/tier-set.service";
+
+const __dirname = fileURLToPath(new URL("./", import.meta.url));
+const DATA_DIR = join(__dirname, "..", "..", "data");
+const STORE_PATH = join(DATA_DIR, "loyalty-store.json");
 
 export async function seedDatabase() {
+  console.log("🌱 Seeding JSON store data...");
+
+  const seedStoreData = {
+    customers: [
+      {
+        id: "cust-test-1",
+        phone: "555-1234",
+        fullName: "Alex Rivera",
+        username: "alex_driver",
+        email: "alex@example.com",
+        licensePlates: ["ABC1234"],
+        tierId: "gold",
+        tierName: "Gold",
+        pointsBalance: 1750,
+        vehicles: [
+          {
+            plate: "ABC1234",
+            model: "Tesla Model 3",
+            type: "car",
+          },
+        ],
+        pointHistory: [
+          {
+            id: "pt-1",
+            type: "earn",
+            amount: 250,
+            date: "2026-08-15T10:00:00.000Z",
+            description: "Deluxe Polish & Wax booking completion",
+          },
+          {
+            id: "pt-2",
+            type: "earn",
+            amount: 50,
+            date: "2026-08-19T14:30:00.000Z",
+            description: "Customer goodwill loyalty bonus",
+          },
+        ],
+        bookingHistory: [
+          {
+            id: "bk-1",
+            customerId: "cust-test-1",
+            customerName: "Alex Rivera",
+            customerPhone: "555-1234",
+            vehiclePlate: "ABC1234",
+            serviceId: "srv-deluxe-wash",
+            serviceName: "Deluxe Polish & Wax",
+            date: "2026-08-20",
+            timeSlot: "09:30",
+            time: "09:30",
+            duration: 30,
+            status: "confirmed",
+            appliedPerks: ["gold priority booking", "free premium wax"],
+            createdAt: "2026-08-19T10:00:00.000Z",
+          },
+          {
+            id: "bk-2",
+            customerId: "cust-test-1",
+            customerName: "Alex Rivera",
+            customerPhone: "555-1234",
+            vehiclePlate: "ABC1234",
+            serviceId: "srv-basic-wash",
+            serviceName: "Basic Exterior Wash",
+            date: "2026-08-22",
+            timeSlot: "14:00",
+            time: "14:00",
+            duration: 30,
+            status: "confirmed",
+            appliedPerks: [],
+            createdAt: "2026-08-19T11:00:00.000Z",
+          },
+        ],
+        claimedPromos: [
+          {
+            id: "cp-1",
+            promoId: "promo-membership-1",
+            title: "10% Off Premium Wash",
+            claimedAt: "2026-08-10T08:00:00.000Z",
+            validUntil: "2026-12-31T23:59:59.000Z",
+            status: "ACTIVE",
+            perkIdentifier: "10% OFF",
+          },
+        ],
+        lateCancellationWarningCount: 0,
+        priorityStatus: "normal",
+        status: "Active",
+        createdAt: "2026-08-01T00:00:00.000Z",
+        updatedAt: "2026-08-19T14:30:00.000Z",
+      },
+      {
+        id: "cust-test-2",
+        phone: "555-9876",
+        fullName: "Sarah Connor",
+        username: "sarah_c",
+        email: "sarah@example.com",
+        licensePlates: ["XYZ5678"],
+        tierId: "platinum",
+        tierName: "Platinum",
+        pointsBalance: 3400,
+        vehicles: [
+          {
+            plate: "XYZ5678",
+            model: "Porsche Taycan",
+            type: "car",
+          },
+        ],
+        pointHistory: [
+          {
+            id: "pt-3",
+            type: "earn",
+            amount: 500,
+            date: "2026-08-16T12:00:00.000Z",
+            description: "Ceramic Shield Detailing completion",
+          },
+        ],
+        bookingHistory: [
+          {
+            id: "bk-3",
+            customerId: "cust-test-2",
+            customerName: "Sarah Connor",
+            customerPhone: "555-9876",
+            vehiclePlate: "XYZ5678",
+            serviceId: "srv-ceramic-coating",
+            serviceName: "Ceramic Shield Detailing",
+            date: "2026-08-20",
+            timeSlot: "11:00",
+            time: "11:00",
+            duration: 30,
+            status: "confirmed",
+            appliedPerks: ["platinum priority booking", "free premium wax"],
+            createdAt: "2026-08-19T09:00:00.000Z",
+          },
+          {
+            id: "bk-4",
+            customerId: "cust-test-2",
+            customerName: "Sarah Connor",
+            customerPhone: "555-9876",
+            vehiclePlate: "XYZ5678",
+            serviceId: "srv-interior-detail",
+            serviceName: "Interior Deep Detail",
+            date: "2026-08-21",
+            timeSlot: "15:30",
+            time: "15:30",
+            duration: 30,
+            status: "confirmed",
+            appliedPerks: [],
+            createdAt: "2026-08-19T09:30:00.000Z",
+          },
+        ],
+        claimedPromos: [],
+        lateCancellationWarningCount: 0,
+        priorityStatus: "normal",
+        status: "Active",
+        createdAt: "2026-08-01T00:00:00.000Z",
+        updatedAt: "2026-08-19T10:00:00.000Z",
+      },
+      {
+        id: "cust-test-3",
+        phone: "555-5555",
+        fullName: "Mike Chen",
+        username: "mike_rider",
+        email: "mike@example.com",
+        licensePlates: ["MOTO99"],
+        tierId: "silver",
+        tierName: "Silver",
+        pointsBalance: 620,
+        vehicles: [
+          {
+            plate: "MOTO99",
+            model: "Ducati Monster",
+            type: "motorcycle",
+          },
+        ],
+        pointHistory: [
+          {
+            id: "pt-4",
+            type: "earn",
+            amount: 120,
+            date: "2026-08-14T11:00:00.000Z",
+            description: "Basic Wash completion",
+          },
+        ],
+        bookingHistory: [
+          {
+            id: "bk-5",
+            customerId: "cust-test-3",
+            customerName: "Mike Chen",
+            customerPhone: "555-5555",
+            vehiclePlate: "MOTO99",
+            serviceId: "srv-basic-wash",
+            serviceName: "Basic Exterior Wash",
+            date: "2026-08-20",
+            timeSlot: "10:30",
+            time: "10:30",
+            duration: 30,
+            status: "confirmed",
+            appliedPerks: ["express rinse"],
+            createdAt: "2026-08-19T08:00:00.000Z",
+          },
+        ],
+        claimedPromos: [],
+        lateCancellationWarningCount: 0,
+        priorityStatus: "normal",
+        status: "Active",
+        createdAt: "2026-08-05T00:00:00.000Z",
+        updatedAt: "2026-08-19T08:00:00.000Z",
+      },
+    ],
+    tiers: Object.values(TIERS),
+    tierSets: DEFAULT_TIER_SETS,
+    services: DEFAULT_SERVICES,
+    rewardOffers: DEFAULT_REWARD_OFFERS,
+    promotions: [
+      {
+        id: "promo-membership-1",
+        name: "Silver+ Welcome Bonus",
+        title: "10% Off Premium Wash",
+        description:
+          "Silver tier and above receive 10% off a premium wash when booking within their loyalty window.",
+        category: "discount",
+        discountPercentage: 10,
+        pointPrice: 0,
+        applicableTiers: ["silver", "gold", "platinum"],
+        applicableVehicleModels: [],
+        badgeLabel: "10% OFF",
+        startDate: "2026-08-01",
+        endDate: "2026-12-31",
+        status: "ACTIVE",
+        isActive: true,
+      },
+      {
+        id: "promo-gold-ride",
+        name: "Motorcycle Express Treat",
+        title: "Free Express Enhancement",
+        description:
+          "Gold and Platinum motorcycle riders receive a free express enhancement with a premium service.",
+        category: "tier_reward",
+        discountPercentage: 0,
+        pointPrice: 150,
+        applicableTiers: ["gold", "platinum"],
+        applicableVehicleModels: [],
+        badgeLabel: "GOLD & ABOVE",
+        startDate: "2026-08-01",
+        endDate: "2026-12-31",
+        status: "ACTIVE",
+        isActive: true,
+      },
+      {
+        id: "promo-weekend-wax",
+        name: "Weekend Carnauba Wax Special",
+        title: "Free Carnauba Wax Upgrade",
+        description:
+          "Book any Saturday or Sunday Deluxe Wash and get upgraded with premium Carnauba wax protection.",
+        category: "service_addon",
+        discountPercentage: 15,
+        pointPrice: 100,
+        applicableTiers: ["member", "silver", "gold", "platinum"],
+        applicableVehicleModels: [],
+        badgeLabel: "WEEKEND SPECIAL",
+        startDate: "2026-08-01",
+        endDate: "2026-12-31",
+        status: "ACTIVE",
+        isActive: true,
+      },
+    ],
+    auditLogs: [
+      {
+        id: "log-1",
+        timestamp: "2026-08-19T14:30:00.000Z",
+        actor: "admin",
+        actionType: "seed",
+        entityType: "system",
+        entityId: "system",
+        details:
+          "Initial system seeding with 30-min operating slots (09:00 - 17:00)",
+      },
+    ],
+    lastTierEvaluationDate: new Date().toISOString().split("T")[0],
+  };
+
+  if (!existsSync(DATA_DIR)) {
+    mkdirSync(DATA_DIR, { recursive: true });
+  }
+  writeFileSync(STORE_PATH, JSON.stringify(seedStoreData, null, 2), "utf8");
+  console.log("✅ JSON Store seeded at:", STORE_PATH);
+
+  // PostgreSQL / Drizzle Seeding
   if (!db) {
-    console.warn("DATABASE_URL is not configured. Skipping database seed.");
+    console.log(
+      "ℹ️  DATABASE_URL is not set. Skipped PostgreSQL Drizzle seed (JSON file store active).",
+    );
     return;
   }
 
-  console.log("🌱 Starting database seeding...");
+  console.log("🌱 Starting PostgreSQL database seeding via Drizzle...");
 
-  // 1. Create Default Tier Set
   const defaultTierSetId = "default-tier-set";
   await db
     .insert(tierSets)
@@ -27,7 +331,6 @@ export async function seedDatabase() {
     })
     .onConflictDoNothing();
 
-  // 2. Insert Default Loyalty Tiers
   await db
     .insert(loyaltyTiers)
     .values([
@@ -98,7 +401,6 @@ export async function seedDatabase() {
     ])
     .onConflictDoNothing();
 
-  // 3. Insert Default Promotions
   await db
     .insert(promotions)
     .values([
@@ -139,7 +441,6 @@ export async function seedDatabase() {
     ])
     .onConflictDoNothing();
 
-  // 4. Insert Default Reward Offers
   await db
     .insert(rewardOffers)
     .values([
@@ -161,7 +462,6 @@ export async function seedDatabase() {
     ])
     .onConflictDoNothing();
 
-  // 5. Insert Default Service Catalog
   await db
     .insert(serviceItems)
     .values([
@@ -211,10 +511,109 @@ export async function seedDatabase() {
           "Glass crystal polish",
         ],
       },
+      {
+        id: "srv-ceramic-coating",
+        name: "Ceramic Shield Detailing",
+        category: "Full Package",
+        description:
+          "Ultimate paint protection with multi-layer nano-ceramic coating and rain repel.",
+        durationMinutes: 75,
+        price: 120.0,
+        popularityCount: 95,
+        status: "ACTIVE",
+        features: [
+          "Full exterior & interior",
+          "9H Ceramic paint sealant",
+          "Rain-X windshield coating",
+          "6-month shine warranty",
+        ],
+      },
     ])
     .onConflictDoNothing();
 
-  console.log("✅ Database seeding completed.");
+  await db
+    .insert(loyaltyCustomers)
+    .values([
+      {
+        id: "cust-test-1",
+        phone: "555-1234",
+        fullName: "Alex Rivera",
+        username: "alex_driver",
+        email: "alex@example.com",
+        tierId: "gold",
+        pointsBalance: 1750,
+        lateCancellationWarningCount: 0,
+        priorityStatus: "normal",
+        status: "Active",
+      },
+      {
+        id: "cust-test-2",
+        phone: "555-9876",
+        fullName: "Sarah Connor",
+        username: "sarah_c",
+        email: "sarah@example.com",
+        tierId: "platinum",
+        pointsBalance: 3400,
+        lateCancellationWarningCount: 0,
+        priorityStatus: "normal",
+        status: "Active",
+      },
+    ])
+    .onConflictDoNothing();
+
+  await db
+    .insert(vehicles)
+    .values([
+      {
+        id: "veh-1",
+        customerId: "cust-test-1",
+        plate: "ABC1234",
+        model: "Tesla Model 3",
+        type: "car",
+      },
+      {
+        id: "veh-2",
+        customerId: "cust-test-2",
+        plate: "XYZ5678",
+        model: "Porsche Taycan",
+        type: "car",
+      },
+    ])
+    .onConflictDoNothing();
+
+  await db
+    .insert(bookings)
+    .values([
+      {
+        id: "bk-1",
+        customerId: "cust-test-1",
+        vehiclePlate: "ABC1234",
+        serviceId: "srv-deluxe-wash",
+        date: new Date("2026-08-20T09:30:00Z"),
+        timeSlot: "09:30",
+        durationMinutes: 30,
+        status: "confirmed",
+        pointsEarned: 250,
+        pointsSpent: 0,
+        appliedPerks: ["gold priority booking", "free premium wax"],
+      },
+      {
+        id: "bk-2",
+        customerId: "cust-test-1",
+        vehiclePlate: "ABC1234",
+        serviceId: "srv-basic-wash",
+        date: new Date("2026-08-22T14:00:00Z"),
+        timeSlot: "14:00",
+        durationMinutes: 30,
+        status: "confirmed",
+        pointsEarned: 100,
+        pointsSpent: 0,
+        appliedPerks: [],
+      },
+    ])
+    .onConflictDoNothing();
+
+  console.log("✅ PostgreSQL Database seeding completed.");
 }
 
 if (import.meta.main || process.argv[1]?.endsWith("seed.ts")) {

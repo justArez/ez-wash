@@ -14,8 +14,17 @@ const BASE_URL = "";
 
 async function handleJsonResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    const error = await response.text();
-    throw new Error(error || `Request failed with status ${response.status}`);
+    const rawError = await response.text();
+    let message = rawError;
+    try {
+      const parsed = JSON.parse(rawError);
+      if (parsed && typeof parsed === "object" && parsed.error) {
+        message = parsed.error;
+      }
+    } catch {
+      // keep rawError
+    }
+    throw new Error(message || `Request failed with status ${response.status}`);
   }
   return response.json() as Promise<T>;
 }
@@ -31,12 +40,32 @@ export async function linkLoyaltyAccount(
   return handleJsonResponse<LinkAccountResponse>(response);
 }
 
-export async function fetchLoyaltyDashboard(
-  phone: string,
-): Promise<DashboardResponse> {
+export async function checkUsernameAvailability(
+  username: string,
+): Promise<{ exists: boolean; available: boolean; username: string }> {
   const response = await fetch(
-    `${BASE_URL}/api/loyalty/dashboard?phone=${encodeURIComponent(phone)}`,
+    `${BASE_URL}/api/loyalty/check-username?username=${encodeURIComponent(username.trim())}`,
   );
+  return handleJsonResponse<{
+    exists: boolean;
+    available: boolean;
+    username: string;
+  }>(response);
+}
+
+export async function loginCustomer(
+  username: string,
+  password?: string,
+): Promise<DashboardResponse> {
+  return fetchLoyaltyDashboard(username, password);
+}
+
+export async function fetchLoyaltyDashboard(
+  phoneOrUsername: string,
+  password?: string,
+): Promise<DashboardResponse> {
+  const url = `${BASE_URL}/api/loyalty/dashboard?phone=${encodeURIComponent(phoneOrUsername)}${password ? `&password=${encodeURIComponent(password)}` : ""}`;
+  const response = await fetch(url);
   return handleJsonResponse<DashboardResponse>(response);
 }
 

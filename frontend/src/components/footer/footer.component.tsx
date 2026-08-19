@@ -2,7 +2,7 @@ import "./footer.component.scss";
 
 export default function Footer() {
   return (
-    <footer className="bg-gray-800 text-white mt-16 position-absolute bottom-0 w-full">
+    <footer className="bg-gray-800 text-white mt-8 position-absolute bottom-0 w-full rounded-t-xl">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <div className="grid md:grid-cols-3 gap-8 text-sm text-gray-300">
           <div>

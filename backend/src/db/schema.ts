@@ -107,6 +107,7 @@ export const loyaltyCustomers = pgTable(
     phone: text("phone").notNull().unique(),
     fullName: text("full_name"),
     username: text("username"),
+    password: text("password"),
     email: text("email"),
     tierId: text("tier_id")
       .references(() => loyaltyTiers.id)

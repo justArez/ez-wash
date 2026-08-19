@@ -176,4 +176,114 @@ describe("Extended Backend Entity APIs", () => {
     const adjustBody = await adjustRes.json();
     expect(adjustBody.data.pointsBalance).toBe(550);
   });
+
+  it("should check username availability and reject duplicates on registration", async () => {
+    const { app, store } = setupApp();
+    store.customers.push({
+      id: "cust-test-2",
+      phone: "555-9999",
+      username: "speedy_wash",
+      licensePlates: [],
+      tierId: "member",
+      pointsBalance: 0,
+      vehicles: [],
+      pointHistory: [],
+      bookingHistory: [],
+      lateCancellationWarningCount: 0,
+      priorityStatus: "normal",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    // Check existing username
+    const resTaken = await app.handle(
+      new Request(
+        "http://localhost/api/loyalty/check-username?username=speedy_wash",
+      ),
+    );
+    expect(resTaken.status).toBe(200);
+    const bodyTaken = await resTaken.json();
+    expect(bodyTaken.exists).toBe(true);
+    expect(bodyTaken.available).toBe(false);
+
+    const uniqueTestUser = `test_user_${Date.now()}`;
+    const resFree = await app.handle(
+      new Request(
+        `http://localhost/api/loyalty/check-username?username=${uniqueTestUser}`,
+      ),
+    );
+    expect(resFree.status).toBe(200);
+    const bodyFree = await resFree.json();
+    expect(bodyFree.exists).toBe(false);
+    expect(bodyFree.available).toBe(true);
+
+    // Attempt to register with existing username
+    const dupRegRes = await app.handle(
+      new Request("http://localhost/api/loyalty/link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: "speedy_wash",
+          email: "speedy@test.com",
+        }),
+      }),
+    );
+    expect(dupRegRes.status).toBe(409);
+
+    // Attempt to register with invalid email
+    const invalidEmailRes = await app.handle(
+      new Request("http://localhost/api/loyalty/link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: "valid_user_1",
+          email: "not-an-email",
+        }),
+      }),
+    );
+    expect(invalidEmailRes.status).toBe(400);
+
+    // Attempt to register with invalid phone
+    const invalidPhoneRes = await app.handle(
+      new Request("http://localhost/api/loyalty/link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: "valid_user_2",
+          phone: "abc12",
+        }),
+      }),
+    );
+    expect(invalidPhoneRes.status).toBe(400);
+
+    // Successfully register new customer with username & email
+    const validRegRes = await app.handle(
+      new Request("http://localhost/api/loyalty/link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: uniqueTestUser,
+          email: `${uniqueTestUser}@example.com`,
+          password: "password123",
+        }),
+      }),
+    );
+    expect(validRegRes.status).toBe(200);
+    const validRegBody = await validRegRes.json();
+    expect(validRegBody.username).toBe(uniqueTestUser);
+    expect(validRegBody.email).toBe(`${uniqueTestUser}@example.com`);
+    expect(validRegBody.customerId).toBeDefined();
+
+    // Fetch dashboard for newly created customer
+    const dashboardRes = await app.handle(
+      new Request(
+        `http://localhost/api/loyalty/dashboard?phone=${uniqueTestUser}`,
+      ),
+    );
+    expect(dashboardRes.status).toBe(200);
+    const dashboardBody = await dashboardRes.json();
+    expect(dashboardBody.username).toBe(uniqueTestUser);
+    expect(dashboardBody.email).toBe(`${uniqueTestUser}@example.com`);
+    expect(dashboardBody.pointsBalance).toBe(0);
+  });
 });

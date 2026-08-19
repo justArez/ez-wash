@@ -1,8 +1,10 @@
 .booking-page {
 	display: grid;
 	gap: 24px;
-	width: min(1120px, 100%);
+	width: 100%;
+	max-width: 80rem;
 	margin: 0 auto;
+	box-sizing: border-box;
 }
 
 .booking-intro,

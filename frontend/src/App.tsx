@@ -34,7 +34,15 @@ import "./App.css";
 
 type AuthMode = "sign-in" | "sign-up";
 
-const LOYALTY_STORAGE_KEY = "ezwash-dashboard";
+interface StoredUserMeta {
+  phone: string;
+  username?: string;
+  fullName?: string;
+  email?: string;
+  customerId?: string;
+}
+
+const USER_META_STORAGE_KEY = "ezwash-user-meta";
 
 const availableSlots = [
   "Today 09:00",
@@ -51,35 +59,31 @@ const serviceOptions: ServiceOption[] = [
   { id: "tire", label: "Tire shine", price: 6 },
 ];
 
-const saveDashboardToStorage = (dashboardData: DashboardResponse) => {
-  window.localStorage.setItem(
-    LOYALTY_STORAGE_KEY,
-    JSON.stringify(dashboardData),
-  );
+const saveUserMetaToStorage = (userMeta: StoredUserMeta) => {
+  window.localStorage.setItem(USER_META_STORAGE_KEY, JSON.stringify(userMeta));
 };
 
-const loadDashboardFromStorage = (): DashboardResponse | null => {
+const loadUserMetaFromStorage = (): StoredUserMeta | null => {
   try {
-    const value = window.localStorage.getItem(LOYALTY_STORAGE_KEY);
+    const value = window.localStorage.getItem(USER_META_STORAGE_KEY);
     if (!value) return null;
-    const parsed = JSON.parse(value) as DashboardResponse;
-    if (parsed.phone === DEMO_PHONE) {
-      saveDashboardToStorage(demoDashboard);
-      return demoDashboard;
-    }
-    return parsed;
+    return JSON.parse(value) as StoredUserMeta;
   } catch {
     return null;
   }
 };
 
+const clearUserMetaFromStorage = () => {
+  window.localStorage.removeItem(USER_META_STORAGE_KEY);
+  // Clean up legacy storage key if present
+  window.localStorage.removeItem("ezwash-dashboard");
+};
+
 function App() {
-  const initialDashboard = loadDashboardFromStorage();
+  const initialUserMeta = loadUserMetaFromStorage();
   const initialAdminUserInfo = loadAdminUserInfo();
 
-  const [dashboard, setDashboard] = useState<DashboardResponse | null>(
-    initialDashboard,
-  );
+  const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
   const [adminUserInfo, setAdminUserInfo] = useState<{
     token: string;
     role: string;
@@ -98,7 +102,7 @@ function App() {
     const pathView = getViewFromPath(window.location.pathname);
 
     // Redirect unauthenticated users away from protected routes
-    if (!initialDashboard && pathView === "bookings") {
+    if (!initialUserMeta && pathView === "bookings") {
       return "home";
     }
 
@@ -124,7 +128,10 @@ function App() {
     isAdminLoggedIn: Boolean(adminUserInfo?.token),
   });
 
-  const username = useMemo(() => dashboard?.phone ?? "", [dashboard]);
+  const username = useMemo(
+    () => dashboard?.fullName || dashboard?.username || dashboard?.phone || "",
+    [dashboard],
+  );
   const isLoggedIn = Boolean(dashboard);
   const isAdminLoggedIn = Boolean(adminUserInfo?.token);
 
@@ -136,36 +143,73 @@ function App() {
     }
   }, [view]);
 
-  const refreshDashboard = async (phone: string) => {
+  const refreshDashboard = async (
+    phoneOrUsername: string,
+    password?: string,
+    propagateError = false,
+  ) => {
     setLoading(true);
     setError(null);
     setSuccess(null);
 
     try {
-      if (phone.trim() === DEMO_PHONE) {
+      if (
+        phoneOrUsername.trim() === DEMO_PHONE ||
+        phoneOrUsername.trim().toLowerCase() === "demo"
+      ) {
         setDashboard(demoDashboard);
-        saveDashboardToStorage(demoDashboard);
+        saveUserMetaToStorage({
+          phone: demoDashboard.phone,
+          username: demoDashboard.username,
+          customerId: demoDashboard.customerId,
+        });
         setShowDemoToast(true);
         return;
       }
 
-      const data = await fetchLoyaltyDashboard(phone);
+      const data = await fetchLoyaltyDashboard(phoneOrUsername, password);
       setDashboard(data);
-      saveDashboardToStorage(data);
+      // Save only user metadata to localStorage
+      saveUserMetaToStorage({
+        phone: data.phone,
+        username: data.username,
+        fullName: data.fullName,
+        email: data.email,
+        customerId: data.customerId,
+      });
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to load dashboard.",
-      );
       setDashboard(null);
-      window.localStorage.removeItem(LOYALTY_STORAGE_KEY);
+      clearUserMetaFromStorage();
+      if (!propagateError) {
+        setError(
+          err instanceof Error ? err.message : "Failed to load dashboard.",
+        );
+      }
+      if (propagateError) {
+        throw err;
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSignIn = async (phone: string) => {
+  // Auto-restore customer session if metadata exists in localStorage
+  useEffect(() => {
+    if (initialUserMeta) {
+      const identifier =
+        initialUserMeta.username ||
+        initialUserMeta.phone ||
+        initialUserMeta.email;
+      if (identifier) {
+        refreshDashboard(identifier);
+      }
+    }
+  }, []);
+
+  const handleSignIn = async (username: string, password: string) => {
+    await refreshDashboard(username, password, true);
     setShowAuthModal(false);
-    await refreshDashboard(phone);
+    setSuccess("Signed in successfully!");
   };
 
   const handleSignUp = async (payload: LinkAccountRequest) => {
@@ -174,14 +218,18 @@ function App() {
     setSuccess(null);
 
     try {
-      await linkLoyaltyAccount(payload);
-      setSuccess("Account created and linked successfully.");
-      await refreshDashboard(payload.phone);
+      const response = await linkLoyaltyAccount(payload);
+      setSuccess("Account created successfully!");
+      const refreshIdentifier =
+        response.username ||
+        response.phone ||
+        payload.username ||
+        payload.phone ||
+        "";
+      if (refreshIdentifier) {
+        await refreshDashboard(refreshIdentifier, payload.password);
+      }
       setShowAuthModal(false);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to create account.",
-      );
     } finally {
       setLoading(false);
     }
@@ -278,6 +326,16 @@ function App() {
     setView("home");
   };
 
+  const handleSignOut = () => {
+    setDashboard(null);
+    clearUserMetaFromStorage();
+    if (view === "bookings") {
+      window.history.pushState({}, "", getPathFromView("home"));
+      setView("home");
+    }
+    setSuccess("Logged out successfully.");
+  };
+
   const handleNavigate = (target: string) => {
     const result = navigateTo(target);
     if (!result.authorized && result.reason === "customer-auth-required") {
@@ -294,6 +352,7 @@ function App() {
         <Header
           isLoggedIn={isLoggedIn}
           username={username}
+          fullName={dashboard?.fullName}
           currentPage={
             view === "bookings"
               ? "bookings"
@@ -311,15 +370,26 @@ function App() {
             setShowAuthModal(true);
           }}
           onOpenBookings={handleOpenBookings}
+          onSignOut={handleSignOut}
         />
       )}
 
-      {success && <div className="status-message success">{success}</div>}
-      {error && <div className="status-message error">{error}</div>}
       <Toast
         message="Demo account signed in successfully."
         visible={showDemoToast}
         onClose={() => setShowDemoToast(false)}
+      />
+      <Toast
+        message={success || ""}
+        visible={Boolean(success)}
+        type="success"
+        onClose={() => setSuccess(null)}
+      />
+      <Toast
+        message={error || ""}
+        visible={Boolean(error)}
+        type="error"
+        onClose={() => setError(null)}
       />
 
       <PageRenderer

@@ -22,53 +22,130 @@ function normalizePlate(plate: string) {
 
 export function findCustomer(
   store: LoyaltyStore,
-  phone: string,
+  phoneOrUsernameOrEmail?: string,
   plate?: string,
 ) {
-  const normalizedPhone = phone.trim();
+  const normalizedIdent = phoneOrUsernameOrEmail
+    ? phoneOrUsernameOrEmail.trim().toLowerCase()
+    : "";
   const normalizedPlate = plate ? normalizePlate(plate) : undefined;
-  return store.customers.find((customer) => {
-    if (customer.phone === normalizedPhone) {
-      return true;
+
+  if (!normalizedIdent && !normalizedPlate) {
+    return undefined;
+  }
+
+  const found = store.customers.find((customer) => {
+    if (normalizedIdent) {
+      if (customer.phone && customer.phone.toLowerCase() === normalizedIdent) {
+        return true;
+      }
+      if (
+        customer.username &&
+        customer.username.toLowerCase() === normalizedIdent
+      ) {
+        return true;
+      }
+      if (customer.email && customer.email.toLowerCase() === normalizedIdent) {
+        return true;
+      }
     }
-    if (normalizedPlate && customer.licensePlates.includes(normalizedPlate)) {
+    if (
+      normalizedPlate &&
+      customer.licensePlates &&
+      customer.licensePlates.includes(normalizedPlate)
+    ) {
       return true;
     }
     return false;
   });
+
+  console.log(
+    `[LoyaltyService] findCustomer(ident: "${normalizedIdent}", plate: "${normalizedPlate}") -> ${found ? `Found Customer (ID: ${found.id}, user: ${found.username || found.phone})` : "Not found"}`,
+  );
+  return found;
 }
 
 export function linkAccount(
   store: LoyaltyStore,
   phone: string,
-  plate: string,
-  model: string,
-  type: "car" | "motorcycle",
+  plate?: string,
+  model?: string,
+  type?: "car" | "motorcycle",
+  options?: {
+    username?: string;
+    email?: string;
+    fullName?: string;
+    password?: string;
+  },
 ) {
-  const normalizedPhone = phone.trim();
-  const normalizedPlate = normalizePlate(plate);
-  const existingCustomer = findCustomer(
-    store,
-    normalizedPhone,
-    normalizedPlate,
-  );
+  const normalizedPhone = phone ? phone.trim() : "";
+  const normalizedPlate = plate ? normalizePlate(plate) : undefined;
+  const username = options?.username?.trim();
+  const email = options?.email?.trim();
+  const fullName = options?.fullName?.trim();
+
+  console.log(`[LoyaltyService] linkAccount invoked with options:`, {
+    phone: normalizedPhone,
+    username,
+    email,
+    plate: normalizedPlate,
+  });
+
+  // Find existing customer by username, phone, email, or plate
+  let existingCustomer: LoyaltyCustomer | undefined;
+  if (username) {
+    existingCustomer = findCustomer(store, username);
+  }
+  if (!existingCustomer && normalizedPhone) {
+    existingCustomer = findCustomer(store, normalizedPhone);
+  }
+  if (!existingCustomer && email) {
+    existingCustomer = findCustomer(store, email);
+  }
+  if (!existingCustomer && normalizedPlate) {
+    existingCustomer = findCustomer(store, "", normalizedPlate);
+  }
+
   const now = new Date().toISOString();
 
-  const vehicle: Vehicle = {
-    plate: normalizedPlate,
-    model: model.trim() || "Unknown model",
-    type,
-  };
+  const vehicle: Vehicle | undefined = normalizedPlate
+    ? {
+        plate: normalizedPlate,
+        model: model?.trim() || "Default Vehicle",
+        type: type || "car",
+      }
+    : undefined;
 
   if (existingCustomer) {
-    if (!existingCustomer.licensePlates.includes(normalizedPlate)) {
+    if (
+      normalizedPlate &&
+      !existingCustomer.licensePlates.includes(normalizedPlate)
+    ) {
       existingCustomer.licensePlates.push(normalizedPlate);
     }
-    const vehicleExists = existingCustomer.vehicles.some(
-      (item) => item.plate === normalizedPlate,
-    );
-    if (!vehicleExists) {
-      existingCustomer.vehicles.push(vehicle);
+    if (vehicle) {
+      existingCustomer.vehicles = existingCustomer.vehicles || [];
+      const vehicleExists = existingCustomer.vehicles.some(
+        (item) => item.plate === normalizedPlate,
+      );
+      if (!vehicleExists) {
+        existingCustomer.vehicles.push(vehicle);
+      }
+    }
+    if (username && !existingCustomer.username) {
+      existingCustomer.username = username;
+    }
+    if (email && !existingCustomer.email) {
+      existingCustomer.email = email;
+    }
+    if (fullName && !existingCustomer.fullName) {
+      existingCustomer.fullName = fullName;
+    }
+    if (normalizedPhone && !existingCustomer.phone) {
+      existingCustomer.phone = normalizedPhone;
+    }
+    if (options?.password) {
+      existingCustomer.password = options.password;
     }
     existingCustomer.updatedAt = now;
     return existingCustomer;
@@ -76,13 +153,24 @@ export function linkAccount(
 
   const newCustomer: LoyaltyCustomer = {
     id: createId(),
-    phone: normalizedPhone,
-    licensePlates: [normalizedPlate],
+    phone: normalizedPhone || (username ? username : `acc-${Date.now()}`),
+    username: username || undefined,
+    email: email || undefined,
+    fullName:
+      fullName ||
+      username ||
+      (normalizedPhone ? `User ${normalizedPhone}` : "New Member"),
+    password: options?.password || undefined,
+    licensePlates: normalizedPlate ? [normalizedPlate] : [],
     tierId: "member",
+    tierName: "Member",
     pointsBalance: 0,
-    vehicles: [vehicle],
+    vehicles: vehicle ? [vehicle] : [],
     pointHistory: [],
     bookingHistory: [],
+    lateCancellationWarningCount: 0,
+    priorityStatus: "normal",
+    status: "Active",
     createdAt: now,
     updatedAt: now,
   };
@@ -92,6 +180,9 @@ export function linkAccount(
 }
 
 export function buildDashboard(store: LoyaltyStore, phone: string) {
+  console.log(
+    `[LoyaltyService] buildDashboard invoked for identifier: "${phone}"`,
+  );
   const customer = findCustomer(store, phone);
   if (!customer) {
     return null;
@@ -104,10 +195,12 @@ export function buildDashboard(store: LoyaltyStore, phone: string) {
   return {
     customerId: customer.id,
     phone: customer.phone,
+    username: customer.username,
+    fullName: customer.fullName,
+    email: customer.email,
     tier,
     pointsBalance: customer.pointsBalance,
     vehicles: customer.vehicles,
-    loyaltyTier: tier,
     nextEligibleBookingDate: nextBookingDate,
     appliedPerks: getAppliedPerks(tier.id, store),
     rewardSuggestions: suggestRewards(customer, store),

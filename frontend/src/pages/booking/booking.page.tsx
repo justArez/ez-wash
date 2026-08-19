@@ -122,7 +122,10 @@ export default function BookingPage({ dashboard }: BookingPageProps) {
 
   return (
     <>
-      <main className="booking-page" aria-labelledby="booking-page-title">
+      <main
+        className="booking-page max-w-7xl mx-auto w-full"
+        aria-labelledby="booking-page-title"
+      >
         <section className="booking-intro">
           <div>
             <h1 id="booking-page-title">Your Bookings</h1>
@@ -131,7 +134,7 @@ export default function BookingPage({ dashboard }: BookingPageProps) {
               on top of your schedule.
             </p>
           </div>
-          {dashboard.priorityStatus !== "LOW_PRIORITIED" && (
+          {dashboard.priorityStatus === "LOW_PRIORITIED" && (
             <div className="priority-banner" role="status">
               <strong>
                 <TriangleAlertIcon className="w-5 h-5 text-yellow-600" /> LOW

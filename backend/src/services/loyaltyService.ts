@@ -107,7 +107,6 @@ export function buildDashboard(store: LoyaltyStore, phone: string) {
     tier,
     pointsBalance: customer.pointsBalance,
     vehicles: customer.vehicles,
-    loyaltyTier: tier,
     nextEligibleBookingDate: nextBookingDate,
     appliedPerks: getAppliedPerks(tier.id),
     rewardSuggestions: suggestRewards(customer, store),

@@ -220,15 +220,8 @@ export const initialAdminBookings: AdminBooking[] = [
 export const demoDashboard: DashboardResponse = {
   customerId: "customer-demo",
   phone: DEMO_PHONE,
+  username: "demo_user",
   tier: {
-    id: "gold",
-    name: "Gold",
-    bookingWindowDays: 12,
-    pointRate: 1.5,
-    perks: ["gold priority booking", "free premium wax"],
-    description: "Gold VIP loyalty account",
-  },
-  loyaltyTier: {
     id: "gold",
     name: "Gold",
     bookingWindowDays: 12,

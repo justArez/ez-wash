@@ -5,18 +5,23 @@ import type {
 } from "../models/loyalty.model";
 
 const OPERATING_HOURS = [
-  "08:00",
   "09:00",
+  "09:30",
   "10:00",
+  "10:30",
   "11:00",
+  "11:30",
   "12:00",
+  "12:30",
   "13:00",
+  "13:30",
   "14:00",
+  "14:30",
   "15:00",
+  "15:30",
   "16:00",
+  "16:30",
   "17:00",
-  "18:00",
-  "19:00",
 ];
 
 const DAYS_OF_WEEK = [
@@ -29,7 +34,7 @@ const DAYS_OF_WEEK = [
   "Saturday",
 ];
 
-const TOTAL_BAY_CAPACITY = 5;
+const TOTAL_BAY_CAPACITY = 4;
 
 function formatDisplayTime(timeStr: string): string {
   const [hourStr, minStr] = timeStr.split(":");
@@ -72,12 +77,10 @@ export function generateSlotsForDate(
     });
 
     const currentBookings = slotBookings.length;
-    let status: "available" | "booked" | "maintenance" | "peak" = "available";
+    let status: "available" | "booked" | "maintenance" = "available";
 
     if (currentBookings >= TOTAL_BAY_CAPACITY || isPast) {
       status = "booked";
-    } else if (["10:00", "11:00", "14:00", "15:00"].includes(timeStr)) {
-      status = "peak";
     }
 
     const isAvailable = !isPast && currentBookings < TOTAL_BAY_CAPACITY;
@@ -87,7 +90,7 @@ export function generateSlotsForDate(
       date: dateStr,
       time: timeStr,
       displayTime,
-      duration: 60,
+      duration: 30,
       status,
       capacity: TOTAL_BAY_CAPACITY,
       currentBookings,

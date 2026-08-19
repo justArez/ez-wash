@@ -7,7 +7,7 @@
         "ABC1234"
       ],
       "tierId": "gold",
-      "pointsBalance": 550,
+      "pointsBalance": 500,
       "vehicles": [
         {
           "plate": "ABC1234",
@@ -15,15 +15,7 @@
           "type": "car"
         }
       ],
-      "pointHistory": [
-        {
-          "id": "1787132080210-c17td4ur",
-          "type": "earn",
-          "amount": 50,
-          "date": "2026-08-19T09:34:40.210Z",
-          "description": "Customer goodwill bonus"
-        }
-      ],
+      "pointHistory": [],
       "bookingHistory": [
         {
           "id": "bk-1",
@@ -34,17 +26,179 @@
           "time": "10:00",
           "status": "confirmed",
           "appliedPerks": [],
-          "createdAt": "2026-08-19T09:34:40.193Z"
+          "createdAt": "2026-08-19T18:48:25.975Z"
         }
       ],
       "lateCancellationWarningCount": 0,
       "priorityStatus": "normal",
-      "createdAt": "2026-08-19T09:34:40.193Z",
-      "updatedAt": "2026-08-19T09:34:40.210Z"
+      "createdAt": "2026-08-19T18:48:25.975Z",
+      "updatedAt": "2026-08-19T18:48:25.975Z"
+    },
+    {
+      "id": "cust-test-2",
+      "phone": "555-9999",
+      "username": "speedy_wash",
+      "licensePlates": [],
+      "tierId": "member",
+      "pointsBalance": 0,
+      "vehicles": [],
+      "pointHistory": [],
+      "bookingHistory": [],
+      "lateCancellationWarningCount": 0,
+      "priorityStatus": "normal",
+      "createdAt": "2026-08-19T18:48:25.975Z",
+      "updatedAt": "2026-08-19T18:48:25.975Z"
+    },
+    {
+      "id": "1787165307278-pv71qodz",
+      "phone": "test_user_1787165305979",
+      "username": "test_user_1787165305979",
+      "email": "test_user_1787165305979@example.com",
+      "fullName": "test_user_1787165305979",
+      "password": "password123",
+      "licensePlates": [],
+      "tierId": "member",
+      "tierName": "Member",
+      "pointsBalance": 0,
+      "vehicles": [],
+      "pointHistory": [],
+      "bookingHistory": [],
+      "lateCancellationWarningCount": 0,
+      "priorityStatus": "normal",
+      "status": "Active",
+      "createdAt": "2026-08-19T18:48:27.278Z",
+      "updatedAt": "2026-08-19T18:48:27.278Z"
+    },
+    {
+      "id": "1787165640092-s0cvbgyz",
+      "phone": "123123123",
+      "username": "cuongtest0",
+      "email": "cuongtest@abc.com",
+      "fullName": "Cuong Test",
+      "password": "123123123",
+      "licensePlates": [],
+      "tierId": "member",
+      "tierName": "Member",
+      "pointsBalance": 0,
+      "vehicles": [],
+      "pointHistory": [],
+      "bookingHistory": [],
+      "lateCancellationWarningCount": 0,
+      "priorityStatus": "normal",
+      "status": "Active",
+      "createdAt": "2026-08-19T18:54:00.092Z",
+      "updatedAt": "2026-08-19T18:54:00.092Z"
     }
   ],
-  "tiers": [],
-  "rewardOffers": [],
+  "tiers": [
+    {
+      "id": "member",
+      "name": "Member",
+      "bookingWindowDays": 7,
+      "pointRate": 1,
+      "perks": [
+        "basic early access",
+        "standard wash add-on"
+      ],
+      "description": "Standard loyalty level with a 7-day booking window and baseline points earning.",
+      "isActive": true,
+      "createdAt": "2026-08-10T00:00:00.000Z",
+      "updatedAt": "2026-08-10T00:00:00.000Z"
+    },
+    {
+      "id": "silver",
+      "name": "Silver",
+      "bookingWindowDays": 10,
+      "pointRate": 1.25,
+      "perks": [
+        "silver priority booking",
+        "express rinse"
+      ],
+      "description": "Silver members receive a 10-day booking window and faster wash options.",
+      "isActive": true,
+      "createdAt": "2026-08-10T00:00:00.000Z",
+      "updatedAt": "2026-08-10T00:00:00.000Z"
+    },
+    {
+      "id": "gold",
+      "name": "Gold",
+      "bookingWindowDays": 12,
+      "pointRate": 1.5,
+      "perks": [
+        "gold priority booking",
+        "free premium wax"
+      ],
+      "description": "Gold tier increases your booking window and unlocks premium treatment perks.",
+      "isActive": true,
+      "createdAt": "2026-08-10T00:00:00.000Z",
+      "updatedAt": "2026-08-10T00:00:00.000Z"
+    },
+    {
+      "id": "platinum",
+      "name": "Platinum",
+      "bookingWindowDays": 14,
+      "pointRate": 2,
+      "perks": [
+        "platinum priority booking",
+        "free premium wax",
+        "exclusive service bundle"
+      ],
+      "description": "Platinum tier gives the longest window and the most generous perks.",
+      "isActive": true,
+      "createdAt": "2026-08-10T00:00:00.000Z",
+      "updatedAt": "2026-08-10T00:00:00.000Z"
+    }
+  ],
+  "rewardOffers": [
+    {
+      "id": "reward-1",
+      "title": "Free tire shine",
+      "description": "Redeem 200 points for a complimentary tire shine with your next wash.",
+      "pointsRequired": 200,
+      "eligibleTiers": [
+        "silver",
+        "gold",
+        "platinum"
+      ]
+    },
+    {
+      "id": "reward-2",
+      "title": "Free vacuum add-on",
+      "description": "Redeem 300 points for a free interior vacuum add-on.",
+      "pointsRequired": 300,
+      "eligibleTiers": [
+        "gold",
+        "platinum"
+      ]
+    },
+    {
+      "id": "reward-3",
+      "title": "10% discount on premium wash",
+      "description": "Redeem 150 points for a 10% discount on a premium wash package.",
+      "pointsRequired": 150,
+      "eligibleTiers": [
+        "member",
+        "silver",
+        "gold",
+        "platinum"
+      ]
+    },
+    {
+      "id": "reward-4",
+      "title": "Motorcycle express treatment",
+      "description": "Redeem 120 points for a motorcycle express service boost.",
+      "pointsRequired": 120,
+      "eligibleTiers": [
+        "member",
+        "silver",
+        "gold",
+        "platinum"
+      ],
+      "vehicleTypes": [
+        "motorcycle"
+      ]
+    }
+  ],
   "promotions": [
     {
       "id": "promo-1",
@@ -66,15 +220,88 @@
       "isActive": true
     }
   ],
-  "auditLogs": [
+  "auditLogs": [],
+  "tierSets": [
     {
-      "id": "1787132080210-9gasknzx",
-      "timestamp": "2026-08-19T09:34:40.210Z",
-      "actor": "admin",
-      "actionType": "adjust-points",
-      "entityType": "customer",
-      "entityId": "cust-test-1",
-      "details": "Adjusted points: +50 pts. Reason: Customer goodwill bonus"
+      "id": "default-tier-set",
+      "name": "Standard Loyalty Tier Set",
+      "status": "Active",
+      "description": "Default loyalty tier progression configuration with 4 tiers",
+      "tiers": [
+        {
+          "id": "tier-member",
+          "name": "Member",
+          "level": "MEMBER",
+          "pointThreshold": 0,
+          "bookingWindowDays": 7,
+          "pointRate": 1,
+          "multiplier": "1.0x",
+          "discount": "0%",
+          "perks": [
+            "basic early access",
+            "standard wash add-on"
+          ],
+          "description": "Standard loyalty level with a 7-day booking window and baseline points earning.",
+          "isActive": true,
+          "createdAt": "2026-08-01T00:00:00.000Z",
+          "updatedAt": "2026-08-01T00:00:00.000Z"
+        },
+        {
+          "id": "tier-silver",
+          "name": "Silver",
+          "level": "SILVER",
+          "pointThreshold": 500,
+          "bookingWindowDays": 10,
+          "pointRate": 1.25,
+          "multiplier": "1.25x",
+          "discount": "5%",
+          "perks": [
+            "silver priority booking",
+            "express rinse"
+          ],
+          "description": "Silver members receive a 10-day booking window and faster wash options.",
+          "isActive": true,
+          "createdAt": "2026-08-01T00:00:00.000Z",
+          "updatedAt": "2026-08-01T00:00:00.000Z"
+        },
+        {
+          "id": "tier-gold",
+          "name": "Gold",
+          "level": "GOLD",
+          "pointThreshold": 1500,
+          "bookingWindowDays": 12,
+          "pointRate": 1.5,
+          "multiplier": "1.5x",
+          "discount": "10%",
+          "perks": [
+            "gold priority booking",
+            "free premium wax"
+          ],
+          "description": "Gold tier increases your booking window and unlocks premium treatment perks.",
+          "isActive": true,
+          "createdAt": "2026-08-01T00:00:00.000Z",
+          "updatedAt": "2026-08-01T00:00:00.000Z"
+        },
+        {
+          "id": "tier-platinum",
+          "name": "Platinum",
+          "level": "PLATINUM",
+          "pointThreshold": 3000,
+          "bookingWindowDays": 14,
+          "pointRate": 2,
+          "multiplier": "2.0x",
+          "discount": "15%",
+          "perks": [
+            "platinum priority booking",
+            "free premium wax",
+            "exclusive service bundle"
+          ],
+          "description": "Platinum tier gives the longest window and the most generous perks.",
+          "isActive": true,
+          "createdAt": "2026-08-01T00:00:00.000Z",
+          "updatedAt": "2026-08-01T00:00:00.000Z"
+        }
+      ]
     }
   ],
   "services": [
