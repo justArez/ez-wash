@@ -1,7 +1,7 @@
 import type {
   Booking,
+  ClaimedPromo,
   LoyaltyCustomer,
-  LoyaltyStore,
   RewardOffer,
   Vehicle,
 } from "../models/loyalty.model";
@@ -11,8 +11,14 @@ import {
   getTier,
 } from "./tier.service";
 import { suggestRewards } from "./reward.service";
+import { fetchAllRewards } from "./reward.service";
+import {
+  findCustomerRecord,
+  loadCustomerDetails,
+  fetchCustomerById,
+} from "./customer.service";
 import { db, schema } from "../db/index";
-import { sql } from "drizzle-orm";
+import { sql, eq, or } from "drizzle-orm";
 
 function createId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -22,93 +28,30 @@ function normalizePlate(plate: string) {
   return plate.trim().toUpperCase();
 }
 
-export async function checkUsernameExists(
-  store: LoyaltyStore,
-  username: string,
-): Promise<boolean> {
+export async function checkUsernameExists(username: string): Promise<boolean> {
+  if (!db) {
+    throw new Error("Database connection is not available.");
+  }
+
   const normalized = username.trim().toLowerCase();
   if (!normalized) return false;
 
-  // Check in store
-  const foundInStore = store.customers.some(
-    (c) => c.username && c.username.trim().toLowerCase() === normalized,
-  );
-  if (foundInStore) return true;
+  const rows = await db
+    .select({ id: schema.loyaltyCustomers.id })
+    .from(schema.loyaltyCustomers)
+    .where(sql`lower(${schema.loyaltyCustomers.username}) = ${normalized}`)
+    .limit(1);
 
-  // Check in Postgres DB if connected
-  if (db) {
-    try {
-      const rows = await db
-        .select({ id: schema.loyaltyCustomers.id })
-        .from(schema.loyaltyCustomers)
-        .where(sql`lower(${schema.loyaltyCustomers.username}) = ${normalized}`)
-        .limit(1);
-      if (rows && rows.length > 0) return true;
-    } catch (err) {
-      console.warn("DB check-username query error:", err);
-    }
-  }
-
-  return false;
+  return rows.length > 0;
 }
 
 export async function fetchCustomerByIdentifier(
-  store: LoyaltyStore,
   phoneOrUsernameOrEmail: string,
 ): Promise<LoyaltyCustomer | undefined> {
-  let customer = findCustomer(store, phoneOrUsernameOrEmail);
-
-  if ((!customer || !customer.password) && db) {
-    try {
-      const normalized = phoneOrUsernameOrEmail.trim().toLowerCase();
-      const rows = await db
-        .select()
-        .from(schema.loyaltyCustomers)
-        .where(
-          sql`lower(${schema.loyaltyCustomers.phone}) = ${normalized} OR lower(${schema.loyaltyCustomers.username}) = ${normalized} OR lower(${schema.loyaltyCustomers.email}) = ${normalized}`,
-        )
-        .limit(1);
-
-      if (rows && rows.length > 0) {
-        const dbCust = rows[0];
-        if (!customer) {
-          customer = {
-            id: dbCust.id,
-            phone: dbCust.phone,
-            username: dbCust.username || undefined,
-            password: dbCust.password || undefined,
-            email: dbCust.email || undefined,
-            fullName: dbCust.fullName || undefined,
-            tierId: dbCust.tierId,
-            pointsBalance: dbCust.pointsBalance,
-            collectedPoints: dbCust.collectedPoints,
-            vehicles: [],
-            pointHistory: [],
-            bookingHistory: [],
-            lateCancellationWarningCount: dbCust.lateCancellationWarningCount,
-            priorityStatus: dbCust.priorityStatus,
-            status: dbCust.status as any,
-            createdAt: dbCust.createdAt.toISOString(),
-            updatedAt: dbCust.updatedAt.toISOString(),
-          };
-          store.customers.push(customer);
-        } else if (dbCust.password) {
-          customer.password = dbCust.password;
-        }
-      }
-    } catch (dbErr) {
-      console.warn(
-        "[LoyaltyService] Could not query Supabase during customer lookup:",
-        dbErr,
-      );
-    }
-  }
-
-  return customer;
+  return findCustomerRecord(phoneOrUsernameOrEmail);
 }
 
 export async function linkCustomerAccount(
-  store: LoyaltyStore,
   phone: string,
   plate?: string,
   model?: string,
@@ -120,229 +63,85 @@ export async function linkCustomerAccount(
     password?: string;
   },
 ): Promise<LoyaltyCustomer> {
-  const customer = linkAccount(store, phone, plate, model, type, options);
-
-  if (db) {
-    try {
-      await db
-        .insert(schema.loyaltyCustomers)
-        .values({
-          id: customer.id,
-          phone: customer.phone,
-          username: customer.username || null,
-          password: customer.password || null,
-          email: customer.email || null,
-          fullName: customer.fullName || customer.username || null,
-          tierId: customer.tierId || "member",
-          pointsBalance: customer.pointsBalance || 0,
-          collectedPoints: customer.collectedPoints || 0,
-          lateCancellationWarningCount:
-            customer.lateCancellationWarningCount || 0,
-          priorityStatus: customer.priorityStatus || "normal",
-          status: customer.status || "Active",
-        })
-        .onConflictDoUpdate({
-          target: schema.loyaltyCustomers.id,
-          set: {
-            phone: customer.phone,
-            username: customer.username || null,
-            password: customer.password || null,
-            email: customer.email || null,
-            fullName: customer.fullName || customer.username || null,
-            updatedAt: new Date(),
-          },
-        });
-
-      if (customer.vehicles && customer.vehicles.length > 0) {
-        for (const v of customer.vehicles) {
-          await db
-            .insert(schema.vehicles)
-            .values({
-              customerId: customer.id,
-              plate: v.plate,
-              model: v.model,
-              type: (v.type as any) || "car",
-            })
-            .onConflictDoNothing();
-        }
-      }
-    } catch (dbErr) {
-      console.warn("Could not sync customer to Postgres DB:", dbErr);
-    }
+  if (!db) {
+    throw new Error("Database connection is not available.");
   }
 
-  return customer;
-}
-
-export function findCustomer(
-  store: LoyaltyStore,
-  phoneOrUsernameOrEmail?: string,
-  plate?: string,
-) {
-  const normalizedIdent = phoneOrUsernameOrEmail
-    ? phoneOrUsernameOrEmail.trim().toLowerCase()
-    : "";
-  const normalizedPlate = plate ? normalizePlate(plate) : undefined;
-
-  if (!normalizedIdent && !normalizedPlate) {
-    return undefined;
-  }
-
-  const found = store.customers.find((customer) => {
-    if (normalizedIdent) {
-      if (customer.phone && customer.phone.toLowerCase() === normalizedIdent) {
-        return true;
-      }
-      if (
-        customer.username &&
-        customer.username.toLowerCase() === normalizedIdent
-      ) {
-        return true;
-      }
-      if (customer.email && customer.email.toLowerCase() === normalizedIdent) {
-        return true;
-      }
-    }
-    if (
-      normalizedPlate &&
-      customer.licensePlates &&
-      customer.licensePlates.includes(normalizedPlate)
-    ) {
-      return true;
-    }
-    return false;
-  });
-
-  console.log(
-    `[LoyaltyService] findCustomer(ident: "${normalizedIdent}", plate: "${normalizedPlate}") -> ${found ? `Found Customer (ID: ${found.id}, user: ${found.username || found.phone})` : "Not found"}`,
-  );
-  return found;
-}
-
-export function linkAccount(
-  store: LoyaltyStore,
-  phone: string,
-  plate?: string,
-  model?: string,
-  type?: "car" | "motorcycle",
-  options?: {
-    username?: string;
-    email?: string;
-    fullName?: string;
-    password?: string;
-  },
-) {
   const normalizedPhone = phone ? phone.trim() : "";
   const normalizedPlate = plate ? normalizePlate(plate) : undefined;
   const username = options?.username?.trim();
   const email = options?.email?.trim();
   const fullName = options?.fullName?.trim();
 
-  console.log(`[LoyaltyService] linkAccount invoked with options:`, {
-    phone: normalizedPhone,
-    username,
-    email,
-    plate: normalizedPlate,
-  });
+  let existing: LoyaltyCustomer | undefined;
+  if (username) existing = await findCustomerRecord(username);
+  if (!existing && normalizedPhone)
+    existing = await findCustomerRecord(normalizedPhone);
+  if (!existing && email) existing = await findCustomerRecord(email);
 
-  // Find existing customer by username, phone, or email (credentials only)
-  let existingCustomer: LoyaltyCustomer | undefined;
-  if (username) {
-    existingCustomer = findCustomer(store, username);
-  }
-  if (!existingCustomer && normalizedPhone) {
-    existingCustomer = findCustomer(store, normalizedPhone);
-  }
-  if (!existingCustomer && email) {
-    existingCustomer = findCustomer(store, email);
+  let customerId: string;
+
+  if (existing) {
+    customerId = existing.id;
+    await db
+      .update(schema.loyaltyCustomers)
+      .set({
+        phone: normalizedPhone || existing.phone,
+        username: username || existing.username || null,
+        email: email || existing.email || null,
+        fullName: fullName || existing.fullName || null,
+        password: options?.password || existing.password || null,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.loyaltyCustomers.id, customerId));
+  } else {
+    customerId = createId();
+    await db.insert(schema.loyaltyCustomers).values({
+      id: customerId,
+      phone: normalizedPhone || (username ? username : `acc-${Date.now()}`),
+      username: username || null,
+      email: email || null,
+      fullName:
+        fullName ||
+        username ||
+        (normalizedPhone ? `User ${normalizedPhone}` : "New Member"),
+      password: options?.password || null,
+      tierId: "member",
+    });
   }
 
-  const now = new Date().toISOString();
-
-  const vehicle: Vehicle | undefined = normalizedPlate
-    ? {
+  if (normalizedPlate) {
+    const vehicleExists = await db
+      .select({ id: schema.vehicles.id })
+      .from(schema.vehicles)
+      .where(
+        sql`${schema.vehicles.customerId} = ${customerId} AND upper(${schema.vehicles.plate}) = ${normalizedPlate}`,
+      )
+      .limit(1);
+    if (vehicleExists.length === 0) {
+      await db.insert(schema.vehicles).values({
+        id: createId(),
+        customerId,
         plate: normalizedPlate,
         model: model?.trim() || "Default Vehicle",
         type: type || "car",
-      }
-    : undefined;
-
-  if (existingCustomer) {
-    if (
-      normalizedPlate &&
-      !existingCustomer.licensePlates.includes(normalizedPlate)
-    ) {
-      existingCustomer.licensePlates.push(normalizedPlate);
+      });
     }
-    if (vehicle) {
-      existingCustomer.vehicles = existingCustomer.vehicles || [];
-      const vehicleExists = existingCustomer.vehicles.some(
-        (item) => item.plate === normalizedPlate,
-      );
-      if (!vehicleExists) {
-        existingCustomer.vehicles.push(vehicle);
-      }
-    }
-    if (username && !existingCustomer.username) {
-      existingCustomer.username = username;
-    }
-    if (email && !existingCustomer.email) {
-      existingCustomer.email = email;
-    }
-    if (fullName && !existingCustomer.fullName) {
-      existingCustomer.fullName = fullName;
-    }
-    if (normalizedPhone && !existingCustomer.phone) {
-      existingCustomer.phone = normalizedPhone;
-    }
-    if (options?.password) {
-      existingCustomer.password = options.password;
-    }
-    existingCustomer.updatedAt = now;
-    return existingCustomer;
   }
 
-  const newCustomer: LoyaltyCustomer = {
-    id: createId(),
-    phone: normalizedPhone || (username ? username : `acc-${Date.now()}`),
-    username: username || undefined,
-    email: email || undefined,
-    fullName:
-      fullName ||
-      username ||
-      (normalizedPhone ? `User ${normalizedPhone}` : "New Member"),
-    password: options?.password || undefined,
-    licensePlates: normalizedPlate ? [normalizedPlate] : [],
-    tierId: "member",
-    tierName: "Member",
-    pointsBalance: 0,
-    collectedPoints: 0,
-    vehicles: vehicle ? [vehicle] : [],
-    pointHistory: [],
-    bookingHistory: [],
-    lateCancellationWarningCount: 0,
-    priorityStatus: "normal",
-    status: "Active",
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  store.customers.push(newCustomer);
-  return newCustomer;
+  return (await fetchCustomerById(customerId))!;
 }
 
-export function buildDashboard(store: LoyaltyStore, phone: string) {
-  console.log(
-    `[LoyaltyService] buildDashboard invoked for identifier: "${phone}"`,
-  );
-  const customer = findCustomer(store, phone);
+export async function buildDashboard(phone: string) {
+  const customer = await findCustomerRecord(phone);
   if (!customer) {
     return null;
   }
 
-  const tier = getTier(customer.tierId, store);
+  const tier = getTier(customer.tierId);
   const today = new Date().toISOString().split("T")[0];
-  const nextBookingDate = getNextBookingWindowDate(today, tier.id, store);
+  const nextBookingDate = getNextBookingWindowDate(today, tier.id);
+  const rewardOffers = await fetchAllRewards();
 
   return {
     customerId: customer.id,
@@ -355,8 +154,8 @@ export function buildDashboard(store: LoyaltyStore, phone: string) {
     collectedPoints: customer.collectedPoints ?? customer.pointsBalance,
     vehicles: customer.vehicles,
     nextEligibleBookingDate: nextBookingDate,
-    appliedPerks: getAppliedPerks(tier.id, store),
-    rewardSuggestions: suggestRewards(customer, store),
+    appliedPerks: getAppliedPerks(tier.id),
+    rewardSuggestions: suggestRewards(customer, rewardOffers),
     bookingHistory: customer.bookingHistory.slice().reverse(),
     lateCancellationWarningCount: customer.lateCancellationWarningCount ?? 0,
     priorityStatus:
@@ -368,13 +167,16 @@ export function buildDashboard(store: LoyaltyStore, phone: string) {
   };
 }
 
-export function cancelBooking(
-  store: LoyaltyStore,
+export async function cancelBooking(
   phone: string,
   bookingId: string,
   now = new Date(),
 ) {
-  const customer = findCustomer(store, phone);
+  if (!db) {
+    throw new Error("Database connection is not available.");
+  }
+
+  const customer = await findCustomerRecord(phone);
   if (!customer) {
     throw new Error("Customer not found.");
   }
@@ -410,13 +212,26 @@ export function cancelBooking(
     (customer.lateCancellationWarningCount ?? 0) + (isLateCancellation ? 1 : 0);
   const priorityStatus = warningCount >= 3 ? "LOW_PRIORITIED" : "normal";
 
-  booking.status = "cancelled";
-  booking.cancelledAt = now.toISOString();
-  booking.isLateCancellation = isLateCancellation;
-  customer.lateCancellationWarningCount = warningCount;
-  customer.priorityStatus = priorityStatus;
-  customer.updatedAt = now.toISOString();
-  store.auditLogs.push({
+  await db
+    .update(schema.bookings)
+    .set({
+      status: "cancelled",
+      cancelledAt: now,
+      isLateCancellation,
+      updatedAt: now,
+    })
+    .where(eq(schema.bookings.id, bookingId));
+
+  await db
+    .update(schema.loyaltyCustomers)
+    .set({
+      lateCancellationWarningCount: warningCount,
+      priorityStatus,
+      updatedAt: now,
+    })
+    .where(eq(schema.loyaltyCustomers.id, customer.id));
+
+  await db.insert(schema.auditLogs).values({
     id: createId(),
     actor: customer.id,
     actionType: isLateCancellation
@@ -424,11 +239,14 @@ export function cancelBooking(
       : "booking-cancelled",
     entityType: "booking",
     entityId: booking.id,
-    timestamp: now.toISOString(),
     details: isLateCancellation
       ? `Late cancellation warning ${warningCount} of 3.`
       : "Booking cancelled within the permitted notice period.",
   });
+
+  booking.status = "cancelled";
+  booking.cancelledAt = now.toISOString();
+  booking.isLateCancellation = isLateCancellation;
 
   return {
     success: true,
@@ -439,20 +257,23 @@ export function cancelBooking(
   };
 }
 
-export function createBooking(
-  store: LoyaltyStore,
+export async function createBooking(
   phone: string,
   vehiclePlate: string,
   requestedDate: string,
 ) {
-  const customer = findCustomer(store, phone, vehiclePlate);
+  if (!db) {
+    throw new Error("Database connection is not available.");
+  }
+
+  const normalizedVehiclePlate = normalizePlate(vehiclePlate);
+  const customer = await findCustomerRecord(phone, normalizedVehiclePlate);
   if (!customer) {
     throw new Error(
       "Customer not found for the provided phone or vehicle plate.",
     );
   }
 
-  const normalizedVehiclePlate = normalizePlate(vehiclePlate);
   const vehicle = customer.vehicles.find(
     (item) => item.plate === normalizedVehiclePlate,
   );
@@ -466,7 +287,7 @@ export function createBooking(
   requestedDay.setHours(0, 0, 0, 0);
   const todayDay = new Date(today);
   todayDay.setHours(0, 0, 0, 0);
-  const tier = getTier(customer.tierId, store);
+  const tier = getTier(customer.tierId);
   const latestAllowedDate = new Date(todayDay);
   latestAllowedDate.setDate(
     latestAllowedDate.getDate() + tier.bookingWindowDays,
@@ -476,31 +297,59 @@ export function createBooking(
     throw new Error("Requested booking date must be today or later.");
   }
 
-  const booking: Booking = {
-    id: createId(),
-    customerId: customer.id,
-    vehiclePlate: normalizedVehiclePlate,
-    date: requested.toISOString().split("T")[0],
-    createdAt: new Date().toISOString(),
-    appliedPerks: getAppliedPerks(tier.id, store),
-    status: "confirmed",
-  };
+  const bookingId = createId();
+  const appliedPerks = getAppliedPerks(tier.id);
 
   if (requestedDay > latestAllowedDate) {
-    booking.status = "blocked";
-    booking.note = `Booking date is outside the ${tier.bookingWindowDays}-day window.`;
-    customer.bookingHistory.push(booking);
+    const note = `Booking date is outside the ${tier.bookingWindowDays}-day window.`;
+    const booking: Booking = {
+      id: bookingId,
+      customerId: customer.id,
+      vehiclePlate: normalizedVehiclePlate,
+      date: requested.toISOString().split("T")[0],
+      createdAt: new Date().toISOString(),
+      appliedPerks,
+      status: "blocked",
+      note,
+    };
+
+    await db.insert(schema.bookings).values({
+      id: bookingId,
+      customerId: customer.id,
+      vehiclePlate: normalizedVehiclePlate,
+      date: requested,
+      status: "blocked",
+      appliedPerks,
+      note,
+    });
+
     const nextEligible = latestAllowedDate.toISOString().split("T")[0];
     return {
       success: false,
-      reason: booking.note,
+      reason: note,
       nextEligibleBookingDate: nextEligible,
       booking,
     };
   }
 
-  customer.bookingHistory.push(booking);
-  customer.updatedAt = new Date().toISOString();
+  const booking: Booking = {
+    id: bookingId,
+    customerId: customer.id,
+    vehiclePlate: normalizedVehiclePlate,
+    date: requested.toISOString().split("T")[0],
+    createdAt: new Date().toISOString(),
+    appliedPerks,
+    status: "confirmed",
+  };
+
+  await db.insert(schema.bookings).values({
+    id: bookingId,
+    customerId: customer.id,
+    vehiclePlate: normalizedVehiclePlate,
+    date: requested,
+    status: "confirmed",
+    appliedPerks,
+  });
 
   return {
     success: true,
@@ -508,10 +357,11 @@ export function createBooking(
   };
 }
 
-export function getRewardRecommendations(store: LoyaltyStore, phone: string) {
-  const customer = findCustomer(store, phone);
+export async function getRewardRecommendations(phone: string) {
+  const customer = await findCustomerRecord(phone);
   if (!customer) {
     return [] as RewardOffer[];
   }
-  return suggestRewards(customer, store);
+  const rewardOffers = await fetchAllRewards();
+  return suggestRewards(customer, rewardOffers);
 }

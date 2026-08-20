@@ -302,17 +302,6 @@ export interface AdminDashboardData {
   recentActivity: RecentActivity[];
 }
 
-export interface LoyaltyStore {
-  customers: LoyaltyCustomer[];
-  tiers: LoyaltyTier[];
-  tierSets?: TierSet[];
-  services?: ServiceItem[];
-  rewardOffers: RewardOffer[];
-  promotions: Promotion[];
-  auditLogs: AuditLog[];
-  lastTierEvaluationDate?: string;
-}
-
 export const TIERS: Record<LoyaltyTierId, LoyaltyTier> = {
   member: {
     id: "member",

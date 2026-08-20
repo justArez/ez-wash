@@ -2,24 +2,45 @@ import type {
   AdminDashboardData,
   BayStatus,
   DashboardMetrics,
-  LoyaltyStore,
   RecentActivity,
   WeeklyBookingStat,
 } from "../models/loyalty.model";
-import { getAllServices } from "./service.service";
+import { fetchAllServices } from "./service.service";
+import { db, schema } from "../db/index";
 
-export function getAdminDashboardData(store: LoyaltyStore): AdminDashboardData {
-  const allCustomers = store.customers || [];
-  const allBookings = allCustomers.flatMap((c) =>
-    (c.bookingHistory || []).map((b) => ({
-      ...b,
-      customerName: c.fullName || c.username || `Customer (${c.phone})`,
-      customerPhone: c.phone,
-      customerTier: c.tierId,
-    })),
-  );
+export async function getAdminDashboardData(): Promise<AdminDashboardData> {
+  if (!db) {
+    throw new Error("Database connection is not available.");
+  }
 
-  const services = getAllServices(store);
+  const bookingRows = await db.select().from(schema.bookings);
+  const customerRows = await db.select().from(schema.loyaltyCustomers);
+  const customerMap = new Map(customerRows.map((c) => [c.id, c]));
+
+  const allBookings = bookingRows.map((b) => {
+    const customer = customerMap.get(b.customerId);
+    return {
+      id: b.id,
+      date: b.date.toISOString().split("T")[0],
+      status: b.status,
+      serviceId: b.serviceId || undefined,
+      service: undefined as string | undefined,
+      serviceName: undefined as string | undefined,
+      vehiclePlate: b.vehiclePlate,
+      vehicleModel: undefined as string | undefined,
+      timeSlot: b.timeSlot || undefined,
+      time: b.timeSlot || undefined,
+      createdAt: b.createdAt.toISOString(),
+      customerName:
+        customer?.fullName ||
+        customer?.username ||
+        `Customer (${customer?.phone})`,
+      customerPhone: customer?.phone,
+      customerTier: customer?.tierId,
+    };
+  });
+
+  const services = await fetchAllServices();
   const servicePriceMap = new Map<string, number>();
   services.forEach((s) => {
     servicePriceMap.set(s.id, s.price);

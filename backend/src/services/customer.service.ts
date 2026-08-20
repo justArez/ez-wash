@@ -1,265 +1,161 @@
 import type {
   LoyaltyCustomer,
-  LoyaltyStore,
   PointTransaction,
   Vehicle,
 } from "../models/loyalty.model";
-import { findCustomer } from "./loyalty.service";
-import { getTier } from "./tier.service";
 import { db, schema } from "../db/index";
-import { sql } from "drizzle-orm";
+import { sql, eq, or } from "drizzle-orm";
 
 function createId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-export async function fetchAllCustomers(
-  store: LoyaltyStore,
-  options?: { query?: string; tier?: string; status?: string },
-): Promise<LoyaltyCustomer[]> {
-  if (db) {
-    try {
-      const dbCustomers = await db.select().from(schema.loyaltyCustomers);
-      if (dbCustomers && dbCustomers.length > 0) {
-        for (const dbC of dbCustomers) {
-          const existing = store.customers.find(
-            (c) => c.id === dbC.id || c.phone === dbC.phone,
-          );
-          if (!existing) {
-            store.customers.push({
-              id: dbC.id,
-              phone: dbC.phone || "",
-              username: dbC.username || undefined,
-              fullName: dbC.fullName || undefined,
-              email: dbC.email || undefined,
-              tierId: dbC.tierId,
-              pointsBalance: dbC.pointsBalance,
-              collectedPoints: dbC.collectedPoints,
-              vehicles: [],
-              pointHistory: [],
-              bookingHistory: [],
-              lateCancellationWarningCount: dbC.lateCancellationWarningCount,
-              priorityStatus: dbC.priorityStatus,
-              status: dbC.status as any,
-              createdAt: dbC.createdAt.toISOString(),
-              updatedAt: dbC.updatedAt.toISOString(),
-            });
-          }
-        }
-      }
-    } catch (err) {
-      console.warn("Could not query users from Postgres DB:", err);
-    }
-  }
+export async function loadCustomerDetails(
+  dbC: typeof schema.loyaltyCustomers.$inferSelect,
+): Promise<LoyaltyCustomer> {
+  const [vehicleRows, txRows, bookingRows, claimedRows] = await Promise.all([
+    db!
+      .select()
+      .from(schema.vehicles)
+      .where(eq(schema.vehicles.customerId, dbC.id)),
+    db!
+      .select()
+      .from(schema.pointTransactions)
+      .where(eq(schema.pointTransactions.customerId, dbC.id)),
+    db!
+      .select()
+      .from(schema.bookings)
+      .where(eq(schema.bookings.customerId, dbC.id)),
+    db!
+      .select()
+      .from(schema.claimedPromos)
+      .where(eq(schema.claimedPromos.customerId, dbC.id)),
+  ]);
 
-  return getAllCustomers(store, options);
+  const vehicles: Vehicle[] = vehicleRows.map((v) => ({
+    plate: v.plate,
+    model: v.model,
+    type: v.type,
+    lastWashDate: v.lastWashDate?.toISOString(),
+  }));
+
+  const pointHistory: PointTransaction[] = txRows.map((t) => ({
+    id: t.id,
+    type: t.type,
+    amount: t.amount,
+    date: t.date.toISOString(),
+    description: t.description,
+  }));
+
+  const bookingHistory = bookingRows.map((b) => ({
+    id: b.id,
+    customerId: b.customerId,
+    vehiclePlate: b.vehiclePlate,
+    serviceId: b.serviceId || undefined,
+    date: b.date.toISOString().split("T")[0],
+    time: b.timeSlot || undefined,
+    timeSlot: b.timeSlot || undefined,
+    durationMinutes: b.durationMinutes || undefined,
+    bayId: b.bayId || undefined,
+    createdAt: b.createdAt.toISOString(),
+    updatedAt: b.updatedAt.toISOString(),
+    appliedPerks: b.appliedPerks || [],
+    appliedPromoId: b.appliedPromoId || undefined,
+    pointsEarned: b.pointsEarned,
+    pointsSpent: b.pointsSpent,
+    status: b.status,
+    cancelledAt: b.cancelledAt?.toISOString(),
+    isLateCancellation: b.isLateCancellation,
+    note: b.note || undefined,
+  }));
+
+  return {
+    id: dbC.id,
+    phone: dbC.phone || "",
+    username: dbC.username || undefined,
+    password: dbC.password || undefined,
+    fullName: dbC.fullName || undefined,
+    email: dbC.email || undefined,
+    licensePlates: vehicles.map((v) => v.plate),
+    tierId: dbC.tierId,
+    pointsBalance: dbC.pointsBalance,
+    collectedPoints: dbC.collectedPoints,
+    vehicles,
+    pointHistory,
+    bookingHistory,
+    claimedPromos: claimedRows.map((c) => ({
+      id: c.id,
+      promoId: c.promoId,
+      customerId: c.customerId,
+      title: c.title,
+      description: c.description || undefined,
+      claimedAt: c.claimedAt.toISOString(),
+      validUntil: c.validUntil.toISOString().split("T")[0],
+      status: c.status,
+      perkIdentifier: c.perkIdentifier,
+    })),
+    lateCancellationWarningCount: dbC.lateCancellationWarningCount,
+    priorityStatus: dbC.priorityStatus,
+    status: dbC.status as any,
+    createdAt: dbC.createdAt.toISOString(),
+    updatedAt: dbC.updatedAt.toISOString(),
+  };
 }
 
-export async function fetchCustomerById(
-  store: LoyaltyStore,
-  id: string,
+export async function findCustomerRecord(
+  phoneOrUsernameOrEmail?: string,
+  plate?: string,
 ): Promise<LoyaltyCustomer | undefined> {
-  let customer = getCustomerById(store, id);
-  if (!customer && db) {
-    try {
+  if (!db) {
+    throw new Error("Database connection is not available.");
+  }
+
+  if (plate) {
+    const vehicleRows = await db
+      .select()
+      .from(schema.vehicles)
+      .where(sql`upper(${schema.vehicles.plate}) = ${plate.toUpperCase()}`)
+      .limit(1);
+    if (vehicleRows.length > 0) {
       const rows = await db
         .select()
         .from(schema.loyaltyCustomers)
-        .where(sql`${schema.loyaltyCustomers.id} = ${id}`)
+        .where(eq(schema.loyaltyCustomers.id, vehicleRows[0].customerId))
         .limit(1);
-      if (rows && rows.length > 0) {
-        const dbC = rows[0];
-        customer = {
-          id: dbC.id,
-          phone: dbC.phone || "",
-          username: dbC.username || undefined,
-          fullName: dbC.fullName || undefined,
-          email: dbC.email || undefined,
-          tierId: dbC.tierId,
-          pointsBalance: dbC.pointsBalance,
-          collectedPoints: dbC.collectedPoints,
-          vehicles: [],
-          pointHistory: [],
-          bookingHistory: [],
-          lateCancellationWarningCount: dbC.lateCancellationWarningCount,
-          priorityStatus: dbC.priorityStatus,
-          status: dbC.status as any,
-          createdAt: dbC.createdAt.toISOString(),
-          updatedAt: dbC.updatedAt.toISOString(),
-        };
-        store.customers.push(customer);
-      }
-    } catch (err) {
-      console.warn("Could not query user by id from Postgres DB:", err);
+      if (rows.length > 0) return loadCustomerDetails(rows[0]);
     }
   }
 
-  return customer;
-}
-
-export async function createCustomerItem(
-  store: LoyaltyStore,
-  data: {
-    phone: string;
-    fullName?: string;
-    email?: string;
-    tierId?: string;
-    pointsBalance?: number;
-    collectedPoints?: number;
-    initialVehicle?: {
-      plate: string;
-      model: string;
-      type: "car" | "motorcycle" | "suv" | "van";
-    };
-  },
-): Promise<LoyaltyCustomer> {
-  const customer = createCustomer(store, data);
-
-  if (db) {
-    try {
-      await db
-        .insert(schema.loyaltyCustomers)
-        .values({
-          id: customer.id,
-          phone: customer.phone,
-          username: customer.username || null,
-          email: customer.email || null,
-          fullName: customer.fullName || null,
-          tierId: customer.tierId || "member",
-          pointsBalance: customer.pointsBalance || 0,
-          collectedPoints: customer.collectedPoints || 0,
-          lateCancellationWarningCount:
-            customer.lateCancellationWarningCount || 0,
-          priorityStatus: customer.priorityStatus || "normal",
-          status: customer.status || "Active",
-        })
-        .onConflictDoUpdate({
-          target: schema.loyaltyCustomers.id,
-          set: {
-            phone: customer.phone,
-            username: customer.username || null,
-            email: customer.email || null,
-            fullName: customer.fullName || null,
-            tierId: customer.tierId || "member",
-            pointsBalance: customer.pointsBalance || 0,
-            status: customer.status || "Active",
-            updatedAt: new Date(),
-          },
-        });
-    } catch (err) {
-      console.warn("Could not sync created user to Postgres DB:", err);
-    }
+  if (phoneOrUsernameOrEmail) {
+    const value = phoneOrUsernameOrEmail.trim();
+    const rows = await db
+      .select()
+      .from(schema.loyaltyCustomers)
+      .where(
+        or(
+          eq(schema.loyaltyCustomers.phone, value),
+          eq(schema.loyaltyCustomers.username, value),
+          eq(schema.loyaltyCustomers.email, value),
+        ),
+      )
+      .limit(1);
+    if (rows.length > 0) return loadCustomerDetails(rows[0]);
   }
 
-  return customer;
+  return undefined;
 }
 
-export async function updateCustomerItem(
-  store: LoyaltyStore,
-  id: string,
-  data: Partial<LoyaltyCustomer>,
-): Promise<LoyaltyCustomer | null> {
-  const customer = updateCustomer(store, id, data);
-  if (!customer) return null;
-
-  if (db) {
-    try {
-      await db
-        .update(schema.loyaltyCustomers)
-        .set({
-          phone: customer.phone,
-          username: customer.username || null,
-          email: customer.email || null,
-          fullName: customer.fullName || null,
-          tierId: customer.tierId || "member",
-          pointsBalance: customer.pointsBalance || 0,
-          status: customer.status || "Active",
-          updatedAt: new Date(),
-        })
-        .where(sql`${schema.loyaltyCustomers.id} = ${id}`);
-    } catch (err) {
-      console.warn("Could not update user in Postgres DB:", err);
-    }
+export async function fetchAllCustomers(options?: {
+  query?: string;
+  tier?: string;
+  status?: string;
+}): Promise<LoyaltyCustomer[]> {
+  if (!db) {
+    throw new Error("Database connection is not available.");
   }
 
-  return customer;
-}
-
-export async function adjustCustomerPointsItem(
-  store: LoyaltyStore,
-  id: string,
-  delta: number,
-  reason: string,
-  options?: { affectsCollectedPoints?: boolean },
-): Promise<{
-  customer: LoyaltyCustomer;
-  transaction: PointTransaction;
-} | null> {
-  const result = adjustCustomerPoints(store, id, delta, reason, options);
-  if (!result) return null;
-
-  if (db) {
-    try {
-      await db
-        .update(schema.loyaltyCustomers)
-        .set({
-          pointsBalance: result.customer.pointsBalance,
-          collectedPoints: result.customer.collectedPoints,
-          updatedAt: new Date(),
-        })
-        .where(sql`${schema.loyaltyCustomers.id} = ${id}`);
-
-      if (result.transaction) {
-        await db
-          .insert(schema.pointTransactions)
-          .values({
-            id: result.transaction.id,
-            customerId: id,
-            type: result.transaction.type as any,
-            amount: result.transaction.amount,
-            description: result.transaction.description,
-            date: new Date(result.transaction.date),
-          })
-          .onConflictDoNothing();
-      }
-    } catch (err) {
-      console.warn("Could not persist adjusted points to Postgres DB:", err);
-    }
-  }
-
-  return result;
-}
-
-export async function resetCustomerWarningsItem(
-  store: LoyaltyStore,
-  id: string,
-): Promise<LoyaltyCustomer | null> {
-  const customer = resetCustomerWarnings(store, id);
-  if (!customer) return null;
-
-  if (db) {
-    try {
-      await db
-        .update(schema.loyaltyCustomers)
-        .set({
-          lateCancellationWarningCount: 0,
-          priorityStatus: "normal",
-          updatedAt: new Date(),
-        })
-        .where(sql`${schema.loyaltyCustomers.id} = ${id}`);
-    } catch (err) {
-      console.warn("Could not reset customer warnings in Postgres DB:", err);
-    }
-  }
-
-  return customer;
-}
-
-export function getAllCustomers(
-  store: LoyaltyStore,
-  options?: { query?: string; tier?: string; status?: string },
-): LoyaltyCustomer[] {
-  let list = store.customers || [];
+  const dbCustomers = await db.select().from(schema.loyaltyCustomers);
+  let list = await Promise.all(dbCustomers.map((c) => loadCustomerDetails(c)));
 
   if (options?.query) {
     const q = options.query.toLowerCase().trim();
@@ -293,154 +189,186 @@ export function getAllCustomers(
   return list;
 }
 
-export function getCustomerById(
-  store: LoyaltyStore,
+export async function fetchCustomerById(
   id: string,
-): LoyaltyCustomer | undefined {
-  return store.customers.find((c) => c.id === id);
+): Promise<LoyaltyCustomer | undefined> {
+  if (!db) {
+    throw new Error("Database connection is not available.");
+  }
+
+  const rows = await db
+    .select()
+    .from(schema.loyaltyCustomers)
+    .where(eq(schema.loyaltyCustomers.id, id))
+    .limit(1);
+
+  if (rows.length === 0) return undefined;
+  return loadCustomerDetails(rows[0]);
 }
 
-export function createCustomer(
-  store: LoyaltyStore,
-  data: {
-    phone: string;
-    fullName?: string;
-    email?: string;
-    tierId?: string;
-    pointsBalance?: number;
-    collectedPoints?: number;
-    initialVehicle?: {
-      plate: string;
-      model: string;
-      type: "car" | "motorcycle" | "suv" | "van";
-    };
-  },
-): LoyaltyCustomer {
-  const existing = findCustomer(store, data.phone);
+export async function createCustomerItem(data: {
+  phone: string;
+  fullName?: string;
+  email?: string;
+  tierId?: string;
+  pointsBalance?: number;
+  collectedPoints?: number;
+  initialVehicle?: {
+    plate: string;
+    model: string;
+    type: "car" | "motorcycle" | "suv" | "van";
+  };
+}): Promise<LoyaltyCustomer> {
+  if (!db) {
+    throw new Error("Database connection is not available.");
+  }
+
+  const existing = await findCustomerRecord(data.phone);
   if (existing) {
     throw new Error(`Customer with phone ${data.phone} already exists.`);
   }
 
   const now = new Date().toISOString();
-  const vehicles: Vehicle[] = [];
-  const plates: string[] = [];
+  const id = createId();
+  const initialPoints = data.pointsBalance || 0;
+  const initialCollected =
+    data.collectedPoints !== undefined ? data.collectedPoints : initialPoints;
+
+  await db.insert(schema.loyaltyCustomers).values({
+    id,
+    phone: data.phone.trim(),
+    email: data.email?.trim() || null,
+    fullName: data.fullName?.trim() || null,
+    tierId: data.tierId || "member",
+    pointsBalance: initialPoints,
+    collectedPoints: initialCollected,
+  });
 
   if (data.initialVehicle) {
     const plateUpper = data.initialVehicle.plate.trim().toUpperCase();
-    plates.push(plateUpper);
-    vehicles.push({
+    await db.insert(schema.vehicles).values({
+      id: createId(),
+      customerId: id,
       plate: plateUpper,
       model: data.initialVehicle.model.trim() || "Standard Vehicle",
       type: data.initialVehicle.type || "car",
     });
   }
 
-  const initialPoints = data.pointsBalance || 0;
-  const initialCollected =
-    data.collectedPoints !== undefined ? data.collectedPoints : initialPoints;
-
-  const newCust: LoyaltyCustomer = {
-    id: createId(),
-    phone: data.phone.trim(),
-    fullName: data.fullName?.trim(),
-    email: data.email?.trim(),
-    licensePlates: plates,
-    tierId: data.tierId || "member",
-    pointsBalance: initialPoints,
-    collectedPoints: initialCollected,
-    vehicles,
-    pointHistory: initialPoints
-      ? [
-          {
-            id: createId(),
-            type: "earn",
-            amount: initialPoints,
-            date: now,
-            description: "Initial account points balance",
-          },
-        ]
-      : [],
-    bookingHistory: [],
-    lateCancellationWarningCount: 0,
-    priorityStatus: "normal",
-    status: "Active",
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  store.customers.push(newCust);
-  return newCust;
-}
-
-export function updateCustomer(
-  store: LoyaltyStore,
-  id: string,
-  data: Partial<LoyaltyCustomer>,
-): LoyaltyCustomer | null {
-  const customer = getCustomerById(store, id);
-  if (!customer) return null;
-
-  if (data.fullName !== undefined) customer.fullName = data.fullName;
-  if (data.email !== undefined) customer.email = data.email;
-  if (data.tierId !== undefined) customer.tierId = data.tierId;
-  if (data.status !== undefined) customer.status = data.status;
-  if (data.priorityStatus !== undefined)
-    customer.priorityStatus = data.priorityStatus;
-  if (data.pointsBalance !== undefined)
-    customer.pointsBalance = data.pointsBalance;
-  if (data.collectedPoints !== undefined)
-    customer.collectedPoints = data.collectedPoints;
-  if (data.vehicles !== undefined) {
-    customer.vehicles = data.vehicles;
-    customer.licensePlates = data.vehicles.map((v) => v.plate.toUpperCase());
+  if (initialPoints) {
+    await db.insert(schema.pointTransactions).values({
+      id: createId(),
+      customerId: id,
+      type: "earn",
+      amount: initialPoints,
+      description: "Initial account points balance",
+    });
   }
 
-  customer.updatedAt = new Date().toISOString();
-  return customer;
+  return (await fetchCustomerById(id))!;
 }
 
-export function adjustCustomerPoints(
-  store: LoyaltyStore,
+export async function updateCustomerItem(
+  id: string,
+  data: Partial<LoyaltyCustomer>,
+): Promise<LoyaltyCustomer | null> {
+  if (!db) {
+    throw new Error("Database connection is not available.");
+  }
+
+  const existing = await fetchCustomerById(id);
+  if (!existing) return null;
+
+  await db
+    .update(schema.loyaltyCustomers)
+    .set({
+      phone: data.phone ?? existing.phone,
+      username: data.username ?? existing.username ?? null,
+      email: data.email ?? existing.email ?? null,
+      fullName: data.fullName ?? existing.fullName ?? null,
+      tierId: data.tierId ?? existing.tierId,
+      pointsBalance: data.pointsBalance ?? existing.pointsBalance,
+      collectedPoints: data.collectedPoints ?? existing.collectedPoints,
+      priorityStatus: data.priorityStatus ?? existing.priorityStatus,
+      status: data.status ?? existing.status,
+      updatedAt: new Date(),
+    })
+    .where(eq(schema.loyaltyCustomers.id, id));
+
+  return fetchCustomerById(id) as Promise<LoyaltyCustomer>;
+}
+
+export async function adjustCustomerPointsItem(
   id: string,
   delta: number,
   reason: string,
   options?: { affectsCollectedPoints?: boolean },
-): { customer: LoyaltyCustomer; transaction: PointTransaction } | null {
-  const customer = getCustomerById(store, id);
-  if (!customer) return null;
-
-  const now = new Date().toISOString();
-  customer.pointsBalance = Math.max(0, customer.pointsBalance + delta);
-
-  if (delta > 0 && options?.affectsCollectedPoints !== false) {
-    customer.collectedPoints = (customer.collectedPoints ?? 0) + delta;
+): Promise<{
+  customer: LoyaltyCustomer;
+  transaction: PointTransaction;
+} | null> {
+  if (!db) {
+    throw new Error("Database connection is not available.");
   }
+
+  const existing = await fetchCustomerById(id);
+  if (!existing) return null;
+
+  const now = new Date();
+  const newBalance = Math.max(0, existing.pointsBalance + delta);
+  const newCollected =
+    delta > 0 && options?.affectsCollectedPoints !== false
+      ? (existing.collectedPoints ?? 0) + delta
+      : existing.collectedPoints;
+
+  await db
+    .update(schema.loyaltyCustomers)
+    .set({
+      pointsBalance: newBalance,
+      collectedPoints: newCollected,
+      updatedAt: now,
+    })
+    .where(eq(schema.loyaltyCustomers.id, id));
 
   const transaction: PointTransaction = {
     id: createId(),
     type: delta >= 0 ? "earn" : "spend",
     amount: Math.abs(delta),
-    date: now,
+    date: now.toISOString(),
     description:
       reason || `Manual adjustment (${delta > 0 ? "+" : ""}${delta} pts)`,
   };
 
-  customer.pointHistory.push(transaction);
-  customer.updatedAt = now;
+  await db.insert(schema.pointTransactions).values({
+    id: transaction.id,
+    customerId: id,
+    type: transaction.type,
+    amount: transaction.amount,
+    description: transaction.description,
+  });
 
+  const customer = (await fetchCustomerById(id))!;
   return { customer, transaction };
 }
 
-export function resetCustomerWarnings(
-  store: LoyaltyStore,
+export async function resetCustomerWarningsItem(
   id: string,
-): LoyaltyCustomer | null {
-  const customer = getCustomerById(store, id);
-  if (!customer) return null;
+): Promise<LoyaltyCustomer | null> {
+  if (!db) {
+    throw new Error("Database connection is not available.");
+  }
 
-  customer.lateCancellationWarningCount = 0;
-  customer.priorityStatus = "normal";
-  customer.updatedAt = new Date().toISOString();
+  const existing = await fetchCustomerById(id);
+  if (!existing) return null;
 
-  return customer;
+  await db
+    .update(schema.loyaltyCustomers)
+    .set({
+      lateCancellationWarningCount: 0,
+      priorityStatus: "normal",
+      updatedAt: new Date(),
+    })
+    .where(eq(schema.loyaltyCustomers.id, id));
+
+  return fetchCustomerById(id) as Promise<LoyaltyCustomer>;
 }

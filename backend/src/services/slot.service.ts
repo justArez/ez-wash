@@ -1,8 +1,6 @@
-import type {
-  LoyaltyStore,
-  TimeSlot,
-  TimeSlotWithComputedFields,
-} from "../models/loyalty.model";
+import type { TimeSlotWithComputedFields } from "../models/loyalty.model";
+import { db, schema } from "../db/index";
+import { sql } from "drizzle-orm";
 
 const OPERATING_HOURS = [
   "09:00",
@@ -45,22 +43,24 @@ function formatDisplayTime(timeStr: string): string {
   return `${formattedHour}:${minStr} ${ampm}`;
 }
 
-export function generateSlotsForDate(
-  store: LoyaltyStore,
+export async function generateSlotsForDate(
   dateStr: string,
-): TimeSlotWithComputedFields[] {
+): Promise<TimeSlotWithComputedFields[]> {
+  if (!db) {
+    throw new Error("Database connection is not available.");
+  }
+
   const targetDate = new Date(dateStr + "T00:00:00");
   const dayOfWeek = DAYS_OF_WEEK[targetDate.getDay()];
   const dayDisplayDate = `${String(targetDate.getDate()).padStart(2, "0")}/${String(targetDate.getMonth() + 1).padStart(2, "0")}`;
   const now = new Date();
 
-  // Find all confirmed bookings for this date across all customers
-  const allBookings = store.customers.flatMap((c) => c.bookingHistory || []);
-  const dateBookings = allBookings.filter(
-    (b) =>
-      b.status === "confirmed" &&
-      (b.date === dateStr || b.date.startsWith(dateStr)),
-  );
+  const dateBookings = await db
+    .select()
+    .from(schema.bookings)
+    .where(
+      sql`${schema.bookings.status} = 'confirmed' AND ${schema.bookings.date}::date = ${dateStr}::date`,
+    );
 
   return OPERATING_HOURS.map((timeStr) => {
     const slotId = `slot-${dateStr}-${timeStr.replace(":", "")}`;
@@ -69,12 +69,7 @@ export function generateSlotsForDate(
     const slotStart = new Date(`${dateStr}T${timeStr}:00`);
     const isPast = slotStart.getTime() < now.getTime();
 
-    // Count bookings assigned to this time slot
-    const slotBookings = dateBookings.filter((b) => {
-      if (b.timeSlot === timeStr || b.time === timeStr) return true;
-      if (b.timeSlot === displayTime) return true;
-      return false;
-    });
+    const slotBookings = dateBookings.filter((b) => b.timeSlot === timeStr);
 
     const currentBookings = slotBookings.length;
     let status: "available" | "booked" | "maintenance" = "available";
@@ -104,11 +99,10 @@ export function generateSlotsForDate(
   });
 }
 
-export function getSlotsForDays(
-  store: LoyaltyStore,
+export async function getSlotsForDays(
   daysCount = 7,
   startDateStr?: string,
-): TimeSlotWithComputedFields[] {
+): Promise<TimeSlotWithComputedFields[]> {
   const result: TimeSlotWithComputedFields[] = [];
   const start = startDateStr
     ? new Date(startDateStr + "T00:00:00")
@@ -118,7 +112,7 @@ export function getSlotsForDays(
     const current = new Date(start);
     current.setDate(start.getDate() + i);
     const dateStr = current.toISOString().split("T")[0];
-    const dailySlots = generateSlotsForDate(store, dateStr);
+    const dailySlots = await generateSlotsForDate(dateStr);
     result.push(...dailySlots);
   }
 

@@ -46,7 +46,6 @@ import { getAdminDashboardData } from "../services/metric.service";
 import { fetchAuditLogs, logAudit } from "../services/audit.service";
 import type {
   LoyaltyCustomer,
-  LoyaltyStore,
   LoyaltyTier,
   Promotion,
   RewardOffer,
@@ -83,7 +82,7 @@ function requireAdmin(ctx: any) {
   return null;
 }
 
-export function registerAdminRoutes(app: any, store: LoyaltyStore) {
+export function registerAdminRoutes(app: any) {
   // -------------------------------------------------------------
   // 1. ADMIN AUTHENTICATION
   // -------------------------------------------------------------
@@ -126,29 +125,29 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
   // -------------------------------------------------------------
   // 2. DASHBOARD METRICS
   // -------------------------------------------------------------
-  app.get("/api/admin/dashboard/metrics", (ctx: any) => {
+  app.get("/api/admin/dashboard/metrics", async (ctx: any) => {
     const authError = requireAdmin(ctx);
     if (authError) return authError;
-    const data = getAdminDashboardData(store);
+    const data = await getAdminDashboardData();
     return {
       status: "success",
       data: data.metrics,
     };
   });
 
-  app.get("/api/admin/dashboard/data", (ctx: any) => {
+  app.get("/api/admin/dashboard/data", async (ctx: any) => {
     const authError = requireAdmin(ctx);
     if (authError) return authError;
     return {
       status: "success",
-      data: getAdminDashboardData(store),
+      data: await getAdminDashboardData(),
     };
   });
 
   // -------------------------------------------------------------
   // 3. BOOKINGS MANAGEMENT
   // -------------------------------------------------------------
-  app.get("/api/admin/bookings", (ctx: any) => {
+  app.get("/api/admin/bookings", async (ctx: any) => {
     const authError = requireAdmin(ctx);
     if (authError) return authError;
 
@@ -157,7 +156,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
     const date = ctx.query?.date;
     const serviceId = ctx.query?.serviceId;
 
-    const bookingsList = getAllBookings(store, {
+    const bookingsList = await getAllBookings({
       query,
       status,
       date,
@@ -170,12 +169,12 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
     };
   });
 
-  app.get("/api/admin/bookings/:id", (ctx: any) => {
+  app.get("/api/admin/bookings/:id", async (ctx: any) => {
     const authError = requireAdmin(ctx);
     if (authError) return authError;
 
     const id = ctx.params.id;
-    const match = getBookingById(store, id);
+    const match = await getBookingById(id);
     if (!match) {
       return new Response(JSON.stringify({ error: "Booking not found." }), {
         status: 404,
@@ -183,13 +182,15 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       });
     }
 
+    const customer = await fetchCustomerById(match.customerId);
+
     return {
       status: "success",
       data: {
         ...match.booking,
-        customerName: match.customer.fullName || match.customer.username,
-        customerPhone: match.customer.phone,
-        customerTier: match.customer.tierId,
+        customerName: customer?.fullName || customer?.username,
+        customerPhone: customer?.phone,
+        customerTier: customer?.tierId,
       },
     };
   });
@@ -211,8 +212,8 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       );
     }
 
-    const booking = adminCreateBooking(store, body);
-    logAudit(store, {
+    const booking = await adminCreateBooking(body);
+    await logAudit({
       actor: "admin",
       actionType: "create-booking",
       entityType: "booking",
@@ -232,7 +233,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
 
     const id = ctx.params.id;
     const body = (await ctx.body) as any;
-    const booking = adminUpdateBooking(store, id, body);
+    const booking = await adminUpdateBooking(id, body);
     if (!booking) {
       return new Response(JSON.stringify({ error: "Booking not found." }), {
         status: 404,
@@ -240,7 +241,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       });
     }
 
-    logAudit(store, {
+    await logAudit({
       actor: "admin",
       actionType: "update-booking",
       entityType: "booking",
@@ -254,12 +255,12 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
     };
   });
 
-  app.delete("/api/admin/bookings/:id", (ctx: any) => {
+  app.delete("/api/admin/bookings/:id", async (ctx: any) => {
     const authError = requireAdmin(ctx);
     if (authError) return authError;
 
     const id = ctx.params.id;
-    const success = adminDeleteBooking(store, id);
+    const success = await adminDeleteBooking(id);
     if (!success) {
       return new Response(JSON.stringify({ error: "Booking not found." }), {
         status: 404,
@@ -267,7 +268,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       });
     }
 
-    logAudit(store, {
+    await logAudit({
       actor: "admin",
       actionType: "delete-booking",
       entityType: "booking",
@@ -288,7 +289,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
     const authError = requireAdmin(ctx);
     if (authError) return authError;
 
-    const services = await fetchAllServices(store, false);
+    const services = await fetchAllServices(false);
 
     return {
       status: "success",
@@ -318,9 +319,9 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       );
     }
 
-    const service = await createServiceItem(store, body);
+    const service = await createServiceItem(body);
 
-    logAudit(store, {
+    await logAudit({
       actor: "admin",
       actionType: "create-service",
       entityType: "service",
@@ -340,7 +341,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
 
     const id = ctx.params.id;
     const body = (await ctx.body) as Partial<ServiceItem>;
-    const service = await updateServiceItem(store, id, body);
+    const service = await updateServiceItem(id, body);
     if (!service) {
       return new Response(JSON.stringify({ error: "Service not found." }), {
         status: 404,
@@ -348,7 +349,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       });
     }
 
-    logAudit(store, {
+    await logAudit({
       actor: "admin",
       actionType: "update-service",
       entityType: "service",
@@ -367,7 +368,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
     if (authError) return authError;
 
     const id = ctx.params.id;
-    const success = await deleteServiceItem(store, id);
+    const success = await deleteServiceItem(id);
     if (!success) {
       return new Response(JSON.stringify({ error: "Service not found." }), {
         status: 404,
@@ -375,7 +376,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       });
     }
 
-    logAudit(store, {
+    await logAudit({
       actor: "admin",
       actionType: "delete-service",
       entityType: "service",
@@ -396,7 +397,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
     const authError = requireAdmin(ctx);
     if (authError) return authError;
 
-    const promos = await fetchAllPromotions(store, false);
+    const promos = await fetchAllPromotions(false);
 
     return {
       status: "success",
@@ -421,9 +422,9 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       );
     }
 
-    const promotion = await createPromotionItem(store, body);
+    const promotion = await createPromotionItem(body);
 
-    logAudit(store, {
+    await logAudit({
       actor: "admin",
       actionType: "create-promotion",
       entityType: "promotion",
@@ -444,7 +445,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
 
     const promotionId = ctx.params.promotionId as string;
     const body = (await ctx.body) as Partial<Promotion>;
-    const promotion = await updatePromotionItem(store, promotionId, body);
+    const promotion = await updatePromotionItem(promotionId, body);
     if (!promotion) {
       return new Response(JSON.stringify({ error: "Promotion not found." }), {
         status: 404,
@@ -452,7 +453,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       });
     }
 
-    logAudit(store, {
+    await logAudit({
       actor: "admin",
       actionType: "update-promotion",
       entityType: "promotion",
@@ -472,7 +473,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
     if (authError) return authError;
 
     const promotionId = ctx.params.promotionId as string;
-    const success = await deletePromotionItem(store, promotionId);
+    const success = await deletePromotionItem(promotionId);
     if (!success) {
       return new Response(JSON.stringify({ error: "Promotion not found." }), {
         status: 404,
@@ -480,7 +481,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       });
     }
 
-    logAudit(store, {
+    await logAudit({
       actor: "admin",
       actionType: "delete-promotion",
       entityType: "promotion",
@@ -501,7 +502,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
     const authError = requireAdmin(ctx);
     if (authError) return authError;
 
-    const sets = await fetchAllTierSets(store);
+    const sets = await fetchAllTierSets();
 
     return {
       status: "success",
@@ -515,9 +516,9 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
     if (authError) return authError;
 
     const body = (await ctx.body) as Partial<TierSet>;
-    const tierSet = await createTierSetItem(store, body);
+    const tierSet = await createTierSetItem(body);
 
-    logAudit(store, {
+    await logAudit({
       actor: "admin",
       actionType: "create-tier-set",
       entityType: "tier-set",
@@ -537,7 +538,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
 
     const id = ctx.params.id;
     const body = (await ctx.body) as Partial<TierSet>;
-    const tierSet = await updateTierSetItem(store, id, body);
+    const tierSet = await updateTierSetItem(id, body);
     if (!tierSet) {
       return new Response(JSON.stringify({ error: "Tier set not found." }), {
         status: 404,
@@ -545,7 +546,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       });
     }
 
-    logAudit(store, {
+    await logAudit({
       actor: "admin",
       actionType: "update-tier-set",
       entityType: "tier-set",
@@ -564,7 +565,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
     if (authError) return authError;
 
     const id = ctx.params.id;
-    const success = await deleteTierSetItem(store, id);
+    const success = await deleteTierSetItem(id);
     if (!success) {
       return new Response(JSON.stringify({ error: "Tier set not found." }), {
         status: 404,
@@ -572,7 +573,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       });
     }
 
-    logAudit(store, {
+    await logAudit({
       actor: "admin",
       actionType: "delete-tier-set",
       entityType: "tier-set",
@@ -590,7 +591,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
     const authError = requireAdmin(ctx);
     if (authError) return authError;
 
-    const tiers = await fetchAllTiers(store);
+    const tiers = await fetchAllTiers();
 
     return {
       status: "success",
@@ -624,9 +625,9 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       }
     }
 
-    const tier = await createTierItem(store, body as LoyaltyTier);
+    const tier = await createTierItem(body as LoyaltyTier);
 
-    logAudit(store, {
+    await logAudit({
       actor: "admin",
       actionType: "create-tier",
       entityType: "tier",
@@ -647,11 +648,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
 
     const tierId = ctx.params.tierId as string;
     const body = (await ctx.body) as Partial<LoyaltyTier>;
-    const tier = await updateTierItem(
-      store,
-      tierId,
-      body as Partial<LoyaltyTier>,
-    );
+    const tier = await updateTierItem(tierId, body as Partial<LoyaltyTier>);
     if (!tier) {
       return new Response(JSON.stringify({ error: "Tier not found." }), {
         status: 404,
@@ -659,7 +656,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       });
     }
 
-    logAudit(store, {
+    await logAudit({
       actor: "admin",
       actionType: "update-tier",
       entityType: "tier",
@@ -679,7 +676,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
     if (authError) return authError;
 
     const tierId = ctx.params.tierId as string;
-    const success = await deleteTierItem(store, tierId);
+    const success = await deleteTierItem(tierId);
     if (!success) {
       return new Response(JSON.stringify({ error: "Tier not found." }), {
         status: 404,
@@ -687,7 +684,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       });
     }
 
-    logAudit(store, {
+    await logAudit({
       actor: "admin",
       actionType: "delete-tier",
       entityType: "tier",
@@ -712,7 +709,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
     const tier = ctx.query?.tier;
     const status = ctx.query?.status;
 
-    const customers = await fetchAllCustomers(store, { query, tier, status });
+    const customers = await fetchAllCustomers({ query, tier, status });
     const formatted = customers.map((c) => ({
       id: c.id,
       name: c.fullName || c.username || `Customer (\${c.phone})`,
@@ -748,7 +745,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
     if (authError) return authError;
 
     const id = ctx.params.id;
-    const customer = await fetchCustomerById(store, id);
+    const customer = await fetchCustomerById(id);
 
     if (!customer) {
       return new Response(JSON.stringify({ error: "User not found." }), {
@@ -776,9 +773,9 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
     }
 
     try {
-      const customer = await createCustomerItem(store, body);
+      const customer = await createCustomerItem(body);
 
-      logAudit(store, {
+      await logAudit({
         actor: "admin",
         actionType: "create-user",
         entityType: "customer",
@@ -804,7 +801,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
 
     const id = ctx.params.id;
     const body = (await ctx.body) as Partial<LoyaltyCustomer>;
-    const customer = await updateCustomerItem(store, id, body);
+    const customer = await updateCustomerItem(id, body);
     if (!customer) {
       return new Response(JSON.stringify({ error: "User not found." }), {
         status: 404,
@@ -812,7 +809,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       });
     }
 
-    logAudit(store, {
+    await logAudit({
       actor: "admin",
       actionType: "update-user",
       entityType: "customer",
@@ -847,7 +844,6 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
     }
 
     const result = await adjustCustomerPointsItem(
-      store,
       id,
       delta,
       reason || "Admin manual adjustment",
@@ -860,7 +856,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       });
     }
 
-    logAudit(store, {
+    await logAudit({
       actor: "admin",
       actionType: "adjust-points",
       entityType: "customer",
@@ -880,7 +876,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
     if (authError) return authError;
 
     const id = ctx.params.id;
-    const customer = await resetCustomerWarningsItem(store, id);
+    const customer = await resetCustomerWarningsItem(id);
     if (!customer) {
       return new Response(JSON.stringify({ error: "User not found." }), {
         status: 404,
@@ -888,7 +884,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       });
     }
 
-    logAudit(store, {
+    await logAudit({
       actor: "admin",
       actionType: "reset-warnings",
       entityType: "customer",
@@ -910,7 +906,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
     const authError = requireAdmin(ctx);
     if (authError) return authError;
 
-    const offers = await fetchAllRewards(store);
+    const offers = await fetchAllRewards();
 
     return {
       status: "success",
@@ -934,9 +930,9 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       );
     }
 
-    const newOffer = await createRewardOffer(store, body);
+    const newOffer = await createRewardOffer(body);
 
-    logAudit(store, {
+    await logAudit({
       actor: "admin",
       actionType: "create-reward",
       entityType: "reward",
@@ -955,7 +951,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
     if (authError) return authError;
 
     const id = ctx.params.id;
-    const success = await deleteRewardOffer(store, id);
+    const success = await deleteRewardOffer(id);
     if (!success) {
       return new Response(
         JSON.stringify({ error: "Reward offer not found." }),
@@ -966,7 +962,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       );
     }
 
-    logAudit(store, {
+    await logAudit({
       actor: "admin",
       actionType: "delete-reward",
       entityType: "reward",
@@ -987,7 +983,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
     const authError = requireAdmin(ctx);
     if (authError) return authError;
 
-    const auditLogs = await fetchAuditLogs(store);
+    const auditLogs = await fetchAuditLogs();
 
     return {
       status: "success",

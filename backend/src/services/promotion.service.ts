@@ -1,13 +1,10 @@
 import type {
   ClaimedPromo,
-  LoyaltyCustomer,
-  LoyaltyStore,
   PointTransaction,
   Promotion,
 } from "../models/loyalty.model";
-import { findCustomer } from "./loyalty.service";
 import { db, schema } from "../db/index";
-import { sql } from "drizzle-orm";
+import { sql, and, eq } from "drizzle-orm";
 
 function createId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -230,62 +227,49 @@ export const DEFAULT_PROMOTIONS: Promotion[] = [
   },
 ];
 
-export function ensurePromotions(store: LoyaltyStore) {
-  if (!store.promotions) {
-    store.promotions = [...DEFAULT_PROMOTIONS];
-  }
-  return store.promotions;
+function mapPromotionRow(r: typeof schema.promotions.$inferSelect): Promotion {
+  return {
+    id: r.id,
+    name: r.name,
+    title: r.title || r.name,
+    promoName: r.name,
+    description: r.description,
+    category: (r.category as any) || "discount",
+    promoType: (r.promoType as any) || "booking_discount",
+    bonusPoints: r.bonusPoints || 0,
+    discountPercentage: r.discountPercentage || 0,
+    discountAmount: r.discountAmount || 0,
+    applicableServiceIds: r.applicableServiceIds || [],
+    applicableDaysOfWeek: r.applicableDaysOfWeek || [],
+    dedicatedDate: r.dedicatedDate || undefined,
+    pointPrice: r.pointPrice || 0,
+    loyaltyPointsRequired: r.pointPrice || 0,
+    loyaltyPointsValue: r.bonusPoints || 100,
+    applicableTiers: r.applicableTiers || [],
+    applicableVehicleModels: r.applicableVehicleModels || [],
+    badgeLabel: r.badgeLabel || undefined,
+    bannerImage: r.bannerImage || undefined,
+    terms: r.terms || undefined,
+    startDate: r.startDate.toISOString().split("T")[0],
+    endDate: r.endDate.toISOString().split("T")[0],
+    validUntil: r.endDate.toISOString().split("T")[0],
+    validRange: `${r.startDate.toISOString().split("T")[0]} - ${r.endDate.toISOString().split("T")[0]}`,
+    status: r.status as any,
+    isActive: r.isActive,
+    createdAt: r.createdAt.toISOString(),
+    updatedAt: r.updatedAt.toISOString(),
+  };
 }
 
 export async function fetchAllPromotions(
-  store: LoyaltyStore,
   onlyActive = false,
 ): Promise<Promotion[]> {
-  let promos: Promotion[] = [];
-  if (db) {
-    try {
-      const rows = await db.select().from(schema.promotions);
-      if (rows && rows.length > 0) {
-        promos = rows.map((r) => ({
-          id: r.id,
-          name: r.name,
-          title: r.title || r.name,
-          promoName: r.name,
-          description: r.description,
-          category: r.category || "discount",
-          promoType: (r.promoType as any) || "booking_discount",
-          bonusPoints: r.bonusPoints || 0,
-          discountPercentage: r.discountPercentage || 0,
-          discountAmount: r.discountAmount || 0,
-          applicableServiceIds: r.applicableServiceIds || [],
-          applicableDaysOfWeek: r.applicableDaysOfWeek || [],
-          dedicatedDate: r.dedicatedDate || undefined,
-          pointPrice: r.pointPrice || 0,
-          loyaltyPointsRequired: r.pointPrice || 0,
-          loyaltyPointsValue: r.bonusPoints || 100,
-          applicableTiers: r.applicableTiers || [],
-          applicableVehicleModels: r.applicableVehicleModels || [],
-          badgeLabel: r.badgeLabel || undefined,
-          bannerImage: r.bannerImage || undefined,
-          terms: r.terms || undefined,
-          startDate: r.startDate.toISOString().split("T")[0],
-          endDate: r.endDate.toISOString().split("T")[0],
-          validUntil: r.endDate.toISOString().split("T")[0],
-          validRange: `${r.startDate.toISOString().split("T")[0]} - ${r.endDate.toISOString().split("T")[0]}`,
-          status: r.status as any,
-          isActive: r.isActive,
-          createdAt: r.createdAt.toISOString(),
-          updatedAt: r.updatedAt.toISOString(),
-        }));
-      }
-    } catch (err) {
-      console.warn("Could not load promotions from Postgres DB:", err);
-    }
+  if (!db) {
+    throw new Error("Database connection is not available.");
   }
 
-  if (promos.length === 0) {
-    promos = getAllPromotions(store, false);
-  }
+  const rows = await db.select().from(schema.promotions);
+  let promos = rows.map(mapPromotionRow);
 
   if (onlyActive) {
     promos = promos.filter(
@@ -297,218 +281,32 @@ export async function fetchAllPromotions(
 }
 
 export async function fetchPromotionById(
-  store: LoyaltyStore,
   id: string,
 ): Promise<Promotion | undefined> {
-  if (db) {
-    try {
-      const rows = await db
-        .select()
-        .from(schema.promotions)
-        .where(sql`${schema.promotions.id} = ${id}`)
-        .limit(1);
-      if (rows && rows.length > 0) {
-        const r = rows[0];
-        return {
-          id: r.id,
-          name: r.name,
-          title: r.title || r.name,
-          promoName: r.name,
-          description: r.description,
-          category: r.category || "discount",
-          promoType: (r.promoType as any) || "booking_discount",
-          bonusPoints: r.bonusPoints || 0,
-          discountPercentage: r.discountPercentage || 0,
-          discountAmount: r.discountAmount || 0,
-          applicableServiceIds: r.applicableServiceIds || [],
-          applicableDaysOfWeek: r.applicableDaysOfWeek || [],
-          dedicatedDate: r.dedicatedDate || undefined,
-          pointPrice: r.pointPrice || 0,
-          loyaltyPointsRequired: r.pointPrice || 0,
-          loyaltyPointsValue: r.bonusPoints || 100,
-          applicableTiers: r.applicableTiers || [],
-          applicableVehicleModels: r.applicableVehicleModels || [],
-          badgeLabel: r.badgeLabel || undefined,
-          bannerImage: r.bannerImage || undefined,
-          terms: r.terms || undefined,
-          startDate: r.startDate.toISOString().split("T")[0],
-          endDate: r.endDate.toISOString().split("T")[0],
-          validUntil: r.endDate.toISOString().split("T")[0],
-          validRange: `${r.startDate.toISOString().split("T")[0]} - ${r.endDate.toISOString().split("T")[0]}`,
-          status: r.status as any,
-          isActive: r.isActive,
-          createdAt: r.createdAt.toISOString(),
-          updatedAt: r.updatedAt.toISOString(),
-        };
-      }
-    } catch (err) {
-      console.warn("Could not fetch promotion by id from Postgres DB:", err);
-    }
+  if (!db) {
+    throw new Error("Database connection is not available.");
   }
 
-  return getPromotionById(store, id);
+  const rows = await db
+    .select()
+    .from(schema.promotions)
+    .where(sql`${schema.promotions.id} = ${id}`)
+    .limit(1);
+
+  if (!rows || rows.length === 0) {
+    return undefined;
+  }
+
+  return mapPromotionRow(rows[0]);
 }
 
 export async function createPromotionItem(
-  store: LoyaltyStore,
   data: Partial<Promotion>,
 ): Promise<Promotion> {
-  const promotion = createPromotion(store, data);
-
-  if (db) {
-    try {
-      await db
-        .insert(schema.promotions)
-        .values({
-          id: promotion.id,
-          name: promotion.name,
-          title: promotion.title || promotion.name,
-          description: promotion.description,
-          category: promotion.category,
-          promoType: promotion.promoType,
-          bonusPoints: promotion.bonusPoints ?? 0,
-          discountPercentage: promotion.discountPercentage,
-          discountAmount: promotion.discountAmount,
-          applicableServiceIds: promotion.applicableServiceIds,
-          applicableDaysOfWeek: promotion.applicableDaysOfWeek,
-          dedicatedDate: promotion.dedicatedDate,
-          pointPrice: promotion.pointPrice,
-          applicableTiers: promotion.applicableTiers || [],
-          applicableVehicleModels: promotion.applicableVehicleModels || [],
-          badgeLabel: promotion.badgeLabel,
-          bannerImage: promotion.bannerImage,
-          terms: promotion.terms,
-          startDate: new Date(promotion.startDate),
-          endDate: new Date(promotion.endDate),
-          status: (promotion.status as any) || "ACTIVE",
-          isActive: promotion.isActive !== false,
-        })
-        .onConflictDoUpdate({
-          target: schema.promotions.id,
-          set: {
-            name: promotion.name,
-            title: promotion.title || promotion.name,
-            description: promotion.description,
-            category: promotion.category,
-            promoType: promotion.promoType,
-            bonusPoints: promotion.bonusPoints ?? 0,
-            discountPercentage: promotion.discountPercentage,
-            discountAmount: promotion.discountAmount,
-            applicableServiceIds: promotion.applicableServiceIds,
-            applicableDaysOfWeek: promotion.applicableDaysOfWeek,
-            dedicatedDate: promotion.dedicatedDate,
-            pointPrice: promotion.pointPrice,
-            applicableTiers: promotion.applicableTiers || [],
-            applicableVehicleModels: promotion.applicableVehicleModels || [],
-            badgeLabel: promotion.badgeLabel,
-            bannerImage: promotion.bannerImage,
-            terms: promotion.terms,
-            startDate: new Date(promotion.startDate),
-            endDate: new Date(promotion.endDate),
-            status: (promotion.status as any) || "ACTIVE",
-            isActive: promotion.isActive !== false,
-            updatedAt: new Date(),
-          },
-        });
-    } catch (err) {
-      console.warn("Could not persist created promotion to Postgres DB:", err);
-    }
+  if (!db) {
+    throw new Error("Database connection is not available.");
   }
 
-  return promotion;
-}
-
-export async function updatePromotionItem(
-  store: LoyaltyStore,
-  promotionId: string,
-  data: Partial<Promotion>,
-): Promise<Promotion | null> {
-  const promotion = updatePromotion(store, promotionId, data);
-  if (!promotion) return null;
-
-  if (db) {
-    try {
-      await db
-        .update(schema.promotions)
-        .set({
-          name: promotion.name,
-          title: promotion.title || promotion.name,
-          description: promotion.description,
-          category: promotion.category,
-          promoType: promotion.promoType,
-          bonusPoints: promotion.bonusPoints ?? 0,
-          discountPercentage: promotion.discountPercentage,
-          discountAmount: promotion.discountAmount,
-          applicableServiceIds: promotion.applicableServiceIds,
-          applicableDaysOfWeek: promotion.applicableDaysOfWeek,
-          dedicatedDate: promotion.dedicatedDate,
-          pointPrice: promotion.pointPrice,
-          applicableTiers: promotion.applicableTiers || [],
-          applicableVehicleModels: promotion.applicableVehicleModels || [],
-          badgeLabel: promotion.badgeLabel,
-          bannerImage: promotion.bannerImage,
-          terms: promotion.terms,
-          startDate: new Date(promotion.startDate),
-          endDate: new Date(promotion.endDate),
-          status: (promotion.status as any) || "ACTIVE",
-          isActive: promotion.isActive !== false,
-          updatedAt: new Date(),
-        })
-        .where(sql`${schema.promotions.id} = ${promotionId}`);
-    } catch (err) {
-      console.warn("Could not update promotion in Postgres DB:", err);
-    }
-  }
-
-  return promotion;
-}
-
-export async function deletePromotionItem(
-  store: LoyaltyStore,
-  promotionId: string,
-): Promise<boolean> {
-  const success = deletePromotion(store, promotionId);
-  if (!success) return false;
-
-  if (db) {
-    try {
-      await db
-        .delete(schema.promotions)
-        .where(sql`${schema.promotions.id} = ${promotionId}`);
-    } catch (err) {
-      console.warn("Could not delete promotion from Postgres DB:", err);
-    }
-  }
-
-  return true;
-}
-
-export function getAllPromotions(
-  store: LoyaltyStore,
-  onlyActive = false,
-): Promotion[] {
-  const promos = ensurePromotions(store);
-  if (onlyActive) {
-    return promos.filter(
-      (p) => p.isActive !== false && p.status !== "INACTIVE",
-    );
-  }
-  return promos;
-}
-
-export function getPromotionById(
-  store: LoyaltyStore,
-  id: string,
-): Promotion | undefined {
-  const promos = ensurePromotions(store);
-  return promos.find((p) => p.id === id);
-}
-
-export function createPromotion(
-  store: LoyaltyStore,
-  data: Partial<Promotion>,
-): Promotion {
-  ensurePromotions(store);
   const now = new Date().toISOString();
   const promotion: Promotion = {
     id:
@@ -516,7 +314,6 @@ export function createPromotion(
       `promo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     name: data.name?.trim() || data.title?.trim() || "New Promotion",
     title: data.title?.trim() || data.name?.trim() || "New Promotion",
-    promoName: data.promoName?.trim() || data.name?.trim() || "New Promotion",
     description: data.description?.trim() || "",
     category: data.category || "discount",
     promoType: data.promoType || "booking_discount",
@@ -527,120 +324,172 @@ export function createPromotion(
     applicableDaysOfWeek: data.applicableDaysOfWeek ?? [],
     dedicatedDate: data.dedicatedDate,
     pointPrice: data.pointPrice ?? 0,
-    loyaltyPointsRequired:
-      data.loyaltyPointsRequired ??
-      (typeof data.pointPrice === "number" ? data.pointPrice : 0),
     applicableTiers: data.applicableTiers ?? [],
     applicableVehicleModels: data.applicableVehicleModels ?? [],
-    requiredTier: data.requiredTier,
-    tierGroup: data.tierGroup,
-    perkType: data.perkType || "GENERAL_DISCOUNT",
-    badgeLabel:
-      data.badgeLabel ||
-      `${data.discountPercentage ? data.discountPercentage + "% OFF" : data.bonusPoints ? "+" + data.bonusPoints + " PTS" : "PROMO"}`,
+    badgeLabel: data.badgeLabel,
     bannerImage: data.bannerImage,
     terms: data.terms,
     startDate: data.startDate ?? now.slice(0, 10),
     endDate: data.endDate ?? now.slice(0, 10),
-    validUntil: data.validUntil ?? data.endDate ?? now.slice(0, 10),
-    validRange:
-      data.validRange ||
-      `${data.startDate ?? now.slice(0, 10)} - ${data.endDate ?? now.slice(0, 10)}`,
     status: data.status || "ACTIVE",
     isActive: data.isActive ?? true,
-    createdAt: now,
-    updatedAt: now,
   };
-  store.promotions.push(promotion);
-  return promotion;
+
+  await db
+    .insert(schema.promotions)
+    .values({
+      id: promotion.id,
+      name: promotion.name,
+      title: promotion.title || promotion.name,
+      description: promotion.description,
+      category: promotion.category,
+      promoType: promotion.promoType,
+      bonusPoints: promotion.bonusPoints ?? 0,
+      discountPercentage: promotion.discountPercentage,
+      discountAmount: promotion.discountAmount,
+      applicableServiceIds: promotion.applicableServiceIds,
+      applicableDaysOfWeek: promotion.applicableDaysOfWeek,
+      dedicatedDate: promotion.dedicatedDate,
+      pointPrice: promotion.pointPrice as number,
+      applicableTiers: promotion.applicableTiers || [],
+      applicableVehicleModels: promotion.applicableVehicleModels || [],
+      badgeLabel: promotion.badgeLabel,
+      bannerImage: promotion.bannerImage,
+      terms: promotion.terms,
+      startDate: new Date(promotion.startDate),
+      endDate: new Date(promotion.endDate),
+      status: (promotion.status as any) || "ACTIVE",
+      isActive: promotion.isActive !== false,
+    })
+    .onConflictDoUpdate({
+      target: schema.promotions.id,
+      set: {
+        name: promotion.name,
+        title: promotion.title || promotion.name,
+        description: promotion.description,
+        category: promotion.category,
+        promoType: promotion.promoType,
+        bonusPoints: promotion.bonusPoints ?? 0,
+        discountPercentage: promotion.discountPercentage,
+        discountAmount: promotion.discountAmount,
+        applicableServiceIds: promotion.applicableServiceIds,
+        applicableDaysOfWeek: promotion.applicableDaysOfWeek,
+        dedicatedDate: promotion.dedicatedDate,
+        pointPrice: promotion.pointPrice as number,
+        applicableTiers: promotion.applicableTiers || [],
+        applicableVehicleModels: promotion.applicableVehicleModels || [],
+        badgeLabel: promotion.badgeLabel,
+        bannerImage: promotion.bannerImage,
+        terms: promotion.terms,
+        startDate: new Date(promotion.startDate),
+        endDate: new Date(promotion.endDate),
+        status: (promotion.status as any) || "ACTIVE",
+        isActive: promotion.isActive !== false,
+        updatedAt: new Date(),
+      },
+    });
+
+  return (await fetchPromotionById(promotion.id))!;
 }
 
-export function updatePromotion(
-  store: LoyaltyStore,
+export async function updatePromotionItem(
   promotionId: string,
   data: Partial<Promotion>,
-): Promotion | null {
-  ensurePromotions(store);
-  const promotion = store.promotions.find((item) => item.id === promotionId);
-  if (!promotion) {
-    return null;
+): Promise<Promotion | null> {
+  if (!db) {
+    throw new Error("Database connection is not available.");
   }
-  if (data.name !== undefined) promotion.name = data.name;
-  if (data.title !== undefined) promotion.title = data.title;
-  if (data.promoName !== undefined) promotion.promoName = data.promoName;
-  if (data.description !== undefined) promotion.description = data.description;
-  if (data.category !== undefined) promotion.category = data.category;
-  if (data.promoType !== undefined) promotion.promoType = data.promoType;
-  if (data.bonusPoints !== undefined) promotion.bonusPoints = data.bonusPoints;
-  if (data.discountPercentage !== undefined)
-    promotion.discountPercentage = data.discountPercentage;
-  if (data.discountAmount !== undefined)
-    promotion.discountAmount = data.discountAmount;
-  if (data.applicableServiceIds !== undefined)
-    promotion.applicableServiceIds = data.applicableServiceIds;
-  if (data.applicableDaysOfWeek !== undefined)
-    promotion.applicableDaysOfWeek = data.applicableDaysOfWeek;
-  if (data.dedicatedDate !== undefined)
-    promotion.dedicatedDate = data.dedicatedDate;
-  if (data.pointPrice !== undefined) promotion.pointPrice = data.pointPrice;
-  if (data.applicableTiers !== undefined)
-    promotion.applicableTiers = data.applicableTiers;
-  if (data.applicableVehicleModels !== undefined)
-    promotion.applicableVehicleModels = data.applicableVehicleModels;
-  if (data.requiredTier !== undefined)
-    promotion.requiredTier = data.requiredTier;
-  if (data.tierGroup !== undefined) promotion.tierGroup = data.tierGroup;
-  if (data.perkType !== undefined) promotion.perkType = data.perkType;
-  if (data.badgeLabel !== undefined) promotion.badgeLabel = data.badgeLabel;
-  if (data.bannerImage !== undefined) promotion.bannerImage = data.bannerImage;
-  if (data.startDate !== undefined) promotion.startDate = data.startDate;
-  if (data.endDate !== undefined) promotion.endDate = data.endDate;
-  if (data.validUntil !== undefined) promotion.validUntil = data.validUntil;
-  if (data.validRange !== undefined) promotion.validRange = data.validRange;
-  if (data.status !== undefined) promotion.status = data.status;
-  if (data.isActive !== undefined) promotion.isActive = data.isActive;
-  promotion.updatedAt = new Date().toISOString();
-  return promotion;
+
+  const existing = await fetchPromotionById(promotionId);
+  if (!existing) return null;
+
+  const merged: Promotion = { ...existing, ...data };
+
+  await db
+    .update(schema.promotions)
+    .set({
+      name: merged.name,
+      title: merged.title || merged.name,
+      description: merged.description,
+      category: merged.category,
+      promoType: merged.promoType,
+      bonusPoints: merged.bonusPoints ?? 0,
+      discountPercentage: merged.discountPercentage,
+      discountAmount: merged.discountAmount,
+      applicableServiceIds: merged.applicableServiceIds,
+      applicableDaysOfWeek: merged.applicableDaysOfWeek,
+      dedicatedDate: merged.dedicatedDate,
+      pointPrice: merged.pointPrice as number,
+      applicableTiers: merged.applicableTiers || [],
+      applicableVehicleModels: merged.applicableVehicleModels || [],
+      badgeLabel: merged.badgeLabel,
+      bannerImage: merged.bannerImage,
+      terms: merged.terms,
+      startDate: new Date(merged.startDate),
+      endDate: new Date(merged.endDate),
+      status: (merged.status as any) || "ACTIVE",
+      isActive: merged.isActive !== false,
+      updatedAt: new Date(),
+    })
+    .where(sql`${schema.promotions.id} = ${promotionId}`);
+
+  return fetchPromotionById(promotionId) as Promise<Promotion>;
 }
 
-export function deletePromotion(
-  store: LoyaltyStore,
+export async function deletePromotionItem(
   promotionId: string,
-): boolean {
-  ensurePromotions(store);
-  const index = store.promotions.findIndex((item) => item.id === promotionId);
-  if (index === -1) {
-    return false;
+): Promise<boolean> {
+  if (!db) {
+    throw new Error("Database connection is not available.");
   }
-  store.promotions.splice(index, 1);
-  return true;
+
+  const result = await db
+    .delete(schema.promotions)
+    .where(sql`${schema.promotions.id} = ${promotionId}`)
+    .returning({ id: schema.promotions.id });
+
+  return result.length > 0;
 }
 
-export function claimPromotion(
-  store: LoyaltyStore,
+export async function claimPromotion(
   phone: string,
   promotionId: string,
-): {
+): Promise<{
   success: boolean;
   message?: string;
   claimedPromo?: ClaimedPromo;
   pointsBalance?: number;
-} {
-  const customer = findCustomer(store, phone);
+}> {
+  if (!db) {
+    throw new Error("Database connection is not available.");
+  }
+
+  const customerRows = await db
+    .select()
+    .from(schema.loyaltyCustomers)
+    .where(sql`${schema.loyaltyCustomers.phone} = ${phone}`)
+    .limit(1);
+  const customer = customerRows[0];
   if (!customer) {
     return { success: false, message: "Customer account not found." };
   }
 
-  const promo = getPromotionById(store, promotionId);
+  const promo = await fetchPromotionById(promotionId);
   if (!promo || !promo.isActive) {
     return { success: false, message: "Promotion is inactive or not found." };
   }
 
-  // Check if customer already claimed this promotion (claim once per user)
-  const alreadyClaimed = customer.claimedPromos?.some(
-    (item) => item.promoId === promo.id,
-  );
-  if (alreadyClaimed) {
+  const alreadyClaimed = await db
+    .select()
+    .from(schema.claimedPromos)
+    .where(
+      and(
+        eq(schema.claimedPromos.promoId, promo.id),
+        eq(schema.claimedPromos.customerId, customer.id),
+      ),
+    )
+    .limit(1);
+  if (alreadyClaimed.length > 0) {
     return {
       success: false,
       message: "You have already claimed this promotion.",
@@ -652,7 +501,6 @@ export function claimPromotion(
       ? promo.pointPrice
       : Number(promo.pointPrice) || 0;
 
-  // Check point balance
   if (customer.pointsBalance < pointCost) {
     return {
       success: false,
@@ -660,7 +508,6 @@ export function claimPromotion(
     };
   }
 
-  // Check tier requirement if applicable
   if (promo.requiredTier) {
     const custRank = TIER_ORDER[customer.tierId] ?? 0;
     const reqRank = TIER_ORDER[promo.requiredTier] ?? 0;
@@ -675,28 +522,46 @@ export function claimPromotion(
   const now = new Date();
   const validUntilDate = new Date(now);
   validUntilDate.setDate(validUntilDate.getDate() + (promo.validityDays || 30));
+  const newBalance = customer.pointsBalance - pointCost;
 
-  // Deduct points
   if (pointCost > 0) {
-    customer.pointsBalance -= pointCost;
-    const tx: PointTransaction = {
+    await db
+      .update(schema.loyaltyCustomers)
+      .set({ pointsBalance: newBalance, updatedAt: new Date() })
+      .where(eq(schema.loyaltyCustomers.id, customer.id));
+
+    await db.insert(schema.pointTransactions).values({
       id: createId(),
+      customerId: customer.id,
       type: "spend",
       amount: pointCost,
-      date: now.toISOString(),
       description: `Redeemed promo voucher: ${promo.title || promo.name}`,
-    };
-    customer.pointHistory.push(tx);
+    });
   }
 
+  const claimedId = `voucher-${createId()}`;
+  const validUntil =
+    promo.validUntil || validUntilDate.toISOString().split("T")[0];
+
+  await db.insert(schema.claimedPromos).values({
+    id: claimedId,
+    promoId: promo.id,
+    customerId: customer.id,
+    title: promo.title || promo.name,
+    description: promo.description,
+    perkIdentifier: promo.perkType || "VOUCHER",
+    status: "ACTIVE",
+    validUntil: new Date(validUntil),
+  });
+
   const claimed: ClaimedPromo = {
-    id: `voucher-${createId()}`,
+    id: claimedId,
     promoId: promo.id,
     customerId: customer.id,
     title: promo.title || promo.name,
     description: promo.description,
     claimedAt: now.toISOString(),
-    validUntil: promo.validUntil || validUntilDate.toISOString().split("T")[0],
+    validUntil,
     status: "ACTIVE",
     perkIdentifier: promo.perkType || "VOUCHER",
     promoType: promo.promoType,
@@ -706,13 +571,9 @@ export function claimPromotion(
     applicableServiceIds: promo.applicableServiceIds,
   };
 
-  customer.claimedPromos = customer.claimedPromos || [];
-  customer.claimedPromos.push(claimed);
-  customer.updatedAt = now.toISOString();
-
   return {
     success: true,
     claimedPromo: claimed,
-    pointsBalance: customer.pointsBalance,
+    pointsBalance: newBalance,
   };
 }

@@ -1,12 +1,10 @@
-import { getAllTiers, getTier } from "../services/tier.service";
+import { fetchAllTiers, getTier } from "../services/tier.service";
 import {
   buildDashboard,
   checkUsernameExists,
   fetchCustomerByIdentifier,
-  findCustomer,
   linkCustomerAccount,
 } from "../services/loyalty.service";
-import type { LoyaltyStore } from "../models/loyalty.model";
 
 export function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
@@ -23,7 +21,7 @@ export function isValidPhone(phone: string): boolean {
 
 export { checkUsernameExists };
 
-export function registerLoyaltyRoutes(app: any, store: LoyaltyStore) {
+export function registerLoyaltyRoutes(app: any) {
   app.get("/api/loyalty/check-username", async (ctx: any) => {
     const username = ctx.query?.username as string | undefined;
     console.log(
@@ -39,9 +37,9 @@ export function registerLoyaltyRoutes(app: any, store: LoyaltyStore) {
       );
     }
 
-    const exists = await checkUsernameExists(store, username.trim());
+    const exists = await checkUsernameExists(username.trim());
     console.log(
-      `[LoyaltyController] Username "${username.trim()}" exists in DB/Store: ${exists}`,
+      `[LoyaltyController] Username "${username.trim()}" exists: ${exists}`,
     );
     return {
       username: username.trim(),
@@ -100,7 +98,7 @@ export function registerLoyaltyRoutes(app: any, store: LoyaltyStore) {
       );
     }
 
-    if (username && (await checkUsernameExists(store, username))) {
+    if (username && (await checkUsernameExists(username))) {
       return new Response(
         JSON.stringify({
           error: "Username already exists. Please choose a different username.",
@@ -114,7 +112,6 @@ export function registerLoyaltyRoutes(app: any, store: LoyaltyStore) {
 
     try {
       const customer = await linkCustomerAccount(
-        store,
         phone || "",
         plate,
         model,
@@ -127,7 +124,7 @@ export function registerLoyaltyRoutes(app: any, store: LoyaltyStore) {
         },
       );
 
-      const tier = getTier(customer.tierId, store);
+      const tier = getTier(customer.tierId);
       console.log(
         `[LoyaltyController] Successfully linked/registered customer ID: ${customer.id}`,
       );
@@ -170,7 +167,7 @@ export function registerLoyaltyRoutes(app: any, store: LoyaltyStore) {
       );
     }
 
-    const customer = await fetchCustomerByIdentifier(store, phone);
+    const customer = await fetchCustomerByIdentifier(phone);
     if (!customer) {
       console.warn(
         `[LoyaltyController] Customer not found for identifier: "${phone}"`,
@@ -196,7 +193,7 @@ export function registerLoyaltyRoutes(app: any, store: LoyaltyStore) {
       });
     }
 
-    const dashboard = buildDashboard(store, phone);
+    const dashboard = await buildDashboard(phone);
     if (!dashboard) {
       console.warn(
         `[LoyaltyController] Dashboard not found for identifier: "${phone}"`,
@@ -226,10 +223,7 @@ export function registerLoyaltyRoutes(app: any, store: LoyaltyStore) {
       );
     }
 
-    let customer = findCustomer(store, phone);
-    if (!customer) {
-      customer = (await fetchCustomerByIdentifier(store, phone)) || undefined;
-    }
+    const customer = await fetchCustomerByIdentifier(phone);
 
     if (!customer) {
       return new Response(JSON.stringify({ error: "Customer not found." }), {
@@ -238,7 +232,7 @@ export function registerLoyaltyRoutes(app: any, store: LoyaltyStore) {
       });
     }
 
-    const tier = getTier(customer.tierId, store);
+    const tier = getTier(customer.tierId);
 
     return {
       id: customer.id,
@@ -266,10 +260,7 @@ export function registerLoyaltyRoutes(app: any, store: LoyaltyStore) {
       );
     }
 
-    let customer = findCustomer(store, phone);
-    if (!customer) {
-      customer = (await fetchCustomerByIdentifier(store, phone)) || undefined;
-    }
+    const customer = await fetchCustomerByIdentifier(phone);
 
     if (!customer) {
       return new Response(JSON.stringify({ error: "Customer not found." }), {
@@ -287,7 +278,7 @@ export function registerLoyaltyRoutes(app: any, store: LoyaltyStore) {
 
   // Public tiers catalog
   app.get("/api/tiers", async () => {
-    const tiers = getAllTiers(store);
+    const tiers = await fetchAllTiers();
     return {
       status: "success",
       count: tiers.length,

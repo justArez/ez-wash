@@ -3,9 +3,8 @@ import {
   createPublicBooking,
   fetchCustomerBookings,
 } from "../services/booking.service";
-import type { LoyaltyStore } from "../models/loyalty.model";
 
-export function registerBookingRoutes(app: any, store: LoyaltyStore) {
+export function registerBookingRoutes(app: any) {
   app.post("/api/bookings", async (ctx: any) => {
     const body = (await ctx.body) as {
       phone: string;
@@ -43,7 +42,7 @@ export function registerBookingRoutes(app: any, store: LoyaltyStore) {
     }
 
     try {
-      const result = await createPublicBooking(store, {
+      const result = await createPublicBooking({
         phone,
         vehiclePlate,
         requestedDate,
@@ -78,7 +77,7 @@ export function registerBookingRoutes(app: any, store: LoyaltyStore) {
       );
     }
 
-    const bookingsData = await fetchCustomerBookings(store, phone);
+    const bookingsData = await fetchCustomerBookings(phone);
     if (!bookingsData) {
       return new Response(JSON.stringify({ error: "Customer not found." }), {
         status: 404,
@@ -103,7 +102,7 @@ export function registerBookingRoutes(app: any, store: LoyaltyStore) {
     }
 
     try {
-      const result = await cancelPublicBooking(store, phone, bookingId);
+      const result = await cancelPublicBooking(phone, bookingId);
       return result;
     } catch (error) {
       const message =

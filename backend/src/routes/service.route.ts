@@ -2,13 +2,12 @@ import {
   fetchAllServices,
   fetchServiceById,
 } from "../services/service.service";
-import type { LoyaltyStore } from "../models/loyalty.model";
 
-export function registerServiceRoutes(app: any, store: LoyaltyStore) {
+export function registerServiceRoutes(app: any) {
   app.get("/api/services", async (ctx: any) => {
     const onlyActive = ctx.query?.onlyActive !== "false";
 
-    let services = await fetchAllServices(store, onlyActive);
+    let services = await fetchAllServices(onlyActive);
 
     if (onlyActive) {
       services = services.filter((s) => s.status !== "INACTIVE");
@@ -23,7 +22,7 @@ export function registerServiceRoutes(app: any, store: LoyaltyStore) {
 
   app.get("/api/services/:id", async (ctx: any) => {
     const id = ctx.params?.id;
-    const service = await fetchServiceById(store, id);
+    const service = await fetchServiceById(id);
     if (!service) {
       return new Response(JSON.stringify({ error: "Service not found." }), {
         status: 404,

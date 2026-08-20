@@ -1,5 +1,4 @@
 import type { ClaimedPromo } from "../models/promo.model";
-import { initialClaimedPromos } from "./loyalty.mock-data";
 
 const CLAIMED_PROMOS_STORAGE_KEY = "ezwash-claimed-promos";
 
@@ -10,11 +9,11 @@ export function loadClaimedPromos(customerId?: string): ClaimedPromo[] {
       : CLAIMED_PROMOS_STORAGE_KEY;
     const raw = window.localStorage.getItem(key);
     if (!raw) {
-      return initialClaimedPromos;
+      return [];
     }
     return JSON.parse(raw) as ClaimedPromo[];
   } catch {
-    return initialClaimedPromos;
+    return [];
   }
 }
 

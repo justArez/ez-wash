@@ -3,15 +3,14 @@ import {
   fetchAllPromotions,
   fetchPromotionById,
 } from "../services/promotion.service";
-import type { LoyaltyStore } from "../models/loyalty.model";
 
-export function registerPromotionRoutes(app: any, store: LoyaltyStore) {
+export function registerPromotionRoutes(app: any) {
   app.get("/api/promotions", async (ctx: any) => {
     const category = ctx.query?.category as string | undefined;
     const tier = ctx.query?.tier as string | undefined;
     const onlyActive = ctx.query?.onlyActive !== "false";
 
-    let promotions = await fetchAllPromotions(store, onlyActive);
+    let promotions = await fetchAllPromotions(onlyActive);
 
     if (category) {
       promotions = promotions.filter(
@@ -39,7 +38,7 @@ export function registerPromotionRoutes(app: any, store: LoyaltyStore) {
 
   app.get("/api/promotions/:id", async (ctx: any) => {
     const id = ctx.params?.id;
-    const promo = await fetchPromotionById(store, id);
+    const promo = await fetchPromotionById(id);
     if (!promo) {
       return new Response(JSON.stringify({ error: "Promotion not found." }), {
         status: 404,
@@ -69,7 +68,7 @@ export function registerPromotionRoutes(app: any, store: LoyaltyStore) {
       );
     }
 
-    const result = claimPromotion(store, phone, promoId);
+    const result = await claimPromotion(phone, promoId);
     if (!result.success) {
       return new Response(JSON.stringify({ error: result.message }), {
         status: 400,

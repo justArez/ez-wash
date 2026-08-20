@@ -6,11 +6,8 @@ import type {
   GlobalPromotion,
 } from "../../models/promo.model";
 import {
-  initialGlobalPromotions,
-  initialClaimablePromos,
-} from "../../services/loyalty.mock-data";
-import {
   loadClaimedPromos,
+  saveClaimedPromos,
   appendClaimedPromo,
 } from "../../services/promo-storage.service";
 import {
@@ -44,12 +41,10 @@ export default function PromoPage({
   const [claimedPromos, setClaimedPromos] = useState<ClaimedPromo[]>(() =>
     loadClaimedPromos(dashboard?.customerId),
   );
-  const [globalPromos, setGlobalPromos] = useState<GlobalPromotion[]>(
-    initialGlobalPromotions,
-  );
+  const [globalPromos, setGlobalPromos] = useState<GlobalPromotion[]>([]);
   const [claimablePromosList, setClaimablePromosList] = useState<
     ClaimablePromo[]
-  >(initialClaimablePromos);
+  >([]);
   const [isSubmittingClaim, setIsSubmittingClaim] = useState(false);
   const [claimToast, setClaimToast] = useState<string | null>(null);
 
@@ -127,10 +122,7 @@ export default function PromoPage({
         }
       })
       .catch((err) => {
-        console.warn(
-          "Failed to fetch promotions from API, using fallback:",
-          err,
-        );
+        console.error("Failed to fetch promotions from API:", err);
       });
   }, []);
 
@@ -139,15 +131,14 @@ export default function PromoPage({
     if (dashboard?.phone) {
       fetchClaimedPromos(dashboard.phone)
         .then((vouchers) => {
-          if (vouchers && vouchers.length > 0) {
-            setClaimedPromos(vouchers);
-          }
+          setClaimedPromos(vouchers || []);
+          saveClaimedPromos(vouchers || [], dashboard?.customerId);
         })
-        .catch(() => {
-          // fallback to localStorage
+        .catch((err) => {
+          console.error("Failed to fetch claimed promos from API:", err);
         });
     }
-  }, [dashboard?.phone]);
+  }, [dashboard?.phone, dashboard?.customerId]);
 
   // Group claimable promos by tier groups
   const claimedPromoIds = useMemo(
@@ -200,63 +191,30 @@ export default function PromoPage({
 
     if (pointsBalance < promo.pointPrice) return;
 
+    const phone = dashboard?.phone;
+    if (!phone) {
+      onOpenSignIn?.();
+      return;
+    }
+
     setIsSubmittingClaim(true);
     try {
-      // Call backend claim API if phone is available
-      const phone = dashboard?.phone;
-      if (phone) {
-        const result = await claimPromo(promo.id, phone);
-        if (result.success && result.claimedPromo) {
-          const newBal =
-            result.pointsBalance ?? pointsBalance - promo.pointPrice;
-          setPointsBalance(newBal);
-          setClaimedPromos((prev) => [result.claimedPromo, ...prev]);
-          appendClaimedPromo(result.claimedPromo, dashboard?.customerId);
+      const result = await claimPromo(promo.id, phone);
+      if (result.success && result.claimedPromo) {
+        const newBal = result.pointsBalance ?? pointsBalance - promo.pointPrice;
+        setPointsBalance(newBal);
+        setClaimedPromos((prev) => [result.claimedPromo, ...prev]);
+        appendClaimedPromo(result.claimedPromo, dashboard?.customerId);
 
-          setClaimToast(`Claimed "${promo.title}"! Added to Your Promos.`);
-          setTimeout(() => setClaimToast(null), 4000);
-          return;
-        }
+        setClaimToast(`Claimed "${promo.title}"! Added to Your Promos.`);
+        setTimeout(() => setClaimToast(null), 4000);
+      } else {
+        setClaimToast(result.message || "Failed to claim promotion.");
+        setTimeout(() => setClaimToast(null), 4000);
       }
-
-      // Local claim path
-      const newBalance = pointsBalance - promo.pointPrice;
-      setPointsBalance(newBalance);
-
-      const newVoucher: ClaimedPromo = {
-        id: `claim-${Date.now()}`,
-        promoId: promo.id,
-        title: promo.title,
-        description: promo.description,
-        claimedAt: new Date().toISOString(),
-        validUntil: "30 days from now",
-        status: "ACTIVE",
-        perkIdentifier: promo.perkType,
-      };
-
-      const updated = appendClaimedPromo(newVoucher, dashboard?.customerId);
-      setClaimedPromos(updated);
-      setClaimToast(`Claimed "${promo.title}"! Added to Your Promos.`);
-      setTimeout(() => setClaimToast(null), 4000);
-    } catch {
-      // Fallback local claim
-      const newBalance = pointsBalance - promo.pointPrice;
-      setPointsBalance(newBalance);
-
-      const newVoucher: ClaimedPromo = {
-        id: `claim-${Date.now()}`,
-        promoId: promo.id,
-        title: promo.title,
-        description: promo.description,
-        claimedAt: new Date().toISOString(),
-        validUntil: "30 days from now",
-        status: "ACTIVE",
-        perkIdentifier: promo.perkType,
-      };
-
-      const updated = appendClaimedPromo(newVoucher, dashboard?.customerId);
-      setClaimedPromos(updated);
-      setClaimToast(`Claimed "${promo.title}"! Added to Your Promos.`);
+    } catch (err) {
+      console.error("Failed to claim promotion:", err);
+      setClaimToast("Failed to claim promotion. Please try again.");
       setTimeout(() => setClaimToast(null), 4000);
     } finally {
       setIsSubmittingClaim(false);

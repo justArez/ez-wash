@@ -1,5 +1,4 @@
-import type { LoyaltyStore, TierSet } from "../models/loyalty.model";
-import { TIERS } from "../models/loyalty.model";
+import type { TierSet } from "../models/loyalty.model";
 import { db, schema } from "../db/index";
 import { sql } from "drizzle-orm";
 
@@ -82,196 +81,154 @@ export const DEFAULT_TIER_SETS: TierSet[] = [
   },
 ];
 
-export function ensureTierSets(store: LoyaltyStore): TierSet[] {
-  if (!store.tierSets) {
-    store.tierSets = [...DEFAULT_TIER_SETS];
-  }
-  return store.tierSets;
+async function loadTierSetWithTiers(
+  row: typeof schema.tierSets.$inferSelect,
+): Promise<TierSet> {
+  const tierRows = await db!
+    .select()
+    .from(schema.loyaltyTiers)
+    .where(sql`${schema.loyaltyTiers.tierSetId} = ${row.id}`);
+
+  return {
+    id: row.id,
+    name: row.name,
+    status: row.status as any,
+    description: row.description || "",
+    tiers: tierRows.map((t) => ({
+      id: t.id,
+      name: t.name,
+      level: t.level as any,
+      pointThreshold: t.pointThreshold,
+      bookingWindowDays: t.bookingWindowDays,
+      pointRate: t.pointRate,
+      multiplier: t.multiplier || undefined,
+      discount: t.discount || undefined,
+      perks: t.perks || [],
+      description: t.description,
+      isActive: t.isActive,
+      createdAt: t.createdAt.toISOString(),
+      updatedAt: t.updatedAt.toISOString(),
+    })),
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
 }
 
-export async function fetchAllTierSets(
-  store: LoyaltyStore,
-): Promise<TierSet[]> {
-  let sets: TierSet[] = [];
-  if (db) {
-    try {
-      const rows = await db.select().from(schema.tierSets);
-      if (rows && rows.length > 0) {
-        sets = rows.map((r) => ({
-          id: r.id,
-          name: r.name,
-          status: r.status as any,
-          description: r.description || "",
-          tiers: [],
-          createdAt: r.createdAt.toISOString(),
-          updatedAt: r.updatedAt.toISOString(),
-        }));
-      }
-    } catch (err) {
-      console.warn("Could not query tier sets from Postgres DB:", err);
-    }
+export async function fetchAllTierSets(): Promise<TierSet[]> {
+  if (!db) {
+    throw new Error("Database connection is not available.");
   }
 
-  if (sets.length === 0) {
-    sets = getAllTierSets(store);
+  const rows = await db.select().from(schema.tierSets);
+  return Promise.all(rows.map((r) => loadTierSetWithTiers(r)));
+}
+
+export async function fetchTierSetById(
+  id: string,
+): Promise<TierSet | undefined> {
+  if (!db) {
+    throw new Error("Database connection is not available.");
   }
 
-  return sets;
+  const rows = await db
+    .select()
+    .from(schema.tierSets)
+    .where(sql`${schema.tierSets.id} = ${id}`)
+    .limit(1);
+
+  if (!rows || rows.length === 0) {
+    return undefined;
+  }
+
+  return loadTierSetWithTiers(rows[0]);
 }
 
 export async function createTierSetItem(
-  store: LoyaltyStore,
   data: Partial<TierSet>,
 ): Promise<TierSet> {
-  const tierSet = createTierSet(store, data);
-
-  if (db) {
-    try {
-      await db
-        .insert(schema.tierSets)
-        .values({
-          id: tierSet.id,
-          name: tierSet.name,
-          status: tierSet.status,
-          description: tierSet.description,
-        })
-        .onConflictDoUpdate({
-          target: schema.tierSets.id,
-          set: {
-            name: tierSet.name,
-            status: tierSet.status,
-            description: tierSet.description,
-            updatedAt: new Date(),
-          },
-        });
-    } catch (err) {
-      console.warn("Could not persist tier set to Postgres DB:", err);
-    }
+  if (!db) {
+    throw new Error("Database connection is not available.");
   }
 
-  return tierSet;
+  const id =
+    data.id?.trim() ||
+    `tier-set-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const name = data.name?.trim() || "New Tier Set";
+  const status = data.status || "Inactive";
+  const description = data.description?.trim() || "";
+
+  if (status === "Active") {
+    await db
+      .update(schema.tierSets)
+      .set({ status: "Inactive", updatedAt: new Date() });
+  }
+
+  await db
+    .insert(schema.tierSets)
+    .values({ id, name, status, description })
+    .onConflictDoUpdate({
+      target: schema.tierSets.id,
+      set: { name, status, description, updatedAt: new Date() },
+    });
+
+  return (await fetchTierSetById(id))!;
 }
 
 export async function updateTierSetItem(
-  store: LoyaltyStore,
   id: string,
   data: Partial<TierSet>,
 ): Promise<TierSet | null> {
-  const tierSet = updateTierSet(store, id, data);
-  if (!tierSet) return null;
-
-  if (db) {
-    try {
-      await db
-        .update(schema.tierSets)
-        .set({
-          name: tierSet.name,
-          status: tierSet.status,
-          description: tierSet.description,
-          updatedAt: new Date(),
-        })
-        .where(sql`${schema.tierSets.id} = ${id}`);
-    } catch (err) {
-      console.warn("Could not update tier set in Postgres DB:", err);
-    }
+  if (!db) {
+    throw new Error("Database connection is not available.");
   }
 
-  return tierSet;
-}
+  const existing = await fetchTierSetById(id);
+  if (!existing) return null;
 
-export async function deleteTierSetItem(
-  store: LoyaltyStore,
-  id: string,
-): Promise<boolean> {
-  const success = deleteTierSet(store, id);
-  if (!success) return false;
-
-  if (db) {
-    try {
-      await db
-        .delete(schema.tierSets)
-        .where(sql`${schema.tierSets.id} = ${id}`);
-    } catch (err) {
-      console.warn("Could not delete tier set from Postgres DB:", err);
-    }
+  if (data.status === "Active") {
+    await db
+      .update(schema.tierSets)
+      .set({ status: "Inactive", updatedAt: new Date() })
+      .where(sql`${schema.tierSets.id} != ${id}`);
   }
 
-  return true;
+  await db
+    .update(schema.tierSets)
+    .set({
+      name: data.name ?? existing.name,
+      status: data.status ?? existing.status,
+      description: data.description ?? existing.description,
+      updatedAt: new Date(),
+    })
+    .where(sql`${schema.tierSets.id} = ${id}`);
+
+  return fetchTierSetById(id) as Promise<TierSet>;
 }
 
-export function getAllTierSets(store: LoyaltyStore): TierSet[] {
-  return ensureTierSets(store);
-}
-
-export function getTierSetById(
-  store: LoyaltyStore,
-  id: string,
-): TierSet | undefined {
-  const sets = ensureTierSets(store);
-  return sets.find((s) => s.id === id);
-}
-
-export function getActiveTierSet(store: LoyaltyStore): TierSet {
-  const sets = ensureTierSets(store);
-  return sets.find((s) => s.status === "Active") || sets[0];
-}
-
-export function createTierSet(
-  store: LoyaltyStore,
-  data: Partial<TierSet>,
-): TierSet {
-  const sets = ensureTierSets(store);
-  const now = new Date().toISOString();
-  const newSet: TierSet = {
-    id:
-      data.id?.trim() ||
-      `tier-set-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-    name: data.name?.trim() || "New Tier Set",
-    status: data.status || "Inactive",
-    description: data.description?.trim() || "",
-    tiers: data.tiers || [],
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  // If newly created is active, deactivate others
-  if (newSet.status === "Active") {
-    sets.forEach((s) => (s.status = "Inactive"));
+export async function deleteTierSetItem(id: string): Promise<boolean> {
+  if (!db) {
+    throw new Error("Database connection is not available.");
   }
 
-  sets.push(newSet);
-  return newSet;
+  const result = await db
+    .delete(schema.tierSets)
+    .where(sql`${schema.tierSets.id} = ${id}`)
+    .returning({ id: schema.tierSets.id });
+
+  return result.length > 0;
 }
 
-export function updateTierSet(
-  store: LoyaltyStore,
-  id: string,
-  data: Partial<TierSet>,
-): TierSet | null {
-  const sets = ensureTierSets(store);
-  const target = sets.find((s) => s.id === id);
-  if (!target) return null;
-
-  if (data.name !== undefined) target.name = data.name;
-  if (data.description !== undefined) target.description = data.description;
-  if (data.tiers !== undefined) target.tiers = data.tiers;
-  if (data.status !== undefined) {
-    target.status = data.status;
-    if (data.status === "Active") {
-      sets.forEach((s) => {
-        if (s.id !== id) s.status = "Inactive";
-      });
-    }
+export async function getActiveTierSet(): Promise<TierSet | undefined> {
+  if (!db) {
+    throw new Error("Database connection is not available.");
   }
 
-  target.updatedAt = new Date().toISOString();
-  return target;
-}
+  const rows = await db
+    .select()
+    .from(schema.tierSets)
+    .where(sql`${schema.tierSets.status} = 'Active'`)
+    .limit(1);
 
-export function deleteTierSet(store: LoyaltyStore, id: string): boolean {
-  const sets = ensureTierSets(store);
-  const index = sets.findIndex((s) => s.id === id);
-  if (index === -1) return false;
-  sets.splice(index, 1);
-  return true;
+  if (!rows || rows.length === 0) return undefined;
+  return loadTierSetWithTiers(rows[0]);
 }

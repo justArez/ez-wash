@@ -9,6 +9,12 @@ import { registerServiceRoutes } from "./routes/service.route";
 import { registerSlotRoutes } from "./routes/slot.route";
 import { registerPromotionRoutes } from "./routes/promotion.route";
 
+if (!db) {
+  throw new Error(
+    "DATABASE_URL is not configured. The API requires a Postgres connection.",
+  );
+}
+
 const app = new Elysia()
   .use(cors())
   .onRequest(({ request }) => {

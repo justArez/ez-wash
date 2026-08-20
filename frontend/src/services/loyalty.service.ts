@@ -107,6 +107,7 @@ export async function claimPromo(
   success: boolean;
   claimedPromo: ClaimedPromo;
   pointsBalance: number;
+  message?: string;
 }> {
   const response = await fetch(
     `${BASE_URL}/api/promotions/${encodeURIComponent(promotionId)}/claim`,

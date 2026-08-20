@@ -1,4 +1,4 @@
-import type { LoyaltyStore, ServiceItem } from "../models/loyalty.model";
+import type { ServiceItem } from "../models/loyalty.model";
 import { db, schema } from "../db/index";
 import { sql } from "drizzle-orm";
 
@@ -76,159 +76,75 @@ export const DEFAULT_SERVICES: ServiceItem[] = [
   },
 ];
 
-export function ensureServices(store: LoyaltyStore) {
-  if (!store.services) {
-    store.services = [...DEFAULT_SERVICES];
-  }
-  return store.services;
-}
-
 export async function fetchAllServices(
-  store: LoyaltyStore,
   onlyActive = false,
 ): Promise<ServiceItem[]> {
-  let services: ServiceItem[] = [];
-
-  if (db) {
-    try {
-      const rows = await db.select().from(schema.serviceItems);
-      if (rows && rows.length > 0) {
-        services = rows.map((r) => ({
-          id: r.id,
-          name: r.name,
-          category: r.category,
-          description: r.description,
-          durationMinutes: r.durationMinutes,
-          price: r.price,
-          popularityCount: r.popularityCount,
-          status: r.status as any,
-          isActive: r.status === "ACTIVE",
-          features: r.features || [],
-          createdAt: r.createdAt.toISOString(),
-          updatedAt: r.updatedAt.toISOString(),
-        }));
-      }
-    } catch (err) {
-      console.warn("Could not query services from Postgres DB:", err);
-    }
+  if (!db) {
+    throw new Error("Database connection is not available.");
   }
 
-  if (services.length === 0) {
-    services = getAllServices(store, false);
-  }
+  const rows = await db.select().from(schema.serviceItems);
+  let services: ServiceItem[] = rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    category: r.category as any,
+    description: r.description,
+    durationMinutes: r.durationMinutes,
+    price: r.price,
+    popularityCount: r.popularityCount,
+    status: r.status as any,
+    isActive: r.status === "ACTIVE",
+    features: r.features || [],
+  }));
 
   if (onlyActive) {
-    return services.filter((s) => s.status === "ACTIVE" || s.isActive === true);
+    services = services.filter((s) => s.status === "ACTIVE");
   }
 
-  return services;
-}
-
-export function getAllServices(
-  store: LoyaltyStore,
-  onlyActive = false,
-): ServiceItem[] {
-  const services = ensureServices(store);
-  if (onlyActive) {
-    return services.filter((s) => s.status === "ACTIVE" || s.isActive === true);
-  }
   return services;
 }
 
 export async function fetchServiceById(
-  store: LoyaltyStore,
   id: string,
 ): Promise<ServiceItem | undefined> {
-  if (db) {
-    try {
-      const rows = await db
-        .select()
-        .from(schema.serviceItems)
-        .where(sql`${schema.serviceItems.id} = ${id}`)
-        .limit(1);
-      if (rows && rows.length > 0) {
-        const r = rows[0];
-        return {
-          id: r.id,
-          name: r.name,
-          category: r.category,
-          description: r.description,
-          durationMinutes: r.durationMinutes,
-          price: r.price,
-          popularityCount: r.popularityCount,
-          status: r.status as any,
-          isActive: r.status === "ACTIVE",
-          features: r.features || [],
-          createdAt: r.createdAt.toISOString(),
-          updatedAt: r.updatedAt.toISOString(),
-        };
-      }
-    } catch (err) {
-      console.warn("Could not query service by id from Postgres DB:", err);
-    }
+  if (!db) {
+    throw new Error("Database connection is not available.");
   }
 
-  return getServiceById(store, id);
-}
+  const rows = await db
+    .select()
+    .from(schema.serviceItems)
+    .where(sql`${schema.serviceItems.id} = ${id}`)
+    .limit(1);
 
-export function getServiceById(
-  store: LoyaltyStore,
-  id: string,
-): ServiceItem | undefined {
-  const services = ensureServices(store);
-  return services.find((s) => s.id === id);
+  if (!rows || rows.length === 0) {
+    return undefined;
+  }
+
+  const r = rows[0];
+  return {
+    id: r.id,
+    name: r.name,
+    category: r.category as any,
+    description: r.description,
+    durationMinutes: r.durationMinutes,
+    price: r.price,
+    popularityCount: r.popularityCount,
+    status: r.status as any,
+    isActive: r.status === "ACTIVE",
+    features: r.features || [],
+  };
 }
 
 export async function createServiceItem(
-  store: LoyaltyStore,
   data: Partial<ServiceItem>,
 ): Promise<ServiceItem> {
-  const service = createService(store, data);
-
-  if (db) {
-    try {
-      await db
-        .insert(schema.serviceItems)
-        .values({
-          id: service.id,
-          name: service.name,
-          category: service.category,
-          description: service.description,
-          durationMinutes: service.durationMinutes,
-          price: service.price,
-          popularityCount: service.popularityCount,
-          status: service.status,
-          features: service.features,
-        })
-        .onConflictDoUpdate({
-          target: schema.serviceItems.id,
-          set: {
-            name: service.name,
-            category: service.category,
-            description: service.description,
-            durationMinutes: service.durationMinutes,
-            price: service.price,
-            popularityCount: service.popularityCount,
-            status: service.status,
-            features: service.features,
-            updatedAt: new Date(),
-          },
-        });
-    } catch (err) {
-      console.warn("Could not persist created service to Postgres DB:", err);
-    }
+  if (!db) {
+    throw new Error("Database connection is not available.");
   }
 
-  return service;
-}
-
-export function createService(
-  store: LoyaltyStore,
-  data: Partial<ServiceItem>,
-): ServiceItem {
-  const services = ensureServices(store);
   const now = new Date().toISOString();
-  const newService: ServiceItem = {
+  const service: ServiceItem = {
     id:
       data.id?.trim() ||
       `srv-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -244,100 +160,85 @@ export function createService(
     label:
       data.label ||
       `${data.name || "Service"} ($${data.price ?? 25} / ${data.durationMinutes ?? 30}min)`,
-    createdAt: now,
-    updatedAt: now,
   };
 
-  services.push(newService);
-  return newService;
+  await db
+    .insert(schema.serviceItems)
+    .values({
+      id: service.id,
+      name: service.name,
+      category: service.category,
+      description: service.description,
+      durationMinutes: service.durationMinutes,
+      price: service.price,
+      popularityCount: service.popularityCount,
+      status: service.status,
+      features: service.features,
+    })
+    .onConflictDoUpdate({
+      target: schema.serviceItems.id,
+      set: {
+        name: service.name,
+        category: service.category,
+        description: service.description,
+        durationMinutes: service.durationMinutes,
+        price: service.price,
+        popularityCount: service.popularityCount,
+        status: service.status,
+        features: service.features,
+        updatedAt: new Date(),
+      },
+    });
+
+  return service;
 }
 
 export async function updateServiceItem(
-  store: LoyaltyStore,
   id: string,
   data: Partial<ServiceItem>,
 ): Promise<ServiceItem | null> {
-  const service = updateService(store, id, data);
-  if (!service) return null;
-
-  if (db) {
-    try {
-      await db
-        .update(schema.serviceItems)
-        .set({
-          name: service.name,
-          category: service.category,
-          description: service.description,
-          durationMinutes: service.durationMinutes,
-          price: service.price,
-          popularityCount: service.popularityCount,
-          status: service.status,
-          features: service.features,
-          updatedAt: new Date(),
-        })
-        .where(sql`${schema.serviceItems.id} = ${id}`);
-    } catch (err) {
-      console.warn("Could not update service in Postgres DB:", err);
-    }
+  if (!db) {
+    throw new Error("Database connection is not available.");
   }
 
-  return service;
-}
+  const existing = await fetchServiceById(id);
+  if (!existing) return null;
 
-export function updateService(
-  store: LoyaltyStore,
-  id: string,
-  data: Partial<ServiceItem>,
-): ServiceItem | null {
-  const services = ensureServices(store);
-  const service = services.find((s) => s.id === id);
-  if (!service) return null;
-
-  if (data.name !== undefined) service.name = data.name;
-  if (data.category !== undefined) service.category = data.category;
-  if (data.description !== undefined) service.description = data.description;
-  if (data.durationMinutes !== undefined)
-    service.durationMinutes = data.durationMinutes;
-  if (data.price !== undefined) service.price = data.price;
+  const updated: ServiceItem = { ...existing, ...data };
   if (data.status !== undefined) {
-    service.status = data.status;
-    service.isActive = data.status === "ACTIVE";
+    updated.isActive = data.status === "ACTIVE";
   }
   if (data.isActive !== undefined) {
-    service.isActive = data.isActive;
-    service.status = data.isActive ? "ACTIVE" : "INACTIVE";
-  }
-  if (data.features !== undefined) service.features = data.features;
-  if (data.label !== undefined) service.label = data.label;
-  service.updatedAt = new Date().toISOString();
-
-  return service;
-}
-
-export async function deleteServiceItem(
-  store: LoyaltyStore,
-  id: string,
-): Promise<boolean> {
-  const success = deleteService(store, id);
-  if (!success) return false;
-
-  if (db) {
-    try {
-      await db
-        .delete(schema.serviceItems)
-        .where(sql`${schema.serviceItems.id} = ${id}`);
-    } catch (err) {
-      console.warn("Could not delete service from Postgres DB:", err);
-    }
+    updated.status = data.isActive ? "ACTIVE" : "INACTIVE";
   }
 
-  return true;
+  await db
+    .update(schema.serviceItems)
+    .set({
+      name: updated.name,
+      category: updated.category,
+      description: updated.description,
+      durationMinutes: updated.durationMinutes,
+      price: updated.price,
+      popularityCount: updated.popularityCount,
+      status: updated.status,
+      features: updated.features,
+      updatedAt: new Date(),
+    })
+    .where(sql`${schema.serviceItems.id} = ${id}`);
+
+  return updated;
 }
 
-export function deleteService(store: LoyaltyStore, id: string): boolean {
-  const services = ensureServices(store);
-  const index = services.findIndex((s) => s.id === id);
-  if (index === -1) return false;
-  services.splice(index, 1);
-  return true;
+export async function deleteServiceItem(id: string): Promise<boolean> {
+  if (!db) {
+    throw new Error("Database connection is not available.");
+  }
+
+  const result = await db
+    .delete(schema.serviceItems)
+    .where(sql`${schema.serviceItems.id} = ${id}`)
+    .returning({ id: schema.serviceItems.id });
+
+  return result.length > 0;
 }

@@ -1,33 +1,56 @@
-import type {
-  Booking,
-  BookingStatus,
-  LoyaltyCustomer,
-  LoyaltyStore,
-  Vehicle,
-} from "../models/loyalty.model";
-import { findCustomer, cancelBooking } from "./loyalty.service";
+import type { Booking, BookingStatus, Vehicle } from "../models/loyalty.model";
+import {
+  createBooking as createLoyaltyBooking,
+  cancelBooking as cancelLoyaltyBooking,
+} from "./loyalty.service";
+import { findCustomerRecord } from "./customer.service";
 import { getTier } from "./tier.service";
-import { getServiceById } from "./service.service";
+import { fetchServiceById } from "./service.service";
 import { db, schema } from "../db/index";
-import { sql } from "drizzle-orm";
+import { sql, eq } from "drizzle-orm";
 
 function createId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-export async function createPublicBooking(
-  store: LoyaltyStore,
-  params: {
-    phone: string;
-    vehiclePlate: string;
-    requestedDate: string;
-    serviceId?: string;
-    timeSlot?: string;
-    time?: string;
-    appliedPromoId?: string;
-    note?: string;
-  },
-) {
+function mapBookingRow(r: typeof schema.bookings.$inferSelect): Booking {
+  return {
+    id: r.id,
+    customerId: r.customerId,
+    vehiclePlate: r.vehiclePlate,
+    serviceId: r.serviceId || undefined,
+    date: r.date.toISOString().split("T")[0],
+    time: r.timeSlot || undefined,
+    timeSlot: r.timeSlot || undefined,
+    durationMinutes: r.durationMinutes || undefined,
+    bayId: r.bayId || undefined,
+    createdAt: r.createdAt.toISOString(),
+    updatedAt: r.updatedAt.toISOString(),
+    appliedPerks: r.appliedPerks || [],
+    appliedPromoId: r.appliedPromoId || undefined,
+    pointsEarned: r.pointsEarned,
+    pointsSpent: r.pointsSpent,
+    status: r.status,
+    cancelledAt: r.cancelledAt?.toISOString(),
+    isLateCancellation: r.isLateCancellation,
+    note: r.note || undefined,
+  };
+}
+
+export async function createPublicBooking(params: {
+  phone: string;
+  vehiclePlate: string;
+  requestedDate: string;
+  serviceId?: string;
+  timeSlot?: string;
+  time?: string;
+  appliedPromoId?: string;
+  note?: string;
+}) {
+  if (!db) {
+    throw new Error("Database connection is not available.");
+  }
+
   const {
     phone,
     vehiclePlate,
@@ -39,151 +62,50 @@ export async function createPublicBooking(
     note,
   } = params;
 
-  const result = createBooking(store, phone, vehiclePlate, requestedDate);
+  const result = await createLoyaltyBooking(phone, vehiclePlate, requestedDate);
   if (result.success && result.booking) {
+    const updates: Record<string, unknown> = {};
+
     if (serviceId) {
       result.booking.serviceId = serviceId;
-      const srv = getServiceById(store, serviceId);
+      const srv = await fetchServiceById(serviceId);
       if (srv) {
         result.booking.serviceName = srv.name;
         result.booking.service = srv.name;
         result.booking.durationMinutes = srv.durationMinutes;
+        updates.serviceId = serviceId;
+        updates.durationMinutes = srv.durationMinutes;
       }
     }
     if (timeSlot || time) {
       result.booking.timeSlot = timeSlot || time;
       result.booking.time = timeSlot || time;
+      updates.timeSlot = timeSlot || time;
     }
-    if (appliedPromoId) result.booking.appliedPromoId = appliedPromoId;
-    if (note) result.booking.note = note;
+    if (appliedPromoId) {
+      result.booking.appliedPromoId = appliedPromoId;
+      updates.appliedPromoId = appliedPromoId;
+    }
+    if (note) {
+      result.booking.note = note;
+      updates.note = note;
+    }
 
-    if (db) {
-      try {
-        const customer = findCustomer(store, phone);
-        if (customer) {
-          await db
-            .insert(schema.bookings)
-            .values({
-              id: result.booking.id,
-              customerId: customer.id,
-              vehiclePlate: result.booking.vehiclePlate,
-              serviceId: result.booking.serviceId || null,
-              date: new Date(result.booking.date),
-              timeSlot: result.booking.timeSlot || null,
-              durationMinutes: result.booking.durationMinutes || 30,
-              status: (result.booking.status as any) || "confirmed",
-              pointsEarned: result.booking.pointsEarned || 0,
-              pointsSpent: result.booking.pointsSpent || 0,
-              appliedPerks: result.booking.appliedPerks || [],
-              appliedPromoId: result.booking.appliedPromoId || null,
-              note: result.booking.note || null,
-            })
-            .onConflictDoUpdate({
-              target: schema.bookings.id,
-              set: {
-                status: (result.booking.status as any) || "confirmed",
-                updatedAt: new Date(),
-              },
-            });
-
-          await db
-            .update(schema.loyaltyCustomers)
-            .set({
-              pointsBalance: customer.pointsBalance,
-              collectedPoints: customer.collectedPoints,
-              updatedAt: new Date(),
-            })
-            .where(sql`${schema.loyaltyCustomers.id} = ${customer.id}`);
-        }
-      } catch (dbErr) {
-        console.warn("Could not persist new booking to Postgres DB:", dbErr);
-      }
+    if (Object.keys(updates).length > 0) {
+      await db
+        .update(schema.bookings)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(schema.bookings.id, result.booking.id));
     }
   }
 
   return result;
 }
 
-export async function fetchCustomerBookings(
-  store: LoyaltyStore,
-  phone: string,
-) {
-  let customer = findCustomer(store, phone);
-  if (!customer && db) {
-    try {
-      const normalized = phone.trim().toLowerCase();
-      const rows = await db
-        .select()
-        .from(schema.loyaltyCustomers)
-        .where(
-          sql`lower(${schema.loyaltyCustomers.phone}) = ${normalized} OR lower(${schema.loyaltyCustomers.username}) = ${normalized}`,
-        )
-        .limit(1);
-      if (rows && rows.length > 0) {
-        const dbCust = rows[0];
-        customer = {
-          id: dbCust.id,
-          phone: dbCust.phone || "",
-          username: dbCust.username || undefined,
-          fullName: dbCust.fullName || undefined,
-          email: dbCust.email || undefined,
-          tierId: dbCust.tierId,
-          pointsBalance: dbCust.pointsBalance,
-          collectedPoints: dbCust.collectedPoints,
-          vehicles: [],
-          pointHistory: [],
-          bookingHistory: [],
-          lateCancellationWarningCount: dbCust.lateCancellationWarningCount,
-          priorityStatus: dbCust.priorityStatus,
-          status: dbCust.status as any,
-          createdAt: dbCust.createdAt.toISOString(),
-          updatedAt: dbCust.updatedAt.toISOString(),
-        };
-        store.customers.push(customer);
-      }
-    } catch (err) {
-      console.warn("Could not query customer for bookings from Postgres:", err);
-    }
-  }
-
+export async function fetchCustomerBookings(phone: string) {
+  const customer = await findCustomerRecord(phone);
   if (!customer) {
     return null;
-  }
-
-  // If connected to DB, also read any database bookings
-  if (db) {
-    try {
-      const dbBookings = await db
-        .select()
-        .from(schema.bookings)
-        .where(sql`${schema.bookings.customerId} = ${customer.id}`);
-      if (dbBookings && dbBookings.length > 0) {
-        for (const dbB of dbBookings) {
-          const exists = customer.bookingHistory?.some((b) => b.id === dbB.id);
-          if (!exists) {
-            customer.bookingHistory = customer.bookingHistory || [];
-            customer.bookingHistory.push({
-              id: dbB.id,
-              customerId: dbB.customerId,
-              vehiclePlate: dbB.vehiclePlate,
-              serviceId: dbB.serviceId || undefined,
-              date: dbB.date.toISOString().split("T")[0],
-              timeSlot: dbB.timeSlot || undefined,
-              durationMinutes: dbB.durationMinutes || 30,
-              status: dbB.status as any,
-              appliedPerks: dbB.appliedPerks || [],
-              appliedPromoId: dbB.appliedPromoId || undefined,
-              pointsEarned: dbB.pointsEarned,
-              pointsSpent: dbB.pointsSpent,
-              createdAt: dbB.createdAt.toISOString(),
-              updatedAt: dbB.updatedAt.toISOString(),
-            });
-          }
-        }
-      }
-    } catch (err) {
-      console.warn("Could not sync my-bookings from Postgres DB:", err);
-    }
   }
 
   const history = (customer.bookingHistory || []).slice().reverse();
@@ -199,87 +121,52 @@ export async function fetchCustomerBookings(
   };
 }
 
-export async function cancelPublicBooking(
-  store: LoyaltyStore,
-  phone: string,
-  bookingId: string,
-) {
-  const result = cancelBooking(store, phone, bookingId);
-  if (db) {
-    try {
-      await db
-        .update(schema.bookings)
-        .set({
-          status: "cancelled",
-          cancelledAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(sql`${schema.bookings.id} = ${bookingId}`);
-
-      const customer = findCustomer(store, phone);
-      if (customer) {
-        await db
-          .update(schema.loyaltyCustomers)
-          .set({
-            lateCancellationWarningCount: customer.lateCancellationWarningCount,
-            priorityStatus: customer.priorityStatus,
-            updatedAt: new Date(),
-          })
-          .where(sql`${schema.loyaltyCustomers.id} = ${customer.id}`);
-      }
-    } catch (dbErr) {
-      console.warn("Could not update cancelled booking in Postgres DB:", dbErr);
-    }
-  }
-  return result;
+export async function cancelPublicBooking(phone: string, bookingId: string) {
+  return cancelLoyaltyBooking(phone, bookingId);
 }
 
-export function getAllBookings(
-  store: LoyaltyStore,
-  options?: {
-    query?: string;
-    status?: string;
-    date?: string;
-    serviceId?: string;
-  },
-): (Booking & {
-  customerName?: string;
-  customerPhone?: string;
-  customerTier?: string;
-})[] {
-  const result: (Booking & {
+export async function getAllBookings(options?: {
+  query?: string;
+  status?: string;
+  date?: string;
+  serviceId?: string;
+}): Promise<
+  (Booking & {
     customerName?: string;
     customerPhone?: string;
     customerTier?: string;
-  })[] = [];
-
-  for (const customer of store.customers || []) {
-    for (const booking of customer.bookingHistory || []) {
-      const flatBooking = {
-        ...booking,
-        customerName:
-          customer.fullName ||
-          customer.username ||
-          `Customer (${customer.phone})`,
-        customerPhone: customer.phone,
-        customerTier: customer.tierId?.toUpperCase(),
-      };
-      result.push(flatBooking);
-    }
+  })[]
+> {
+  if (!db) {
+    throw new Error("Database connection is not available.");
   }
 
-  // Sort latest first
+  const bookingRows = await db.select().from(schema.bookings);
+  const customerRows = await db.select().from(schema.loyaltyCustomers);
+  const customerMap = new Map(customerRows.map((c) => [c.id, c]));
+
+  let result = bookingRows.map((r) => {
+    const customer = customerMap.get(r.customerId);
+    return {
+      ...mapBookingRow(r),
+      customerName:
+        customer?.fullName ||
+        customer?.username ||
+        `Customer (${customer?.phone})`,
+      customerPhone: customer?.phone || undefined,
+      customerTier: customer?.tierId?.toUpperCase(),
+    };
+  });
+
   result.sort(
     (a, b) =>
       new Date(b.createdAt || b.date).getTime() -
       new Date(a.createdAt || a.date).getTime(),
   );
 
-  let filtered = result;
-
   if (options?.query) {
     const q = options.query.toLowerCase().trim();
-    filtered = filtered.filter(
+    result = result.filter(
       (b) =>
         b.id.toLowerCase().includes(q) ||
         b.vehiclePlate.toLowerCase().includes(q) ||
@@ -292,89 +179,81 @@ export function getAllBookings(
 
   if (options?.status && options.status !== "ALL") {
     const s = options.status.toLowerCase();
-    filtered = filtered.filter((b) => b.status.toLowerCase() === s);
+    result = result.filter((b) => b.status.toLowerCase() === s);
   }
 
   if (options?.date) {
-    filtered = filtered.filter(
+    result = result.filter(
       (b) => b.date === options.date || b.date.startsWith(options.date!),
     );
   }
 
   if (options?.serviceId) {
-    filtered = filtered.filter((b) => b.serviceId === options.serviceId);
+    result = result.filter((b) => b.serviceId === options.serviceId);
   }
 
-  return filtered;
+  return result;
 }
 
-export function getBookingById(
-  store: LoyaltyStore,
+export async function getBookingById(
   bookingId: string,
-): { booking: Booking; customer: LoyaltyCustomer } | null {
-  for (const customer of store.customers || []) {
-    const b = customer.bookingHistory.find((item) => item.id === bookingId);
-    if (b) {
-      return { booking: b, customer };
-    }
+): Promise<{ booking: Booking; customerId: string } | null> {
+  if (!db) {
+    throw new Error("Database connection is not available.");
   }
-  return null;
+
+  const rows = await db
+    .select()
+    .from(schema.bookings)
+    .where(eq(schema.bookings.id, bookingId))
+    .limit(1);
+
+  if (rows.length === 0) return null;
+  return { booking: mapBookingRow(rows[0]), customerId: rows[0].customerId };
 }
 
-export function adminCreateBooking(
-  store: LoyaltyStore,
-  data: {
-    phone: string;
-    vehiclePlate: string;
-    vehicleModel?: string;
-    vehicleType?: "car" | "motorcycle" | "suv" | "van";
-    serviceId?: string;
-    serviceName?: string;
-    date: string;
-    timeSlot?: string;
-    time?: string;
-    bayId?: string;
-    status?: BookingStatus;
-    note?: string;
-  },
-): Booking {
-  let customer = findCustomer(store, data.phone);
-  const now = new Date().toISOString();
+export async function adminCreateBooking(data: {
+  phone: string;
+  vehiclePlate: string;
+  vehicleModel?: string;
+  vehicleType?: "car" | "motorcycle" | "suv" | "van";
+  serviceId?: string;
+  serviceName?: string;
+  date: string;
+  timeSlot?: string;
+  time?: string;
+  bayId?: string;
+  status?: BookingStatus;
+  note?: string;
+}): Promise<Booking> {
+  if (!db) {
+    throw new Error("Database connection is not available.");
+  }
+
+  let customer = await findCustomerRecord(data.phone);
+  const plateUpper = data.vehiclePlate.trim().toUpperCase();
 
   if (!customer) {
-    // Create guest customer
-    const plateUpper = data.vehiclePlate.trim().toUpperCase();
-    const vehicle: Vehicle = {
+    const customerId = createId();
+    await db.insert(schema.loyaltyCustomers).values({
+      id: customerId,
+      phone: data.phone.trim(),
+      tierId: "member",
+    });
+    await db.insert(schema.vehicles).values({
+      id: createId(),
+      customerId,
       plate: plateUpper,
       model: data.vehicleModel?.trim() || "Standard Vehicle",
       type: data.vehicleType || "car",
-    };
-
-    customer = {
-      id: createId(),
-      phone: data.phone.trim(),
-      licensePlates: [plateUpper],
-      tierId: "member",
-      pointsBalance: 0,
-      vehicles: [vehicle],
-      pointHistory: [],
-      bookingHistory: [],
-      lateCancellationWarningCount: 0,
-      priorityStatus: "normal",
-      status: "Active",
-      createdAt: now,
-      updatedAt: now,
-    };
-    store.customers.push(customer);
+    });
+    customer = await findCustomerRecord(data.phone);
   } else {
-    // Ensure vehicle exists
-    const plateUpper = data.vehiclePlate.trim().toUpperCase();
-    if (!customer.licensePlates.includes(plateUpper)) {
-      customer.licensePlates.push(plateUpper);
-    }
     const hasVehicle = customer.vehicles.some((v) => v.plate === plateUpper);
     if (!hasVehicle) {
-      customer.vehicles.push({
+      await db.insert(schema.vehicles).values({
+        id: createId(),
+        customerId: customer.id,
         plate: plateUpper,
         model: data.vehicleModel?.trim() || "Standard Vehicle",
         type: data.vehicleType || "car",
@@ -385,21 +264,37 @@ export function adminCreateBooking(
   let serviceName = data.serviceName;
   let durationMinutes = 30;
   if (data.serviceId) {
-    const srv = getServiceById(store, data.serviceId);
+    const srv = await fetchServiceById(data.serviceId);
     if (srv) {
       serviceName = srv.name;
       durationMinutes = srv.durationMinutes;
     }
   }
 
-  const tier = getTier(customer.tierId, store);
-  const booking: Booking = {
-    id: `BK-${Date.now().toString().slice(-6)}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`,
-    customerId: customer.id,
-    customerName: customer.fullName || customer.username,
-    customerPhone: customer.phone,
-    customerTier: customer.tierId,
-    vehiclePlate: data.vehiclePlate.trim().toUpperCase(),
+  const tier = getTier(customer!.tierId);
+  const bookingId = `BK-${Date.now().toString().slice(-6)}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+
+  await db.insert(schema.bookings).values({
+    id: bookingId,
+    customerId: customer!.id,
+    vehiclePlate: plateUpper,
+    serviceId: data.serviceId || null,
+    date: new Date(data.date),
+    timeSlot: data.timeSlot || data.time || null,
+    durationMinutes,
+    bayId: data.bayId || "Bay 1",
+    status: (data.status?.toLowerCase() as any) || "confirmed",
+    appliedPerks: tier.perks || [],
+    note: data.note || null,
+  });
+
+  return {
+    id: bookingId,
+    customerId: customer!.id,
+    customerName: customer!.fullName || customer!.username,
+    customerPhone: customer!.phone,
+    customerTier: customer!.tierId,
+    vehiclePlate: plateUpper,
     vehicleModel: data.vehicleModel,
     vehicleType: data.vehicleType,
     serviceId: data.serviceId,
@@ -413,131 +308,147 @@ export function adminCreateBooking(
     status: data.status || "confirmed",
     appliedPerks: tier.perks || [],
     note: data.note,
-    createdAt: now,
-    updatedAt: now,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   };
-
-  customer.bookingHistory.push(booking);
-  customer.updatedAt = now;
-
-  return booking;
 }
 
-export function adminUpdateBooking(
-  store: LoyaltyStore,
+export async function adminUpdateBooking(
   bookingId: string,
   data: Partial<Booking>,
-): Booking | null {
-  const match = getBookingById(store, bookingId);
+): Promise<Booking | null> {
+  if (!db) {
+    throw new Error("Database connection is not available.");
+  }
+
+  const match = await getBookingById(bookingId);
   if (!match) return null;
 
-  const { booking, customer } = match;
+  const { booking, customerId } = match;
   const previousStatus = booking.status;
+  const now = new Date();
 
-  if (data.status !== undefined) booking.status = data.status;
-  if (data.bayId !== undefined) booking.bayId = data.bayId;
-  if (data.timeSlot !== undefined) {
-    booking.timeSlot = data.timeSlot;
-    booking.time = data.timeSlot;
-  }
-  if (data.date !== undefined) booking.date = data.date;
-  if (data.note !== undefined) booking.note = data.note;
+  const updates: Record<string, unknown> = { updatedAt: now };
+  if (data.status !== undefined) updates.status = data.status;
+  if (data.bayId !== undefined) updates.bayId = data.bayId;
+  if (data.timeSlot !== undefined) updates.timeSlot = data.timeSlot;
+  if (data.date !== undefined) updates.date = new Date(data.date);
+  if (data.note !== undefined) updates.note = data.note;
   if (data.serviceId !== undefined) {
-    booking.serviceId = data.serviceId;
-    const srv = getServiceById(store, data.serviceId);
-    if (srv) {
-      booking.serviceName = srv.name;
-      booking.service = srv.name;
-      booking.durationMinutes = srv.durationMinutes;
-    }
+    updates.serviceId = data.serviceId;
+    const srv = await fetchServiceById(data.serviceId);
+    if (srv) updates.durationMinutes = srv.durationMinutes;
   }
 
-  // When a booking transitions to "completed", award points to BOTH collectedPoints and redeemable pointsBalance
-  // Points calculated based on booking price and customer's tier point rate multiplier (default base rate is 100 pts per dollar)
-  if (previousStatus !== "completed" && booking.status === "completed") {
-    let price = 30; // fallback base price
-    const srv = booking.serviceId
-      ? getServiceById(store, booking.serviceId)
-      : null;
-    if (srv?.price) {
-      price = srv.price;
-    }
+  const newStatus = (data.status ?? previousStatus) as BookingStatus;
 
-    // Configurable rate: tier multiplier pointRate (e.g., Member=1.0x, Silver=1.25x, Gold=1.5x, Platinum=2.0x) * base rate (100)
-    const tier = getTier(customer.tierId, store);
+  // Award points when a booking transitions to "completed"
+  if (previousStatus !== "completed" && newStatus === "completed") {
+    const customerRows = await db
+      .select()
+      .from(schema.loyaltyCustomers)
+      .where(eq(schema.loyaltyCustomers.id, customerId))
+      .limit(1);
+    const customer = customerRows[0];
+
+    let price = 30;
+    const srvId = data.serviceId ?? booking.serviceId;
+    const srv = srvId ? await fetchServiceById(srvId) : null;
+    if (srv?.price) price = srv.price;
+
+    const tier = getTier(customer.tierId);
     const pointRate = tier?.pointRate ?? 1.0;
-    const baseRate = 100; // 100 points per $1
+    const baseRate = 100;
     let earnedPoints = Math.max(10, Math.round(price * baseRate * pointRate));
 
-    // Check if promo was applied that adds bonus points
     if (booking.appliedPromoId) {
-      const promo = store.promotions?.find(
-        (p) => p.id === booking.appliedPromoId,
-      );
-      if (promo && promo.bonusPoints && promo.bonusPoints > 0) {
+      const promoRows = await db
+        .select()
+        .from(schema.promotions)
+        .where(eq(schema.promotions.id, booking.appliedPromoId))
+        .limit(1);
+      const promo = promoRows[0];
+      if (promo?.bonusPoints && promo.bonusPoints > 0) {
         earnedPoints += promo.bonusPoints;
       }
     }
 
-    booking.pointsEarned = earnedPoints;
-    customer.pointsBalance = (customer.pointsBalance || 0) + earnedPoints;
-    customer.collectedPoints = (customer.collectedPoints || 0) + earnedPoints;
+    updates.pointsEarned = earnedPoints;
 
-    const now = new Date().toISOString();
-    customer.pointHistory.push({
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      type: "earn",
-      amount: earnedPoints,
-      date: now,
-      description: `Completed wash booking ${booking.id} (+${earnedPoints} pts, rate: ${pointRate}x)`,
-    });
+    const newBalance = (customer.pointsBalance || 0) + earnedPoints;
+    const newCollected = (customer.collectedPoints || 0) + earnedPoints;
 
-    // Auto-remove LOW_PRIORITIED mark when the marked customer completes 3 bookings
+    let newPriorityStatus = customer.priorityStatus;
+    let newWarningCount = customer.lateCancellationWarningCount;
+    let newStatusField = customer.status;
+
     if (
       customer.priorityStatus === "LOW_PRIORITIED" ||
       (customer.lateCancellationWarningCount ?? 0) >= 3
     ) {
-      const completedCount = customer.bookingHistory.filter(
-        (b) => b.status === "completed",
-      ).length;
+      const completedRows = await db
+        .select({ id: schema.bookings.id })
+        .from(schema.bookings)
+        .where(
+          sql`${schema.bookings.customerId} = ${customerId} AND ${schema.bookings.status} = 'completed'`,
+        );
+      const completedCount = completedRows.length + 1;
 
       if (completedCount >= 3) {
-        customer.priorityStatus = "normal";
-        customer.lateCancellationWarningCount = 0;
-        if (customer.status === "Low Priority") {
-          customer.status = "Active";
-        }
-        store.auditLogs.push({
-          id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        newPriorityStatus = "normal";
+        newWarningCount = 0;
+        if (newStatusField === "Low Priority") newStatusField = "Active";
+
+        await db.insert(schema.auditLogs).values({
+          id: createId(),
           actor: "system",
           actionType: "priority-status-restored",
           entityType: "customer",
-          entityId: customer.id,
-          timestamp: now,
+          entityId: customerId,
           details: `LOW_PRIORITIED status automatically removed after completing ${completedCount} bookings.`,
         });
       }
     }
+
+    await db
+      .update(schema.loyaltyCustomers)
+      .set({
+        pointsBalance: newBalance,
+        collectedPoints: newCollected,
+        priorityStatus: newPriorityStatus,
+        lateCancellationWarningCount: newWarningCount,
+        status: newStatusField,
+        updatedAt: now,
+      })
+      .where(eq(schema.loyaltyCustomers.id, customerId));
+
+    await db.insert(schema.pointTransactions).values({
+      id: createId(),
+      customerId,
+      type: "earn",
+      amount: earnedPoints,
+      description: `Completed wash booking ${booking.id} (+${earnedPoints} pts, rate: ${pointRate}x)`,
+    });
   }
 
-  booking.updatedAt = new Date().toISOString();
-  customer.updatedAt = new Date().toISOString();
+  await db
+    .update(schema.bookings)
+    .set(updates)
+    .where(eq(schema.bookings.id, bookingId));
 
-  return booking;
+  const updated = await getBookingById(bookingId);
+  return updated!.booking;
 }
 
-export function adminDeleteBooking(
-  store: LoyaltyStore,
-  bookingId: string,
-): boolean {
-  const match = getBookingById(store, bookingId);
-  if (!match) return false;
+export async function adminDeleteBooking(bookingId: string): Promise<boolean> {
+  if (!db) {
+    throw new Error("Database connection is not available.");
+  }
 
-  const { customer } = match;
-  const idx = customer.bookingHistory.findIndex((b) => b.id === bookingId);
-  if (idx === -1) return false;
+  const result = await db
+    .delete(schema.bookings)
+    .where(eq(schema.bookings.id, bookingId))
+    .returning({ id: schema.bookings.id });
 
-  customer.bookingHistory.splice(idx, 1);
-  customer.updatedAt = new Date().toISOString();
-  return true;
+  return result.length > 0;
 }
