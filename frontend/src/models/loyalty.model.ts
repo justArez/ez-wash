@@ -250,6 +250,7 @@ export interface AdminUser {
   phone: string;
   mostActiveVehicle: string;
   points: number;
+  collectedPoints?: number;
   status: "Active" | "Inactive" | "Low Priority";
   tier: "Platinum" | "Gold" | "Silver" | "Member";
 }
@@ -263,6 +264,7 @@ export interface LoyaltyCustomer {
   tierId: string;
   tierName?: string;
   pointsBalance: number;
+  collectedPoints?: number;
   vehicles: Vehicle[];
   pointHistory: PointTransaction[];
   bookingHistory: Booking[];
@@ -385,6 +387,7 @@ export interface DashboardResponse {
   email?: string;
   tier: LoyaltyTier;
   pointsBalance: number;
+  collectedPoints?: number;
   vehicles: Vehicle[];
   nextEligibleBookingDate: string;
   appliedPerks: string[];

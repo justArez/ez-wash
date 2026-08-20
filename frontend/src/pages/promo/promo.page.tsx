@@ -54,11 +54,13 @@ export default function PromoPage({
   const [claimToast, setClaimToast] = useState<string | null>(null);
 
   // Sync pointsBalance if dashboard changes
-  useEffect(() => {
-    if (dashboard) {
-      setPointsBalance(dashboard.pointsBalance);
-    }
-  }, [dashboard]);
+  const [prevDashboardBalance, setPrevDashboardBalance] = useState(
+    dashboard?.pointsBalance,
+  );
+  if (dashboard && dashboard.pointsBalance !== prevDashboardBalance) {
+    setPrevDashboardBalance(dashboard.pointsBalance);
+    setPointsBalance(dashboard.pointsBalance);
+  }
 
   // Fetch live promotions from API
   useEffect(() => {
@@ -97,9 +99,10 @@ export default function PromoPage({
                 p.category === "tier_reward",
             )
             .map((p) => {
-              const reqTierUpper = (p.requiredTier?.toUpperCase() ||
-                p.applicableTiers?.[0]?.toUpperCase() ||
-                "MEMBER") as any;
+              const rawTier =
+                p.requiredTier || p.applicableTiers?.[0] || "MEMBER";
+              const reqTierUpper =
+                rawTier.toUpperCase() as ClaimablePromo["requiredTier"];
               let tierGroup: ClaimablePromo["tierGroup"] =
                 "SILVER TIER & ABOVE";
               if (reqTierUpper === "GOLD") tierGroup = "GOLD TIER & ABOVE";
@@ -147,28 +150,51 @@ export default function PromoPage({
   }, [dashboard?.phone]);
 
   // Group claimable promos by tier groups
+  const claimedPromoIds = useMemo(
+    () => claimedPromos.map((p) => p.promoId),
+    [claimedPromos],
+  );
+
+  const memberPromos = useMemo(
+    () =>
+      claimablePromosList.filter(
+        (p) => p.tierGroup === "MEMBER TIER" || p.requiredTier === "MEMBER",
+      ),
+    [claimablePromosList],
+  );
   const silverPromos = useMemo(
     () =>
       claimablePromosList.filter(
         (p) =>
           p.tierGroup === "SILVER TIER & ABOVE" ||
-          p.tierGroup === "MEMBER TIER",
+          (p.requiredTier === "SILVER" && p.tierGroup !== "MEMBER TIER"),
       ),
     [claimablePromosList],
   );
   const goldPromos = useMemo(
     () =>
-      claimablePromosList.filter((p) => p.tierGroup === "GOLD TIER & ABOVE"),
+      claimablePromosList.filter(
+        (p) => p.tierGroup === "GOLD TIER & ABOVE" || p.requiredTier === "GOLD",
+      ),
     [claimablePromosList],
   );
   const platinumPromos = useMemo(
-    () => claimablePromosList.filter((p) => p.tierGroup === "PLATINUM TIER"),
+    () =>
+      claimablePromosList.filter(
+        (p) => p.tierGroup === "PLATINUM TIER" || p.requiredTier === "PLATINUM",
+      ),
     [claimablePromosList],
   );
 
   const handleClaimPromo = async (promo: ClaimablePromo) => {
-    if (!isLoggedIn || !dashboard?.phone) {
+    if (!isLoggedIn) {
       onOpenSignIn?.();
+      return;
+    }
+
+    if (claimedPromoIds.includes(promo.id)) {
+      setClaimToast(`You have already claimed "${promo.title}".`);
+      setTimeout(() => setClaimToast(null), 4000);
       return;
     }
 
@@ -176,16 +202,42 @@ export default function PromoPage({
 
     setIsSubmittingClaim(true);
     try {
-      // Call backend claim API
-      const result = await claimPromo(promo.id, dashboard.phone);
-      if (result.success && result.claimedPromo) {
-        setPointsBalance(result.pointsBalance);
-        setClaimedPromos((prev) => [result.claimedPromo, ...prev]);
-        appendClaimedPromo(result.claimedPromo, dashboard.customerId);
+      // Call backend claim API if phone is available
+      const phone = dashboard?.phone;
+      if (phone) {
+        const result = await claimPromo(promo.id, phone);
+        if (result.success && result.claimedPromo) {
+          const newBal =
+            result.pointsBalance ?? pointsBalance - promo.pointPrice;
+          setPointsBalance(newBal);
+          setClaimedPromos((prev) => [result.claimedPromo, ...prev]);
+          appendClaimedPromo(result.claimedPromo, dashboard?.customerId);
 
-        setClaimToast(`Claimed "${promo.title}"! Added to Your Promos.`);
-        setTimeout(() => setClaimToast(null), 4000);
+          setClaimToast(`Claimed "${promo.title}"! Added to Your Promos.`);
+          setTimeout(() => setClaimToast(null), 4000);
+          return;
+        }
       }
+
+      // Local claim path
+      const newBalance = pointsBalance - promo.pointPrice;
+      setPointsBalance(newBalance);
+
+      const newVoucher: ClaimedPromo = {
+        id: `claim-${Date.now()}`,
+        promoId: promo.id,
+        title: promo.title,
+        description: promo.description,
+        claimedAt: new Date().toISOString(),
+        validUntil: "30 days from now",
+        status: "ACTIVE",
+        perkIdentifier: promo.perkType,
+      };
+
+      const updated = appendClaimedPromo(newVoucher, dashboard?.customerId);
+      setClaimedPromos(updated);
+      setClaimToast(`Claimed "${promo.title}"! Added to Your Promos.`);
+      setTimeout(() => setClaimToast(null), 4000);
     } catch {
       // Fallback local claim
       const newBalance = pointsBalance - promo.pointPrice;
@@ -258,12 +310,27 @@ export default function PromoPage({
           </div>
 
           <div className="flex flex-col gap-8">
+            {memberPromos.length > 0 && (
+              <TierPromoSection
+                title="Member Tier Rewards"
+                promos={memberPromos}
+                isLoggedIn={isLoggedIn}
+                currentTier={currentTier}
+                pointsBalance={pointsBalance}
+                claimedPromoIds={claimedPromoIds}
+                onClaim={handleClaimPromo}
+                onOpenSignIn={onOpenSignIn}
+                isSubmitting={isSubmittingClaim}
+              />
+            )}
+
             <TierPromoSection
               title="Silver Tier & Above"
               promos={silverPromos}
               isLoggedIn={isLoggedIn}
               currentTier={currentTier}
               pointsBalance={pointsBalance}
+              claimedPromoIds={claimedPromoIds}
               onClaim={handleClaimPromo}
               onOpenSignIn={onOpenSignIn}
               isSubmitting={isSubmittingClaim}
@@ -275,6 +342,7 @@ export default function PromoPage({
               isLoggedIn={isLoggedIn}
               currentTier={currentTier}
               pointsBalance={pointsBalance}
+              claimedPromoIds={claimedPromoIds}
               onClaim={handleClaimPromo}
               onOpenSignIn={onOpenSignIn}
               isSubmitting={isSubmittingClaim}
@@ -286,6 +354,7 @@ export default function PromoPage({
               isLoggedIn={isLoggedIn}
               currentTier={currentTier}
               pointsBalance={pointsBalance}
+              claimedPromoIds={claimedPromoIds}
               onClaim={handleClaimPromo}
               onOpenSignIn={onOpenSignIn}
               isSubmitting={isSubmittingClaim}

@@ -104,7 +104,7 @@ export const loyaltyCustomers = pgTable(
     id: text("id")
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
-    phone: text("phone").notNull().unique(),
+    phone: text("phone"),
     fullName: text("full_name"),
     username: text("username"),
     password: text("password"),
@@ -113,7 +113,8 @@ export const loyaltyCustomers = pgTable(
       .references(() => loyaltyTiers.id)
       .default("member")
       .notNull(),
-    pointsBalance: integer("points_balance").default(0).notNull(),
+    pointsBalance: integer("points_balance").default(0).notNull(), // redeemable points
+    collectedPoints: integer("collected_points").default(0).notNull(), // lifetime collected points (for tier calculation)
     lateCancellationWarningCount: integer("late_cancellation_warnings")
       .default(0)
       .notNull(),
@@ -152,7 +153,6 @@ export const vehicles = pgTable(
       .notNull(),
   },
   (t) => [
-    uniqueIndex("vehicles_customer_plate_idx").on(t.customerId, t.plate),
     index("vehicles_customer_id_idx").on(t.customerId),
     index("vehicles_plate_idx").on(t.plate),
   ],
@@ -186,7 +186,13 @@ export const promotions = pgTable("promotions", {
   title: text("title"),
   description: text("description").notNull(),
   category: text("category"),
+  promoType: text("promo_type").default("booking_discount"), // "bonus_points" | "booking_discount" | "service_discount" | "day_of_week_discount" | "dedicated_day_discount" | "tier_reward" | "new_member"
+  bonusPoints: integer("bonus_points").default(0),
   discountPercentage: doublePrecision("discount_percentage"),
+  discountAmount: doublePrecision("discount_amount"),
+  applicableServiceIds: text("applicable_service_ids").array(),
+  applicableDaysOfWeek: integer("applicable_days_of_week").array(), // 0=Sunday, 1=Monday, ..., 6=Saturday
+  dedicatedDate: text("dedicated_date"), // YYYY-MM-DD
   pointPrice: integer("point_price"),
   applicableTiers: text("applicable_tiers").array().notNull(),
   applicableVehicleModels: text("applicable_vehicle_models").array().notNull(),

@@ -1,10 +1,8 @@
 import {
-  cancelBooking,
-  createBooking,
-  findCustomer,
-} from "../services/loyalty.service";
-import { getServiceById } from "../services/service.service";
-import { saveStore } from "../storage";
+  cancelPublicBooking,
+  createPublicBooking,
+  fetchCustomerBookings,
+} from "../services/booking.service";
 import type { LoyaltyStore } from "../models/loyalty.model";
 
 export function registerBookingRoutes(app: any, store: LoyaltyStore) {
@@ -45,25 +43,15 @@ export function registerBookingRoutes(app: any, store: LoyaltyStore) {
     }
 
     try {
-      const result = createBooking(store, phone, vehiclePlate, requestedDate);
-      if (result.success && result.booking) {
-        if (serviceId) {
-          result.booking.serviceId = serviceId;
-          const srv = getServiceById(store, serviceId);
-          if (srv) {
-            result.booking.serviceName = srv.name;
-            result.booking.service = srv.name;
-            result.booking.durationMinutes = srv.durationMinutes;
-          }
-        }
-        if (timeSlot || time) {
-          result.booking.timeSlot = timeSlot || time;
-          result.booking.time = timeSlot || time;
-        }
-        if (appliedPromoId) result.booking.appliedPromoId = appliedPromoId;
-        if (note) result.booking.note = note;
-      }
-      saveStore(store);
+      const result = await createPublicBooking(store, {
+        phone,
+        vehiclePlate,
+        requestedDate,
+        serviceId,
+        timeSlot: timeSlot || time,
+        appliedPromoId,
+        note,
+      });
       return result;
     } catch (error) {
       return new Response(
@@ -78,7 +66,7 @@ export function registerBookingRoutes(app: any, store: LoyaltyStore) {
     }
   });
 
-  app.get("/api/bookings/my-bookings", (ctx: any) => {
+  app.get("/api/bookings/my-bookings", async (ctx: any) => {
     const phone = ctx.query?.phone as string | undefined;
     if (!phone) {
       return new Response(
@@ -90,25 +78,17 @@ export function registerBookingRoutes(app: any, store: LoyaltyStore) {
       );
     }
 
-    const customer = findCustomer(store, phone);
-    if (!customer) {
+    const bookingsData = await fetchCustomerBookings(store, phone);
+    if (!bookingsData) {
       return new Response(JSON.stringify({ error: "Customer not found." }), {
         status: 404,
         headers: { "Content-Type": "application/json" },
       });
     }
 
-    const history = (customer.bookingHistory || []).slice().reverse();
-    const active = history.filter(
-      (b) => b.status === "confirmed" || b.status === "pending",
-    );
-
     return {
       status: "success",
-      totalCount: history.length,
-      activeCount: active.length,
-      activeBookings: active,
-      bookingHistory: history,
+      ...bookingsData,
     };
   });
 
@@ -123,8 +103,7 @@ export function registerBookingRoutes(app: any, store: LoyaltyStore) {
     }
 
     try {
-      const result = cancelBooking(store, phone, bookingId);
-      saveStore(store);
+      const result = await cancelPublicBooking(store, phone, bookingId);
       return result;
     } catch (error) {
       const message =

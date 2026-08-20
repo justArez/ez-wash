@@ -1,6 +1,5 @@
 import { describe, expect, it } from "bun:test";
 import { Elysia } from "elysia";
-import { loadStore } from "../src/storage";
 import { registerAdminRoutes } from "../src/routes/admin.route";
 import type { LoyaltyStore } from "../src/models/loyalty.model";
 

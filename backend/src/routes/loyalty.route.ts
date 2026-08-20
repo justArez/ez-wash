@@ -1,43 +1,12 @@
-import { sql } from "drizzle-orm";
-import { db, schema } from "../db/index";
 import { getAllTiers, getTier } from "../services/tier.service";
 import {
   buildDashboard,
+  checkUsernameExists,
+  fetchCustomerByIdentifier,
   findCustomer,
-  linkAccount,
+  linkCustomerAccount,
 } from "../services/loyalty.service";
-import { saveStore } from "../storage";
 import type { LoyaltyStore } from "../models/loyalty.model";
-
-export async function checkUsernameExists(
-  store: LoyaltyStore,
-  username: string,
-): Promise<boolean> {
-  const normalized = username.trim().toLowerCase();
-  if (!normalized) return false;
-
-  // Check in store
-  const foundInStore = store.customers.some(
-    (c) => c.username && c.username.trim().toLowerCase() === normalized,
-  );
-  if (foundInStore) return true;
-
-  // Check in Postgres DB if connected
-  if (db) {
-    try {
-      const rows = await db
-        .select({ id: schema.loyaltyCustomers.id })
-        .from(schema.loyaltyCustomers)
-        .where(sql`lower(${schema.loyaltyCustomers.username}) = ${normalized}`)
-        .limit(1);
-      if (rows && rows.length > 0) return true;
-    } catch (err) {
-      console.warn("DB check-username query error:", err);
-    }
-  }
-
-  return false;
-}
 
 export function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
@@ -51,6 +20,8 @@ export function isValidPhone(phone: string): boolean {
     digits.length <= 15
   );
 }
+
+export { checkUsernameExists };
 
 export function registerLoyaltyRoutes(app: any, store: LoyaltyStore) {
   app.get("/api/loyalty/check-username", async (ctx: any) => {
@@ -96,10 +67,11 @@ export function registerLoyaltyRoutes(app: any, store: LoyaltyStore) {
       `[LoyaltyController] POST /api/loyalty/link - username: "${username}", phone: "${phone}", email: "${email}"`,
     );
 
-    if (!phone && !email && !username) {
+    if (!phone && !email) {
       return new Response(
         JSON.stringify({
-          error: "Missing required contact or username field.",
+          error:
+            "At least one contact method (email or phone number) is required.",
         }),
         {
           status: 400,
@@ -141,61 +113,19 @@ export function registerLoyaltyRoutes(app: any, store: LoyaltyStore) {
     }
 
     try {
-      const customer = linkAccount(store, phone || "", plate, model, type, {
-        username,
-        email,
-        fullName,
-        password,
-      });
-      saveStore(store);
-
-      // If Postgres DB is configured, sync to database (catch and log any non-fatal db connection issue)
-      if (db) {
-        try {
-          await db
-            .insert(schema.loyaltyCustomers)
-            .values({
-              id: customer.id,
-              phone: customer.phone,
-              username: customer.username || null,
-              password: customer.password || null,
-              email: customer.email || null,
-              fullName: customer.fullName || customer.username || null,
-              tierId: customer.tierId || "member",
-              pointsBalance: customer.pointsBalance || 0,
-              lateCancellationWarningCount:
-                customer.lateCancellationWarningCount || 0,
-              priorityStatus: customer.priorityStatus || "normal",
-              status: customer.status || "Active",
-            })
-            .onConflictDoUpdate({
-              target: schema.loyaltyCustomers.phone,
-              set: {
-                username: customer.username || null,
-                password: customer.password || null,
-                email: customer.email || null,
-                fullName: customer.fullName || customer.username || null,
-                updatedAt: new Date(),
-              },
-            });
-
-          if (customer.vehicles && customer.vehicles.length > 0) {
-            for (const v of customer.vehicles) {
-              await db
-                .insert(schema.vehicles)
-                .values({
-                  customerId: customer.id,
-                  plate: v.plate,
-                  model: v.model,
-                  type: (v.type as any) || "car",
-                })
-                .onConflictDoNothing();
-            }
-          }
-        } catch (dbErr) {
-          console.warn("Could not sync customer to Postgres DB:", dbErr);
-        }
-      }
+      const customer = await linkCustomerAccount(
+        store,
+        phone || "",
+        plate,
+        model,
+        type,
+        {
+          username,
+          email,
+          fullName,
+          password,
+        },
+      );
 
       const tier = getTier(customer.tierId, store);
       console.log(
@@ -240,55 +170,7 @@ export function registerLoyaltyRoutes(app: any, store: LoyaltyStore) {
       );
     }
 
-    // Lookup customer
-    let customer = findCustomer(store, phone);
-
-    // If not found in store or missing password, check Supabase DB if available
-    if ((!customer || !customer.password) && db) {
-      try {
-        const normalized = phone.trim().toLowerCase();
-        const rows = await db
-          .select()
-          .from(schema.loyaltyCustomers)
-          .where(
-            sql`lower(${schema.loyaltyCustomers.phone}) = ${normalized} OR lower(${schema.loyaltyCustomers.username}) = ${normalized} OR lower(${schema.loyaltyCustomers.email}) = ${normalized}`,
-          )
-          .limit(1);
-
-        if (rows && rows.length > 0) {
-          const dbCust = rows[0];
-          if (!customer) {
-            customer = {
-              id: dbCust.id,
-              phone: dbCust.phone,
-              username: dbCust.username || undefined,
-              password: dbCust.password || undefined,
-              email: dbCust.email || undefined,
-              fullName: dbCust.fullName || undefined,
-              tierId: dbCust.tierId,
-              pointsBalance: dbCust.pointsBalance,
-              vehicles: [],
-              pointHistory: [],
-              bookingHistory: [],
-              lateCancellationWarningCount: dbCust.lateCancellationWarningCount,
-              priorityStatus: dbCust.priorityStatus,
-              status: dbCust.status as any,
-              createdAt: dbCust.createdAt.toISOString(),
-              updatedAt: dbCust.updatedAt.toISOString(),
-            };
-            store.customers.push(customer);
-          } else if (dbCust.password) {
-            customer.password = dbCust.password;
-          }
-        }
-      } catch (dbErr) {
-        console.warn(
-          "[LoyaltyController] Could not query Supabase during login:",
-          dbErr,
-        );
-      }
-    }
-
+    const customer = await fetchCustomerByIdentifier(store, phone);
     if (!customer) {
       console.warn(
         `[LoyaltyController] Customer not found for identifier: "${phone}"`,
@@ -329,7 +211,7 @@ export function registerLoyaltyRoutes(app: any, store: LoyaltyStore) {
   });
 
   // Quick lookup endpoint for booking modal auto-fill
-  app.get("/api/loyalty/customer", (ctx: any) => {
+  app.get("/api/loyalty/customer", async (ctx: any) => {
     const phone = ctx.query?.phone as string | undefined;
     console.log(
       `[LoyaltyController] GET /api/loyalty/customer - identifier: "${phone}"`,
@@ -344,7 +226,11 @@ export function registerLoyaltyRoutes(app: any, store: LoyaltyStore) {
       );
     }
 
-    const customer = findCustomer(store, phone);
+    let customer = findCustomer(store, phone);
+    if (!customer) {
+      customer = (await fetchCustomerByIdentifier(store, phone)) || undefined;
+    }
+
     if (!customer) {
       return new Response(JSON.stringify({ error: "Customer not found." }), {
         status: 404,
@@ -368,7 +254,7 @@ export function registerLoyaltyRoutes(app: any, store: LoyaltyStore) {
   });
 
   // Get claimed promo vouchers for customer
-  app.get("/api/loyalty/claimed-promos", (ctx: any) => {
+  app.get("/api/loyalty/claimed-promos", async (ctx: any) => {
     const phone = ctx.query?.phone as string | undefined;
     if (!phone) {
       return new Response(
@@ -380,7 +266,11 @@ export function registerLoyaltyRoutes(app: any, store: LoyaltyStore) {
       );
     }
 
-    const customer = findCustomer(store, phone);
+    let customer = findCustomer(store, phone);
+    if (!customer) {
+      customer = (await fetchCustomerByIdentifier(store, phone)) || undefined;
+    }
+
     if (!customer) {
       return new Response(JSON.stringify({ error: "Customer not found." }), {
         status: 404,
@@ -396,7 +286,7 @@ export function registerLoyaltyRoutes(app: any, store: LoyaltyStore) {
   });
 
   // Public tiers catalog
-  app.get("/api/tiers", () => {
+  app.get("/api/tiers", async () => {
     const tiers = getAllTiers(store);
     return {
       status: "success",

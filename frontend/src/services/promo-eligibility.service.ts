@@ -11,9 +11,21 @@ export function checkPromoEligibility(
   customerTier: string | undefined,
   pointsBalance: number,
   promo: ClaimablePromo,
+  claimedPromoIds?: string[] | Set<string>,
 ): PromoButtonState {
   if (!isLoggedIn) {
     return { type: "UNAUTHENTICATED" };
+  }
+
+  const isClaimed =
+    claimedPromoIds instanceof Set
+      ? claimedPromoIds.has(promo.id)
+      : Array.isArray(claimedPromoIds)
+        ? claimedPromoIds.includes(promo.id)
+        : false;
+
+  if (isClaimed) {
+    return { type: "ALREADY_CLAIMED" };
   }
 
   const customerRank = getTierRank(customerTier);

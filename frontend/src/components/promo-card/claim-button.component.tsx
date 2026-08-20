@@ -48,12 +48,26 @@ export const ClaimButton: React.FC<ClaimButtonProps> = ({
         </Button>
       );
 
+    case "ALREADY_CLAIMED":
+      return (
+        <Button
+          type="button"
+          disabled
+          className="w-full text-xs font-bold py-1.5 px-3 bg-[#f1f5f9] hover:bg-[#f1f5f9] text-[#64748b] border border-[#cbd5e1] cursor-not-allowed uppercase rounded-xl shadow-none"
+        >
+          Claimed
+        </Button>
+      );
+
     case "CLAIMABLE":
       return (
         <Button
           type="button"
           disabled={isSubmitting}
-          onClick={onClick}
+          onClick={(e) => {
+            e.stopPropagation();
+            onClick();
+          }}
           className="group relative w-full overflow-hidden text-xs font-bold py-2 px-3 h-8 shadow-sm bg-[#3a46ed] hover:bg-[#3721b6] text-white cursor-pointer active:scale-[0.98] rounded-xl transition-colors duration-200"
         >
           {isSubmitting ? (
@@ -61,12 +75,14 @@ export const ClaimButton: React.FC<ClaimButtonProps> = ({
           ) : (
             <>
               {/* Default Points label: moves up & fades out on hover, smoothly moves back down on unhover */}
-              <span className="flex items-center justify-center gap-1 font-medium tracking-wide transition-all duration-200 ease-out transform group-hover:-translate-y-6 group-hover:opacity-0">
-                {buttonState.pointPrice} points
+              <span className="pointer-events-none flex items-center justify-center gap-1 font-medium tracking-wide transition-all duration-200 ease-out transform group-hover:-translate-y-6 group-hover:opacity-0">
+                {buttonState.pointPrice === 0
+                  ? "Free"
+                  : `${buttonState.pointPrice} points`}
               </span>
 
               {/* Hover Claim label: moves into center on hover, moves back down on unhover */}
-              <span className="absolute inset-0 flex items-center justify-center gap-1 font-extrabold tracking-wide transition-all duration-200 ease-out transform translate-y-6 opacity-0 group-hover:translate-y-0 group-hover:opacity-100">
+              <span className="pointer-events-none absolute inset-0 flex items-center justify-center gap-1 font-extrabold tracking-wide transition-all duration-200 ease-out transform translate-y-6 opacity-0 group-hover:translate-y-0 group-hover:opacity-100">
                 Claim Now
               </span>
             </>

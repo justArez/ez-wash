@@ -11,8 +11,8 @@ export default function LoyaltyLinkPage({ onLink }: LoyaltyLinkPageProps) {
     <section className="card panel">
       <h2>Quick start</h2>
       <p className="panel-copy">
-        Enter your phone, license plate, and vehicle details to begin. Your
-        loyalty tier, points, and booking eligibility are updated instantly.
+        Enter your phone number or account identifier to begin. Your loyalty
+        tier, points, and booking eligibility are updated instantly.
       </p>
       <LoyaltyLinkForm onLink={onLink} />
     </section>

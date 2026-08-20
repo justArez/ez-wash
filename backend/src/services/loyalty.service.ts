@@ -11,6 +11,8 @@ import {
   getTier,
 } from "./tier.service";
 import { suggestRewards } from "./reward.service";
+import { db, schema } from "../db/index";
+import { sql } from "drizzle-orm";
 
 function createId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -18,6 +20,158 @@ function createId() {
 
 function normalizePlate(plate: string) {
   return plate.trim().toUpperCase();
+}
+
+export async function checkUsernameExists(
+  store: LoyaltyStore,
+  username: string,
+): Promise<boolean> {
+  const normalized = username.trim().toLowerCase();
+  if (!normalized) return false;
+
+  // Check in store
+  const foundInStore = store.customers.some(
+    (c) => c.username && c.username.trim().toLowerCase() === normalized,
+  );
+  if (foundInStore) return true;
+
+  // Check in Postgres DB if connected
+  if (db) {
+    try {
+      const rows = await db
+        .select({ id: schema.loyaltyCustomers.id })
+        .from(schema.loyaltyCustomers)
+        .where(sql`lower(${schema.loyaltyCustomers.username}) = ${normalized}`)
+        .limit(1);
+      if (rows && rows.length > 0) return true;
+    } catch (err) {
+      console.warn("DB check-username query error:", err);
+    }
+  }
+
+  return false;
+}
+
+export async function fetchCustomerByIdentifier(
+  store: LoyaltyStore,
+  phoneOrUsernameOrEmail: string,
+): Promise<LoyaltyCustomer | undefined> {
+  let customer = findCustomer(store, phoneOrUsernameOrEmail);
+
+  if ((!customer || !customer.password) && db) {
+    try {
+      const normalized = phoneOrUsernameOrEmail.trim().toLowerCase();
+      const rows = await db
+        .select()
+        .from(schema.loyaltyCustomers)
+        .where(
+          sql`lower(${schema.loyaltyCustomers.phone}) = ${normalized} OR lower(${schema.loyaltyCustomers.username}) = ${normalized} OR lower(${schema.loyaltyCustomers.email}) = ${normalized}`,
+        )
+        .limit(1);
+
+      if (rows && rows.length > 0) {
+        const dbCust = rows[0];
+        if (!customer) {
+          customer = {
+            id: dbCust.id,
+            phone: dbCust.phone,
+            username: dbCust.username || undefined,
+            password: dbCust.password || undefined,
+            email: dbCust.email || undefined,
+            fullName: dbCust.fullName || undefined,
+            tierId: dbCust.tierId,
+            pointsBalance: dbCust.pointsBalance,
+            collectedPoints: dbCust.collectedPoints,
+            vehicles: [],
+            pointHistory: [],
+            bookingHistory: [],
+            lateCancellationWarningCount: dbCust.lateCancellationWarningCount,
+            priorityStatus: dbCust.priorityStatus,
+            status: dbCust.status as any,
+            createdAt: dbCust.createdAt.toISOString(),
+            updatedAt: dbCust.updatedAt.toISOString(),
+          };
+          store.customers.push(customer);
+        } else if (dbCust.password) {
+          customer.password = dbCust.password;
+        }
+      }
+    } catch (dbErr) {
+      console.warn(
+        "[LoyaltyService] Could not query Supabase during customer lookup:",
+        dbErr,
+      );
+    }
+  }
+
+  return customer;
+}
+
+export async function linkCustomerAccount(
+  store: LoyaltyStore,
+  phone: string,
+  plate?: string,
+  model?: string,
+  type?: "car" | "motorcycle",
+  options?: {
+    username?: string;
+    email?: string;
+    fullName?: string;
+    password?: string;
+  },
+): Promise<LoyaltyCustomer> {
+  const customer = linkAccount(store, phone, plate, model, type, options);
+
+  if (db) {
+    try {
+      await db
+        .insert(schema.loyaltyCustomers)
+        .values({
+          id: customer.id,
+          phone: customer.phone,
+          username: customer.username || null,
+          password: customer.password || null,
+          email: customer.email || null,
+          fullName: customer.fullName || customer.username || null,
+          tierId: customer.tierId || "member",
+          pointsBalance: customer.pointsBalance || 0,
+          collectedPoints: customer.collectedPoints || 0,
+          lateCancellationWarningCount:
+            customer.lateCancellationWarningCount || 0,
+          priorityStatus: customer.priorityStatus || "normal",
+          status: customer.status || "Active",
+        })
+        .onConflictDoUpdate({
+          target: schema.loyaltyCustomers.id,
+          set: {
+            phone: customer.phone,
+            username: customer.username || null,
+            password: customer.password || null,
+            email: customer.email || null,
+            fullName: customer.fullName || customer.username || null,
+            updatedAt: new Date(),
+          },
+        });
+
+      if (customer.vehicles && customer.vehicles.length > 0) {
+        for (const v of customer.vehicles) {
+          await db
+            .insert(schema.vehicles)
+            .values({
+              customerId: customer.id,
+              plate: v.plate,
+              model: v.model,
+              type: (v.type as any) || "car",
+            })
+            .onConflictDoNothing();
+        }
+      }
+    } catch (dbErr) {
+      console.warn("Could not sync customer to Postgres DB:", dbErr);
+    }
+  }
+
+  return customer;
 }
 
 export function findCustomer(
@@ -91,7 +245,7 @@ export function linkAccount(
     plate: normalizedPlate,
   });
 
-  // Find existing customer by username, phone, email, or plate
+  // Find existing customer by username, phone, or email (credentials only)
   let existingCustomer: LoyaltyCustomer | undefined;
   if (username) {
     existingCustomer = findCustomer(store, username);
@@ -101,9 +255,6 @@ export function linkAccount(
   }
   if (!existingCustomer && email) {
     existingCustomer = findCustomer(store, email);
-  }
-  if (!existingCustomer && normalizedPlate) {
-    existingCustomer = findCustomer(store, "", normalizedPlate);
   }
 
   const now = new Date().toISOString();
@@ -165,6 +316,7 @@ export function linkAccount(
     tierId: "member",
     tierName: "Member",
     pointsBalance: 0,
+    collectedPoints: 0,
     vehicles: vehicle ? [vehicle] : [],
     pointHistory: [],
     bookingHistory: [],
@@ -200,6 +352,7 @@ export function buildDashboard(store: LoyaltyStore, phone: string) {
     email: customer.email,
     tier,
     pointsBalance: customer.pointsBalance,
+    collectedPoints: customer.collectedPoints ?? customer.pointsBalance,
     vehicles: customer.vehicles,
     nextEligibleBookingDate: nextBookingDate,
     appliedPerks: getAppliedPerks(tier.id, store),

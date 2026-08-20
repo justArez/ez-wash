@@ -1,5 +1,7 @@
 import type { LoyaltyStore, LoyaltyTier } from "../models/loyalty.model";
 import { TIERS } from "../models/loyalty.model";
+import { db, schema } from "../db/index";
+import { sql } from "drizzle-orm";
 
 function createId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -32,6 +34,143 @@ export function getTier(tierId: string, store?: LoyaltyStore) {
     }
   }
   return TIERS[tierId] ?? TIERS.member;
+}
+
+export async function fetchAllTiers(
+  store?: LoyaltyStore,
+): Promise<LoyaltyTier[]> {
+  let tiers: LoyaltyTier[] = [];
+  if (db) {
+    try {
+      const rows = await db.select().from(schema.loyaltyTiers);
+      if (rows && rows.length > 0) {
+        tiers = rows.map((r) => ({
+          id: r.id,
+          name: r.name,
+          level: (r.level as any) || undefined,
+          pointThreshold: r.pointThreshold,
+          bookingWindowDays: r.bookingWindowDays,
+          pointRate: r.pointRate,
+          multiplier: r.multiplier || undefined,
+          discount: r.discount || undefined,
+          perks: r.perks || [],
+          description: r.description,
+          isActive: r.isActive,
+          createdAt: r.createdAt.toISOString(),
+          updatedAt: r.updatedAt.toISOString(),
+        }));
+      }
+    } catch (err) {
+      console.warn("Could not load tiers from Postgres DB:", err);
+    }
+  }
+
+  if (tiers.length === 0) {
+    tiers = getAllTiers(store);
+  }
+
+  return tiers;
+}
+
+export async function createTierItem(
+  store: LoyaltyStore,
+  data: Partial<LoyaltyTier>,
+): Promise<LoyaltyTier> {
+  const tier = createTier(store, data);
+
+  if (db) {
+    try {
+      await db
+        .insert(schema.loyaltyTiers)
+        .values({
+          id: tier.id,
+          name: tier.name,
+          level: tier.level,
+          pointThreshold: tier.pointThreshold || 0,
+          bookingWindowDays: tier.bookingWindowDays || 7,
+          pointRate: tier.pointRate || 1.0,
+          multiplier: tier.multiplier,
+          discount: tier.discount,
+          perks: tier.perks || [],
+          description: tier.description || "",
+          isActive: tier.isActive !== false,
+        })
+        .onConflictDoUpdate({
+          target: schema.loyaltyTiers.id,
+          set: {
+            name: tier.name,
+            level: tier.level,
+            pointThreshold: tier.pointThreshold || 0,
+            bookingWindowDays: tier.bookingWindowDays || 7,
+            pointRate: tier.pointRate || 1.0,
+            multiplier: tier.multiplier,
+            discount: tier.discount,
+            perks: tier.perks || [],
+            description: tier.description || "",
+            isActive: tier.isActive !== false,
+            updatedAt: new Date(),
+          },
+        });
+    } catch (err) {
+      console.warn("Could not persist tier to Postgres DB:", err);
+    }
+  }
+
+  return tier;
+}
+
+export async function updateTierItem(
+  store: LoyaltyStore,
+  tierId: string,
+  data: Partial<LoyaltyTier>,
+): Promise<LoyaltyTier | null> {
+  const tier = updateTier(store, tierId, data);
+  if (!tier) return null;
+
+  if (db) {
+    try {
+      await db
+        .update(schema.loyaltyTiers)
+        .set({
+          name: tier.name,
+          level: tier.level,
+          pointThreshold: tier.pointThreshold || 0,
+          bookingWindowDays: tier.bookingWindowDays || 7,
+          pointRate: tier.pointRate || 1.0,
+          multiplier: tier.multiplier,
+          discount: tier.discount,
+          perks: tier.perks || [],
+          description: tier.description || "",
+          isActive: tier.isActive !== false,
+          updatedAt: new Date(),
+        })
+        .where(sql`${schema.loyaltyTiers.id} = ${tierId}`);
+    } catch (err) {
+      console.warn("Could not update tier in Postgres DB:", err);
+    }
+  }
+
+  return tier;
+}
+
+export async function deleteTierItem(
+  store: LoyaltyStore,
+  tierId: string,
+): Promise<boolean> {
+  const success = deleteTier(store, tierId);
+  if (!success) return false;
+
+  if (db) {
+    try {
+      await db
+        .delete(schema.loyaltyTiers)
+        .where(sql`${schema.loyaltyTiers.id} = ${tierId}`);
+    } catch (err) {
+      console.warn("Could not delete tier from Postgres DB:", err);
+    }
+  }
+
+  return true;
 }
 
 export function getAllTiers(store?: LoyaltyStore) {
@@ -114,9 +253,11 @@ export function evaluateCustomerTiers(store: LoyaltyStore, today?: string) {
   const now = new Date(evaluationDate + "T00:00:00Z").toISOString();
 
   for (const customer of store.customers) {
-    const points = customer.pointsBalance;
+    // User tier is evaluated using collectedPoints (lifetime collected points)
+    const points = customer.collectedPoints ?? customer.pointsBalance;
     const visits = customer.bookingHistory.filter(
-      (booking) => booking.status === "confirmed",
+      (booking) =>
+        booking.status === "confirmed" || booking.status === "completed",
     ).length;
     let newTierId = "member";
 

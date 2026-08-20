@@ -6,7 +6,21 @@ interface LoyaltyLinkFormProps {
   onLink: (payload: LinkAccountRequest) => Promise<void>;
 }
 
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+}
+
+function isValidPhone(phone: string): boolean {
+  const digits = phone.replace(/\D/g, "");
+  return (
+    /^[+]?[\d\s\-().]{7,20}$/.test(phone.trim()) &&
+    digits.length >= 7 &&
+    digits.length <= 15
+  );
+}
+
 export default function LoyaltyLinkForm({ onLink }: LoyaltyLinkFormProps) {
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [plate, setPlate] = useState("");
   const [model, setModel] = useState("");
@@ -15,16 +29,38 @@ export default function LoyaltyLinkForm({ onLink }: LoyaltyLinkFormProps) {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!phone || !plate || !model) {
-      setFeedback("Phone, plate, and model are required.");
+    const trimmedEmail = email.trim();
+    const trimmedPhone = phone.trim();
+
+    if (!trimmedEmail && !trimmedPhone) {
+      setFeedback("Please enter at least an email or a phone number.");
+      return;
+    }
+
+    if (trimmedEmail && !isValidEmail(trimmedEmail)) {
+      setFeedback(
+        "Please enter a valid email address (e.g. user@example.com).",
+      );
+      return;
+    }
+
+    if (trimmedPhone && !isValidPhone(trimmedPhone)) {
+      setFeedback("Please enter a valid phone number (e.g. 555-0100).");
       return;
     }
 
     setFeedback(null);
 
     try {
-      await onLink({ phone, plate, model, type });
+      await onLink({
+        email: trimmedEmail || undefined,
+        phone: trimmedPhone || undefined,
+        plate: plate.trim() || undefined,
+        model: model.trim() || undefined,
+        type: plate.trim() ? type : undefined,
+      });
       setFeedback("Loyalty account linked successfully.");
+      setEmail("");
       setPhone("");
       setPlate("");
       setModel("");
@@ -38,24 +74,39 @@ export default function LoyaltyLinkForm({ onLink }: LoyaltyLinkFormProps) {
 
   return (
     <section className="form-card">
-      <h3>Link your account</h3>
+      <h3>Register / Link Account</h3>
       <p className="form-copy">
-        Use your phone and license plate to connect a vehicle to the EzWash
-        loyalty system.
+        Provide an email or phone number (at least one is required). You can
+        also optionally add vehicle information to track your most used
+        vehicles.
       </p>
       <form className="form-grid" onSubmit={handleSubmit}>
         <label className="form-field">
-          <span>Phone</span>
+          <span>Email {!phone.trim() ? "*" : "(Optional)"}</span>
           <input
             className="input"
-            value={phone}
-            onChange={(event) => setPhone(event.target.value)}
-            placeholder="e.g. +1234567890"
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder={
+              phone.trim() ? "Optional email" : "e.g. user@example.com"
+            }
           />
         </label>
 
         <label className="form-field">
-          <span>License plate</span>
+          <span>Phone {!email.trim() ? "*" : "(Optional)"}</span>
+          <input
+            className="input"
+            type="tel"
+            value={phone}
+            onChange={(event) => setPhone(event.target.value)}
+            placeholder={email.trim() ? "Optional phone" : "e.g. +1234567890"}
+          />
+        </label>
+
+        <label className="form-field">
+          <span>License plate (Optional)</span>
           <input
             className="input"
             value={plate}
@@ -65,7 +116,7 @@ export default function LoyaltyLinkForm({ onLink }: LoyaltyLinkFormProps) {
         </label>
 
         <label className="form-field">
-          <span>Vehicle model</span>
+          <span>Vehicle model (Optional)</span>
           <input
             className="input"
             value={model}
@@ -75,7 +126,7 @@ export default function LoyaltyLinkForm({ onLink }: LoyaltyLinkFormProps) {
         </label>
 
         <label className="form-field">
-          <span>Vehicle type</span>
+          <span>Vehicle type (Optional)</span>
           <select
             className="input"
             value={type}
@@ -89,7 +140,7 @@ export default function LoyaltyLinkForm({ onLink }: LoyaltyLinkFormProps) {
         </label>
 
         <button className="button" type="submit">
-          Connect vehicle
+          Save Account
         </button>
       </form>
       {feedback && <div className="inline-status">{feedback}</div>}

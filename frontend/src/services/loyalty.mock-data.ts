@@ -36,9 +36,39 @@ export const initialGlobalPromotions: GlobalPromotion[] = [
     validUntil: "Sep 15, 2026",
     isActive: true,
   },
+  {
+    id: "global-prm-4",
+    title: "Double Points Tuesday",
+    description: "Earn twice the loyalty points on all Tuesday bookings.",
+    badgeLabel: "Loyalty Boost",
+    validUntil: "Dec 31, 2026",
+    isActive: true,
+  },
+  {
+    id: "global-prm-5",
+    title: "New Member 10% Welcome Perk",
+    description:
+      "Special 10% discount on first premium service for all new members.",
+    discountPercentage: 10,
+    badgeLabel: "Welcome Perk",
+    validUntil: "Dec 31, 2026",
+    isActive: true,
+  },
 ];
 
 export const initialClaimablePromos: ClaimablePromo[] = [
+  // Member Tier
+  {
+    id: "prm-member-1",
+    title: "Member Express Air Dry",
+    description: "Complimentary high-velocity spot-free air dry pass.",
+    pointPrice: 75,
+    requiredTier: "MEMBER",
+    tierGroup: "MEMBER TIER",
+    perkType: "express-air-dry",
+    validityDays: 30,
+  },
+
   // Silver Tier & Above
   {
     id: "prm-silver-1",

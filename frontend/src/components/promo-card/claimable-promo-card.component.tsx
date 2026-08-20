@@ -11,6 +11,7 @@ interface ClaimablePromoCardProps {
   isLoggedIn: boolean;
   currentTier?: string;
   pointsBalance: number;
+  claimedPromoIds?: string[];
   onClaim: (promo: ClaimablePromo) => void;
   onOpenSignIn?: () => void;
   isSubmitting?: boolean;
@@ -21,6 +22,7 @@ export const ClaimablePromoCard: React.FC<ClaimablePromoCardProps> = ({
   isLoggedIn,
   currentTier,
   pointsBalance,
+  claimedPromoIds,
   onClaim,
   onOpenSignIn,
   isSubmitting,
@@ -30,6 +32,7 @@ export const ClaimablePromoCard: React.FC<ClaimablePromoCardProps> = ({
     currentTier,
     pointsBalance,
     promo,
+    claimedPromoIds,
   );
 
   const isClaimable = buttonState.type === "CLAIMABLE";
@@ -83,11 +86,13 @@ export const ClaimablePromoCard: React.FC<ClaimablePromoCardProps> = ({
               {promo.title}
             </CardTitle>
             <Badge className="bg-[#f1f5f9] text-[#64748b] border-[#cbd5e1] text-[10px] font-bold tracking-wide uppercase">
-              {buttonState.type === "LACKS_TIER"
-                ? "LACKS TIER"
-                : buttonState.type === "INSUFFICIENT_PTS"
-                  ? "INSUFFICIENT PTS"
-                  : promo.requiredTier}
+              {buttonState.type === "ALREADY_CLAIMED"
+                ? "CLAIMED"
+                : buttonState.type === "LACKS_TIER"
+                  ? "LACKS TIER"
+                  : buttonState.type === "INSUFFICIENT_PTS"
+                    ? "INSUFFICIENT PTS"
+                    : promo.requiredTier}
             </Badge>
           </div>
         </CardHeader>
@@ -105,7 +110,7 @@ export const ClaimablePromoCard: React.FC<ClaimablePromoCardProps> = ({
                 <strong className="text-[#475569]">{promo.requiredTier}</strong>
               </span>
               <span className="font-bold text-[#64748b]">
-                {promo.pointPrice} points
+                {promo.pointPrice === 0 ? "Free" : `${promo.pointPrice} points`}
               </span>
             </div>
 
@@ -146,7 +151,7 @@ export const ClaimablePromoCard: React.FC<ClaimablePromoCardProps> = ({
               <strong className="text-[#3d3a4f]">{promo.requiredTier}</strong>
             </span>
             <span className="font-extrabold text-[#3a46ed]">
-              {promo.pointPrice} points
+              {promo.pointPrice === 0 ? "Free" : `${promo.pointPrice} points`}
             </span>
           </div>
 

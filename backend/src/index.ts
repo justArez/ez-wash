@@ -1,6 +1,5 @@
 import { Elysia } from "elysia";
 import { cors } from "@elysiajs/cors";
-import { loadStore } from "./storage";
 import { db } from "./db/index";
 import { registerLoyaltyRoutes } from "./routes/loyalty.route";
 import { registerBookingRoutes } from "./routes/booking.route";
@@ -9,8 +8,6 @@ import { registerAdminRoutes } from "./routes/admin.route";
 import { registerServiceRoutes } from "./routes/service.route";
 import { registerSlotRoutes } from "./routes/slot.route";
 import { registerPromotionRoutes } from "./routes/promotion.route";
-
-const store = loadStore();
 
 const app = new Elysia()
   .use(cors())
@@ -35,13 +32,13 @@ const app = new Elysia()
     timestamp: new Date().toISOString(),
   }));
 
-registerLoyaltyRoutes(app, store);
-registerBookingRoutes(app, store);
-registerRewardRoutes(app, store);
-registerPromotionRoutes(app, store);
-registerServiceRoutes(app, store);
-registerSlotRoutes(app, store);
-registerAdminRoutes(app, store);
+registerLoyaltyRoutes(app);
+registerBookingRoutes(app);
+registerRewardRoutes(app);
+registerPromotionRoutes(app);
+registerServiceRoutes(app);
+registerSlotRoutes(app);
+registerAdminRoutes(app);
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 app.listen(PORT);
@@ -52,7 +49,5 @@ console.log(
 if (db) {
   console.log("🐘 Supabase / PostgreSQL: Connected and ready.");
 } else {
-  console.log(
-    "📁 Storage Mode: Local JSON store (backend/data/loyalty-store.json). Set DATABASE_URL in backend/.env to connect to Supabase.",
-  );
+  console.log("🐘 Supabase / PostgreSQL: Not connected.");
 }

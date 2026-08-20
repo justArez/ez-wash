@@ -1,22 +1,20 @@
 import {
-  createTier,
-  deleteTier,
-  getAllTiers,
-  updateTier,
+  createTierItem,
+  deleteTierItem,
+  fetchAllTiers,
+  updateTierItem,
 } from "../services/tier.service";
 import {
-  createPromotion,
-  deletePromotion,
-  getAllPromotions,
-  getPromotionById,
-  updatePromotion,
+  createPromotionItem,
+  deletePromotionItem,
+  fetchAllPromotions,
+  updatePromotionItem,
 } from "../services/promotion.service";
 import {
-  createService,
-  deleteService,
-  getAllServices,
-  getServiceById,
-  updateService,
+  createServiceItem,
+  deleteServiceItem,
+  fetchAllServices,
+  updateServiceItem,
 } from "../services/service.service";
 import {
   adminCreateBooking,
@@ -26,23 +24,26 @@ import {
   getBookingById,
 } from "../services/booking.service";
 import {
-  adjustCustomerPoints,
-  createCustomer,
-  getAllCustomers,
-  getCustomerById,
-  resetCustomerWarnings,
-  updateCustomer,
+  adjustCustomerPointsItem,
+  createCustomerItem,
+  fetchAllCustomers,
+  fetchCustomerById,
+  resetCustomerWarningsItem,
+  updateCustomerItem,
 } from "../services/customer.service";
 import {
-  createTierSet,
-  deleteTierSet,
-  getAllTierSets,
-  getTierSetById,
-  updateTierSet,
+  createTierSetItem,
+  deleteTierSetItem,
+  fetchAllTierSets,
+  updateTierSetItem,
 } from "../services/tier-set.service";
+import {
+  createRewardOffer,
+  deleteRewardOffer,
+  fetchAllRewards,
+} from "../services/reward.service";
 import { getAdminDashboardData } from "../services/metric.service";
-import { logAudit } from "../services/audit.service";
-import { saveStore } from "../storage";
+import { fetchAuditLogs, logAudit } from "../services/audit.service";
 import type {
   LoyaltyCustomer,
   LoyaltyStore,
@@ -219,7 +220,6 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       details: `Created booking for plate ${booking.vehiclePlate} on ${booking.date}`,
     });
 
-    saveStore(store);
     return {
       status: "success",
       data: booking,
@@ -245,10 +245,9 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       actionType: "update-booking",
       entityType: "booking",
       entityId: booking.id,
-      details: `Updated booking ${id} status to ${booking.status}`,
+      details: `Updated booking \${id} status to \${booking.status}`,
     });
 
-    saveStore(store);
     return {
       status: "success",
       data: booking,
@@ -273,10 +272,9 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       actionType: "delete-booking",
       entityType: "booking",
       entityId: id,
-      details: `Deleted booking ${id}`,
+      details: `Deleted booking \${id}`,
     });
 
-    saveStore(store);
     return {
       status: "success",
       deleted: true,
@@ -286,11 +284,12 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
   // -------------------------------------------------------------
   // 4. SERVICES MANAGEMENT
   // -------------------------------------------------------------
-  app.get("/api/admin/services", (ctx: any) => {
+  app.get("/api/admin/services", async (ctx: any) => {
     const authError = requireAdmin(ctx);
     if (authError) return authError;
 
-    const services = getAllServices(store, false);
+    const services = await fetchAllServices(store, false);
+
     return {
       status: "success",
       count: services.length,
@@ -319,16 +318,16 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       );
     }
 
-    const service = createService(store, body);
+    const service = await createServiceItem(store, body);
+
     logAudit(store, {
       actor: "admin",
       actionType: "create-service",
       entityType: "service",
       entityId: service.id,
-      details: `Created service package ${service.name}`,
+      details: `Created service package \${service.name}`,
     });
 
-    saveStore(store);
     return {
       status: "success",
       data: service,
@@ -341,7 +340,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
 
     const id = ctx.params.id;
     const body = (await ctx.body) as Partial<ServiceItem>;
-    const service = updateService(store, id, body);
+    const service = await updateServiceItem(store, id, body);
     if (!service) {
       return new Response(JSON.stringify({ error: "Service not found." }), {
         status: 404,
@@ -354,22 +353,21 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       actionType: "update-service",
       entityType: "service",
       entityId: service.id,
-      details: `Updated service package ${service.name}`,
+      details: `Updated service package \${service.name}`,
     });
 
-    saveStore(store);
     return {
       status: "success",
       data: service,
     };
   });
 
-  app.delete("/api/admin/services/:id", (ctx: any) => {
+  app.delete("/api/admin/services/:id", async (ctx: any) => {
     const authError = requireAdmin(ctx);
     if (authError) return authError;
 
     const id = ctx.params.id;
-    const success = deleteService(store, id);
+    const success = await deleteServiceItem(store, id);
     if (!success) {
       return new Response(JSON.stringify({ error: "Service not found." }), {
         status: 404,
@@ -382,10 +380,9 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       actionType: "delete-service",
       entityType: "service",
       entityId: id,
-      details: `Deleted service ${id}`,
+      details: `Deleted service \${id}`,
     });
 
-    saveStore(store);
     return {
       status: "success",
       deleted: true,
@@ -395,10 +392,12 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
   // -------------------------------------------------------------
   // 5. PROMOTIONS MANAGEMENT
   // -------------------------------------------------------------
-  app.get("/api/admin/promotions", (ctx: any) => {
+  app.get("/api/admin/promotions", async (ctx: any) => {
     const authError = requireAdmin(ctx);
     if (authError) return authError;
-    const promos = getAllPromotions(store, false);
+
+    const promos = await fetchAllPromotions(store, false);
+
     return {
       status: "success",
       count: promos.length,
@@ -422,16 +421,16 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       );
     }
 
-    const promotion = createPromotion(store, body);
+    const promotion = await createPromotionItem(store, body);
+
     logAudit(store, {
       actor: "admin",
       actionType: "create-promotion",
       entityType: "promotion",
       entityId: promotion.id,
-      details: `Created promotion ${promotion.name}`,
+      details: `Created promotion \${promotion.name}`,
     });
 
-    saveStore(store);
     return {
       status: "success",
       promotion,
@@ -445,7 +444,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
 
     const promotionId = ctx.params.promotionId as string;
     const body = (await ctx.body) as Partial<Promotion>;
-    const promotion = updatePromotion(store, promotionId, body);
+    const promotion = await updatePromotionItem(store, promotionId, body);
     if (!promotion) {
       return new Response(JSON.stringify({ error: "Promotion not found." }), {
         status: 404,
@@ -458,10 +457,9 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       actionType: "update-promotion",
       entityType: "promotion",
       entityId: promotion.id,
-      details: `Updated promotion ${promotion.name}`,
+      details: `Updated promotion \${promotion.name}`,
     });
 
-    saveStore(store);
     return {
       status: "success",
       promotion,
@@ -469,12 +467,12 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
     };
   });
 
-  app.delete("/api/admin/promotions/:promotionId", (ctx: any) => {
+  app.delete("/api/admin/promotions/:promotionId", async (ctx: any) => {
     const authError = requireAdmin(ctx);
     if (authError) return authError;
 
     const promotionId = ctx.params.promotionId as string;
-    const success = deletePromotion(store, promotionId);
+    const success = await deletePromotionItem(store, promotionId);
     if (!success) {
       return new Response(JSON.stringify({ error: "Promotion not found." }), {
         status: 404,
@@ -487,10 +485,9 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       actionType: "delete-promotion",
       entityType: "promotion",
       entityId: promotionId,
-      details: `Deleted promotion ${promotionId}`,
+      details: `Deleted promotion \${promotionId}`,
     });
 
-    saveStore(store);
     return {
       status: "success",
       deleted: success,
@@ -500,10 +497,12 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
   // -------------------------------------------------------------
   // 6. TIER SETS & TIERS MANAGEMENT
   // -------------------------------------------------------------
-  app.get("/api/admin/tier-sets", (ctx: any) => {
+  app.get("/api/admin/tier-sets", async (ctx: any) => {
     const authError = requireAdmin(ctx);
     if (authError) return authError;
-    const sets = getAllTierSets(store);
+
+    const sets = await fetchAllTierSets(store);
+
     return {
       status: "success",
       count: sets.length,
@@ -516,16 +515,16 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
     if (authError) return authError;
 
     const body = (await ctx.body) as Partial<TierSet>;
-    const tierSet = createTierSet(store, body);
+    const tierSet = await createTierSetItem(store, body);
+
     logAudit(store, {
       actor: "admin",
       actionType: "create-tier-set",
       entityType: "tier-set",
       entityId: tierSet.id,
-      details: `Created tier set ${tierSet.name}`,
+      details: `Created tier set \${tierSet.name}`,
     });
 
-    saveStore(store);
     return {
       status: "success",
       data: tierSet,
@@ -538,7 +537,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
 
     const id = ctx.params.id;
     const body = (await ctx.body) as Partial<TierSet>;
-    const tierSet = updateTierSet(store, id, body);
+    const tierSet = await updateTierSetItem(store, id, body);
     if (!tierSet) {
       return new Response(JSON.stringify({ error: "Tier set not found." }), {
         status: 404,
@@ -551,22 +550,21 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       actionType: "update-tier-set",
       entityType: "tier-set",
       entityId: tierSet.id,
-      details: `Updated tier set ${tierSet.name}`,
+      details: `Updated tier set \${tierSet.name}`,
     });
 
-    saveStore(store);
     return {
       status: "success",
       data: tierSet,
     };
   });
 
-  app.delete("/api/admin/tier-sets/:id", (ctx: any) => {
+  app.delete("/api/admin/tier-sets/:id", async (ctx: any) => {
     const authError = requireAdmin(ctx);
     if (authError) return authError;
 
     const id = ctx.params.id;
-    const success = deleteTierSet(store, id);
+    const success = await deleteTierSetItem(store, id);
     if (!success) {
       return new Response(JSON.stringify({ error: "Tier set not found." }), {
         status: 404,
@@ -579,20 +577,21 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       actionType: "delete-tier-set",
       entityType: "tier-set",
       entityId: id,
-      details: `Deleted tier set ${id}`,
+      details: `Deleted tier set \${id}`,
     });
 
-    saveStore(store);
     return {
       status: "success",
       deleted: true,
     };
   });
 
-  app.get("/api/admin/tiers", (ctx: any) => {
+  app.get("/api/admin/tiers", async (ctx: any) => {
     const authError = requireAdmin(ctx);
     if (authError) return authError;
-    const tiers = getAllTiers(store);
+
+    const tiers = await fetchAllTiers(store);
+
     return {
       status: "success",
       tiers,
@@ -616,7 +615,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
     for (const field of required) {
       if (body[field as keyof LoyaltyTier] === undefined) {
         return new Response(
-          JSON.stringify({ error: `${field} is required.` }),
+          JSON.stringify({ error: `\${field} is required.` }),
           {
             status: 400,
             headers: { "Content-Type": "application/json" },
@@ -625,16 +624,16 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       }
     }
 
-    const tier = createTier(store, body as LoyaltyTier);
+    const tier = await createTierItem(store, body as LoyaltyTier);
+
     logAudit(store, {
       actor: "admin",
       actionType: "create-tier",
       entityType: "tier",
       entityId: tier.id,
-      details: `Created tier ${tier.name}`,
+      details: `Created tier \${tier.name}`,
     });
 
-    saveStore(store);
     return {
       status: "success",
       tier,
@@ -648,7 +647,11 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
 
     const tierId = ctx.params.tierId as string;
     const body = (await ctx.body) as Partial<LoyaltyTier>;
-    const tier = updateTier(store, tierId, body as Partial<LoyaltyTier>);
+    const tier = await updateTierItem(
+      store,
+      tierId,
+      body as Partial<LoyaltyTier>,
+    );
     if (!tier) {
       return new Response(JSON.stringify({ error: "Tier not found." }), {
         status: 404,
@@ -661,10 +664,9 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       actionType: "update-tier",
       entityType: "tier",
       entityId: tier.id,
-      details: `Updated tier ${tier.name}`,
+      details: `Updated tier \${tier.name}`,
     });
 
-    saveStore(store);
     return {
       status: "success",
       tier,
@@ -672,12 +674,12 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
     };
   });
 
-  app.delete("/api/admin/tiers/:tierId", (ctx: any) => {
+  app.delete("/api/admin/tiers/:tierId", async (ctx: any) => {
     const authError = requireAdmin(ctx);
     if (authError) return authError;
 
     const tierId = ctx.params.tierId as string;
-    const success = deleteTier(store, tierId);
+    const success = await deleteTierItem(store, tierId);
     if (!success) {
       return new Response(JSON.stringify({ error: "Tier not found." }), {
         status: 404,
@@ -690,10 +692,9 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       actionType: "delete-tier",
       entityType: "tier",
       entityId: tierId,
-      details: `Deleted tier ${tierId}`,
+      details: `Deleted tier \${tierId}`,
     });
 
-    saveStore(store);
     return {
       status: "success",
       deleted: success,
@@ -703,7 +704,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
   // -------------------------------------------------------------
   // 7. USER / CUSTOMER MANAGEMENT (CRU)
   // -------------------------------------------------------------
-  app.get("/api/admin/users", (ctx: any) => {
+  app.get("/api/admin/users", async (ctx: any) => {
     const authError = requireAdmin(ctx);
     if (authError) return authError;
 
@@ -711,14 +712,15 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
     const tier = ctx.query?.tier;
     const status = ctx.query?.status;
 
-    const customers = getAllCustomers(store, { query, tier, status });
+    const customers = await fetchAllCustomers(store, { query, tier, status });
     const formatted = customers.map((c) => ({
       id: c.id,
-      name: c.fullName || c.username || `Customer (${c.phone})`,
-      email: c.email || `${c.phone.replace(/[^0-9]/g, "")}@customer.ezwash.com`,
+      name: c.fullName || c.username || `Customer (\${c.phone})`,
+      email:
+        c.email || `\${c.phone.replace(/[^0-9]/g, "")}@customer.ezwash.com`,
       phone: c.phone,
       mostActiveVehicle: c.vehicles?.[0]
-        ? `${c.vehicles[0].plate} (${c.vehicles[0].model})`
+        ? `\${c.vehicles[0].plate} (\${c.vehicles[0].model})`
         : "No vehicle",
       points: c.pointsBalance,
       status:
@@ -741,12 +743,13 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
     };
   });
 
-  app.get("/api/admin/users/:id", (ctx: any) => {
+  app.get("/api/admin/users/:id", async (ctx: any) => {
     const authError = requireAdmin(ctx);
     if (authError) return authError;
 
     const id = ctx.params.id;
-    const customer = getCustomerById(store, id);
+    const customer = await fetchCustomerById(store, id);
+
     if (!customer) {
       return new Response(JSON.stringify({ error: "User not found." }), {
         status: 404,
@@ -773,16 +776,16 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
     }
 
     try {
-      const customer = createCustomer(store, body);
+      const customer = await createCustomerItem(store, body);
+
       logAudit(store, {
         actor: "admin",
         actionType: "create-user",
         entityType: "customer",
         entityId: customer.id,
-        details: `Created customer ${customer.phone}`,
+        details: `Created customer \${customer.phone}`,
       });
 
-      saveStore(store);
       return {
         status: "success",
         data: customer,
@@ -801,7 +804,7 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
 
     const id = ctx.params.id;
     const body = (await ctx.body) as Partial<LoyaltyCustomer>;
-    const customer = updateCustomer(store, id, body);
+    const customer = await updateCustomerItem(store, id, body);
     if (!customer) {
       return new Response(JSON.stringify({ error: "User not found." }), {
         status: 404,
@@ -814,10 +817,9 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       actionType: "update-user",
       entityType: "customer",
       entityId: customer.id,
-      details: `Updated user profile/tier for ${customer.phone}`,
+      details: `Updated user profile/tier for \${customer.phone}`,
     });
 
-    saveStore(store);
     return {
       status: "success",
       data: customer,
@@ -844,12 +846,13 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       );
     }
 
-    const result = adjustCustomerPoints(
+    const result = await adjustCustomerPointsItem(
       store,
       id,
       delta,
       reason || "Admin manual adjustment",
     );
+
     if (!result) {
       return new Response(JSON.stringify({ error: "User not found." }), {
         status: 404,
@@ -862,10 +865,9 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       actionType: "adjust-points",
       entityType: "customer",
       entityId: id,
-      details: `Adjusted points: ${delta > 0 ? "+" : ""}${delta} pts. Reason: ${reason || "Manual adjustment"}`,
+      details: `Adjusted points: \${delta > 0 ? "+" : ""}\${delta} pts. Reason: \${reason || "Manual adjustment"}`,
     });
 
-    saveStore(store);
     return {
       status: "success",
       data: result.customer,
@@ -873,12 +875,12 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
     };
   });
 
-  app.post("/api/admin/users/:id/reset-warnings", (ctx: any) => {
+  app.post("/api/admin/users/:id/reset-warnings", async (ctx: any) => {
     const authError = requireAdmin(ctx);
     if (authError) return authError;
 
     const id = ctx.params.id;
-    const customer = resetCustomerWarnings(store, id);
+    const customer = await resetCustomerWarningsItem(store, id);
     if (!customer) {
       return new Response(JSON.stringify({ error: "User not found." }), {
         status: 404,
@@ -891,10 +893,9 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       actionType: "reset-warnings",
       entityType: "customer",
       entityId: id,
-      details: `Reset late cancellation warning count and restored NORMAL priority for customer ${customer.phone}`,
+      details: `Reset late cancellation warning count and restored NORMAL priority for customer \${customer.phone}`,
     });
 
-    saveStore(store);
     return {
       status: "success",
       message: "Customer warning strikes reset successfully.",
@@ -905,13 +906,16 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
   // -------------------------------------------------------------
   // 8. REWARDS MANAGEMENT
   // -------------------------------------------------------------
-  app.get("/api/admin/rewards", (ctx: any) => {
+  app.get("/api/admin/rewards", async (ctx: any) => {
     const authError = requireAdmin(ctx);
     if (authError) return authError;
+
+    const offers = await fetchAllRewards(store);
+
     return {
       status: "success",
-      count: store.rewardOffers.length,
-      data: store.rewardOffers,
+      count: offers.length,
+      data: offers,
     };
   });
 
@@ -930,38 +934,29 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       );
     }
 
-    const newOffer: RewardOffer = {
-      id: body.id?.trim() || `reward-${Date.now()}`,
-      title: body.title.trim(),
-      description: body.description?.trim() || "",
-      pointsRequired: body.pointsRequired,
-      eligibleTiers: body.eligibleTiers || ["silver", "gold", "platinum"],
-      vehicleTypes: body.vehicleTypes,
-    };
+    const newOffer = await createRewardOffer(store, body);
 
-    store.rewardOffers.push(newOffer);
     logAudit(store, {
       actor: "admin",
       actionType: "create-reward",
       entityType: "reward",
       entityId: newOffer.id,
-      details: `Created reward offer ${newOffer.title}`,
+      details: `Created reward offer \${newOffer.title}`,
     });
 
-    saveStore(store);
     return {
       status: "success",
       data: newOffer,
     };
   });
 
-  app.delete("/api/admin/rewards/:id", (ctx: any) => {
+  app.delete("/api/admin/rewards/:id", async (ctx: any) => {
     const authError = requireAdmin(ctx);
     if (authError) return authError;
 
     const id = ctx.params.id;
-    const idx = store.rewardOffers.findIndex((r) => r.id === id);
-    if (idx === -1) {
+    const success = await deleteRewardOffer(store, id);
+    if (!success) {
       return new Response(
         JSON.stringify({ error: "Reward offer not found." }),
         {
@@ -971,16 +966,14 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
       );
     }
 
-    store.rewardOffers.splice(idx, 1);
     logAudit(store, {
       actor: "admin",
       actionType: "delete-reward",
       entityType: "reward",
       entityId: id,
-      details: `Deleted reward offer ${id}`,
+      details: `Deleted reward offer \${id}`,
     });
 
-    saveStore(store);
     return {
       status: "success",
       deleted: true,
@@ -990,14 +983,17 @@ export function registerAdminRoutes(app: any, store: LoyaltyStore) {
   // -------------------------------------------------------------
   // 9. AUDIT LOGS
   // -------------------------------------------------------------
-  app.get("/api/admin/audit-logs", (ctx: any) => {
+  app.get("/api/admin/audit-logs", async (ctx: any) => {
     const authError = requireAdmin(ctx);
     if (authError) return authError;
+
+    const auditLogs = await fetchAuditLogs(store);
+
     return {
       status: "success",
-      count: store.auditLogs.length,
-      auditLogs: store.auditLogs.slice().reverse(),
-      data: store.auditLogs.slice().reverse(),
+      count: auditLogs.length,
+      auditLogs,
+      data: auditLogs,
     };
   });
 

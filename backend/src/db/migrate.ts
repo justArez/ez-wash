@@ -1,6 +1,6 @@
 import postgres from "postgres";
 import * as dotenv from "dotenv";
-import { readFileSync } from "fs";
+import { readdirSync, readFileSync } from "fs";
 import { resolve } from "path";
 
 dotenv.config({ path: resolve(import.meta.dirname, "../../.env") });
@@ -23,21 +23,60 @@ async function runMigrations() {
   });
 
   try {
-    const migrationSql = readFileSync(
-      resolve(import.meta.dirname, "./migrations/0000_redundant_epoch.sql"),
-      "utf8",
-    );
+    // Ensure migrations table exists
+    await sql`
+      CREATE TABLE IF NOT EXISTS "__drizzle_migrations" (
+        id SERIAL PRIMARY KEY,
+        hash text NOT NULL,
+        created_at bigint
+      );
+    `;
 
-    const statements = migrationSql
-      .split("--> statement-breakpoint")
-      .map((s) => s.trim())
-      .filter(Boolean);
+    const migrationsDir = resolve(import.meta.dirname, "./migrations");
+    const migrationFiles = readdirSync(migrationsDir)
+      .filter((f) => f.endsWith(".sql"))
+      .sort();
 
-    for (const statement of statements) {
-      await sql.unsafe(statement);
+    const applied = await sql`SELECT hash FROM "__drizzle_migrations"`;
+    const appliedSet = new Set(applied.map((r) => r.hash));
+
+    for (const file of migrationFiles) {
+      if (appliedSet.has(file)) {
+        console.log(`⏩ Skipping already applied migration: ${file}`);
+        continue;
+      }
+
+      console.log(`📦 Applying migration: ${file}...`);
+      const migrationSql = readFileSync(resolve(migrationsDir, file), "utf8");
+      const statements = migrationSql
+        .split("--> statement-breakpoint")
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      for (const statement of statements) {
+        try {
+          await sql.unsafe(statement);
+        } catch (stmtError: any) {
+          // If type/table already exists on first migration run, skip safely
+          if (
+            stmtError?.message?.includes("already exists") ||
+            stmtError?.message?.includes("duplicate key")
+          ) {
+            console.log(`ℹ️  Notice: ${stmtError.message}`);
+          } else {
+            throw stmtError;
+          }
+        }
+      }
+
+      await sql`
+        INSERT INTO "__drizzle_migrations" (hash, created_at)
+        VALUES (${file}, ${Date.now()});
+      `;
+      console.log(`✅ Applied: ${file}`);
     }
 
-    console.log("✅ All tables and enums created successfully on Supabase!");
+    console.log("✅ All migrations processed successfully on Supabase!");
 
     // Verify tables
     const tables = await sql`

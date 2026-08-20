@@ -9,6 +9,7 @@ interface TierPromoSectionProps {
   isLoggedIn: boolean;
   currentTier?: string;
   pointsBalance: number;
+  claimedPromoIds?: string[];
   onClaim: (promo: ClaimablePromo) => void;
   onOpenSignIn?: () => void;
   isSubmitting?: boolean;
@@ -20,6 +21,7 @@ export const TierPromoSection: React.FC<TierPromoSectionProps> = ({
   isLoggedIn,
   currentTier,
   pointsBalance,
+  claimedPromoIds,
   onClaim,
   onOpenSignIn,
   isSubmitting,
@@ -46,6 +48,7 @@ export const TierPromoSection: React.FC<TierPromoSectionProps> = ({
             isLoggedIn={isLoggedIn}
             currentTier={currentTier}
             pointsBalance={pointsBalance}
+            claimedPromoIds={claimedPromoIds}
             onClaim={onClaim}
             onOpenSignIn={onOpenSignIn}
             isSubmitting={isSubmitting}

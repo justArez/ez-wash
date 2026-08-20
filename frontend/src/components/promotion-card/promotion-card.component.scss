@@ -1,0 +1,21 @@
+.promotion-card-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.promotion-card-expanded {
+  animation: promoDialogGrow 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: center center;
+  z-index: 50;
+}
+
+@keyframes promoDialogGrow {
+  0% {
+    opacity: 0.85;
+    transform: scale(0.96) translateY(-4px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}

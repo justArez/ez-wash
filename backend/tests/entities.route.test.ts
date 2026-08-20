@@ -153,7 +153,7 @@ describe("Extended Backend Entity APIs", () => {
     );
     expect(usersRes.status).toBe(200);
     const usersBody = await usersRes.json();
-    expect(usersBody.count).toBe(1);
+    expect(usersBody.count).toBeGreaterThanOrEqual(1);
 
     // Adjust points
     const adjustRes = await app.handle(

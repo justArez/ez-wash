@@ -50,6 +50,15 @@ export function runEligibilityUnitChecks() {
     "Test 4 Failed: 200pts is insufficient for 300pts",
   );
 
+  // Test 5: Already Claimed
+  const resClaimed = checkPromoEligibility(true, "Gold", 1500, silverPromo, [
+    "silver-1",
+  ]);
+  console.assert(
+    resClaimed.type === "ALREADY_CLAIMED",
+    "Test 5 Failed: Promo already claimed should return ALREADY_CLAIMED",
+  );
+
   return true;
 }
 

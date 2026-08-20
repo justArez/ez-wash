@@ -89,6 +89,7 @@ export function PageRenderer({
           offers={[]}
           availableSlots={availableSlots}
           onBook={onOpenBookings}
+          onOpenSignIn={onOpenSignIn}
         />
       );
     }
@@ -102,6 +103,7 @@ export function PageRenderer({
       offers={offersList}
       availableSlots={availableSlots}
       onBook={onOpenBookings}
+      onOpenSignIn={onOpenSignIn}
     />
   );
 }

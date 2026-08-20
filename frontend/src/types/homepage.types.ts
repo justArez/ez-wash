@@ -4,18 +4,36 @@
  * Feature: 004-homepage-shadcn-redesign
  */
 
+import type { DashboardResponse } from "../models/loyalty.model";
+
 /**
  * Promotion - Represents a promotional offer displayed in the carousel
  */
 export interface Promotion {
   id: string;
   name: string;
+  title?: string;
+  promoName?: string;
   description: string;
   discountPercentage: number; // 0-100
+  discountAmount?: number;
+  bonusPoints?: number;
   loyaltyPointsRequired: number;
   loyaltyPointsValue: number;
+  pointPrice?: number;
+  requiredTier?: string;
+  applicableTiers?: string[];
+  tierGroup?: string;
+  perkType?: string;
+  badgeLabel?: string;
   expiryDate: string; // ISO 8601
-  category: "discount" | "points_bonus" | "new_member";
+  category:
+    | "discount"
+    | "points_bonus"
+    | "new_member"
+    | "tier_reward"
+    | "service_addon"
+    | string;
   terms: string;
   isActive: boolean;
   createdAt: string; // ISO 8601
@@ -158,7 +176,7 @@ export interface SlotCalendarProps {
   onSlotClick: (slot: TimeSlot) => void;
   onLoadingChange?: (loading: boolean) => void;
   onErrorChange?: (error: string | null) => void;
-  dashboard?: any;
+  dashboard?: DashboardResponse | null;
   initialTierId?: string;
   advanceDays?: number;
 }
@@ -171,13 +189,24 @@ export interface SlotRefreshButtonProps {
 
 export interface PromotionCardProps {
   promotion: Promotion;
-  onViewDetails: (promotion: Promotion) => void;
+  onViewDetails?: (promotion: Promotion) => void;
   isLoading?: boolean;
+  isExpanded?: boolean;
+  onToggleExpand?: () => void;
+  dashboard?: DashboardResponse | null;
+  claimedPromoIds?: string[];
+  onOpenSignIn?: () => void;
+  onOpenBookings?: (promoContext?: string) => void;
+  onClaim?: (promotion: Promotion) => void | Promise<void>;
+  isClaiming?: boolean;
 }
 
 export interface PromotionCarouselProps {
   onPromotionSelected?: (promotion: Promotion) => void;
   onLoadingChange?: (loading: boolean) => void;
+  dashboard?: DashboardResponse | null;
+  onOpenSignIn?: () => void;
+  onOpenBookings?: (promoContext?: string) => void;
 }
 
 export interface PromotionDetailsModalProps {

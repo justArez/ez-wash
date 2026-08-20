@@ -168,18 +168,29 @@ export async function fetchPromotions(): Promise<Promotion[]> {
       const mappedPromos: Promotion[] = response.data.map((p: any) => ({
         id: p.id,
         name: p.name || p.title || "Special Promotion",
+        title: p.title || p.name,
+        promoName: p.promoName || p.name,
         description: p.description || "",
-        discountPercentage: p.discountPercentage ?? 10,
+        discountPercentage: p.discountPercentage ?? 0,
+        discountAmount: p.discountAmount ?? 0,
+        bonusPoints: p.bonusPoints ?? 0,
         loyaltyPointsRequired:
           p.loyaltyPointsRequired ??
-          (typeof p.pointPrice === "number" ? p.pointPrice : 0),
-        loyaltyPointsValue: p.loyaltyPointsValue ?? 100,
+          (typeof p.pointPrice === "number"
+            ? p.pointPrice
+            : Number(p.pointPrice) || 0),
+        loyaltyPointsValue: p.loyaltyPointsValue ?? (p.bonusPoints || 100),
+        pointPrice:
+          typeof p.pointPrice === "number"
+            ? p.pointPrice
+            : Number(p.pointPrice) || (p.loyaltyPointsRequired ?? 0),
+        requiredTier: p.requiredTier,
+        applicableTiers: p.applicableTiers || [],
+        tierGroup: p.tierGroup,
+        perkType: p.perkType,
+        badgeLabel: p.badgeLabel,
         expiryDate: p.expiryDate || p.validUntil || p.endDate || "2026-12-31",
-        category: (p.category === "discount" ||
-        p.category === "points_bonus" ||
-        p.category === "new_member"
-          ? p.category
-          : "discount") as any,
+        category: p.category || "discount",
         terms: p.terms || "Standard loyalty terms and conditions apply.",
         isActive: p.isActive !== false,
         createdAt: p.createdAt || new Date().toISOString(),

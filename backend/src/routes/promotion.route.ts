@@ -1,18 +1,17 @@
 import {
   claimPromotion,
-  getAllPromotions,
-  getPromotionById,
+  fetchAllPromotions,
+  fetchPromotionById,
 } from "../services/promotion.service";
-import { saveStore } from "../storage";
 import type { LoyaltyStore } from "../models/loyalty.model";
 
 export function registerPromotionRoutes(app: any, store: LoyaltyStore) {
-  app.get("/api/promotions", (ctx: any) => {
+  app.get("/api/promotions", async (ctx: any) => {
     const category = ctx.query?.category as string | undefined;
     const tier = ctx.query?.tier as string | undefined;
     const onlyActive = ctx.query?.onlyActive !== "false";
 
-    let promotions = getAllPromotions(store, onlyActive);
+    let promotions = await fetchAllPromotions(store, onlyActive);
 
     if (category) {
       promotions = promotions.filter(
@@ -26,6 +25,7 @@ export function registerPromotionRoutes(app: any, store: LoyaltyStore) {
         (p) =>
           p.applicableTiers?.some((t) => t.toLowerCase() === tierLower) ||
           p.requiredTier?.toLowerCase() === tierLower ||
+          !p.applicableTiers ||
           p.applicableTiers?.length === 0,
       );
     }
@@ -37,9 +37,9 @@ export function registerPromotionRoutes(app: any, store: LoyaltyStore) {
     };
   });
 
-  app.get("/api/promotions/:id", (ctx: any) => {
+  app.get("/api/promotions/:id", async (ctx: any) => {
     const id = ctx.params?.id;
-    const promo = getPromotionById(store, id);
+    const promo = await fetchPromotionById(store, id);
     if (!promo) {
       return new Response(JSON.stringify({ error: "Promotion not found." }), {
         status: 404,
@@ -76,8 +76,6 @@ export function registerPromotionRoutes(app: any, store: LoyaltyStore) {
         headers: { "Content-Type": "application/json" },
       });
     }
-
-    saveStore(store);
 
     return {
       status: "success",

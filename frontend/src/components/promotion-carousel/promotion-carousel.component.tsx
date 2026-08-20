@@ -23,9 +23,16 @@ import { PromotionCard } from "../promotion-card/promotion-card.component";
 export const PromotionCarousel: React.FC<PromotionCarouselProps> = ({
   onPromotionSelected,
   onLoadingChange,
+  dashboard,
+  onOpenSignIn,
+  onOpenBookings,
 }) => {
   const { promotions, loading, error } = usePromotions();
-  const carousel = useCarouselTimer(Math.max(promotions.length, 1));
+  // Limit to maximum 2 pages of 3 items (max 6 promotions)
+  const displayPromotions = promotions.slice(0, 6);
+  const totalPages = Math.min(2, Math.ceil(displayPromotions.length / 3));
+
+  const carousel = useCarouselTimer(Math.max(totalPages, 1));
   const [selectedPromotion, setSelectedPromotion] = useState<Promotion | null>(
     null,
   );
@@ -34,26 +41,21 @@ export const PromotionCarousel: React.FC<PromotionCarouselProps> = ({
     onLoadingChange?.(loading);
   }, [loading, onLoadingChange]);
 
-  const handleViewDetails = (promo: Promotion) => {
-    setSelectedPromotion(promo);
-    onPromotionSelected?.(promo);
+  const handleToggleExpand = (promo: Promotion) => {
+    if (selectedPromotion?.id === promo.id) {
+      setSelectedPromotion(null);
+    } else {
+      setSelectedPromotion(promo);
+      onPromotionSelected?.(promo);
+    }
   };
 
-  // Get visible promos based on carousel index (showing 3 at a time on desktop)
+  // Get visible promos based on page index (3 per page, max 2 pages)
   const getVisiblePromos = () => {
-    if (promotions.length === 0) return [];
-    if (promotions.length === 1) return [promotions[0]];
-
-    const startIndex = carousel.currentIndex;
-    const visibleCount = 3;
-    const visible = [];
-
-    for (let i = 0; i < visibleCount && i < promotions.length; i++) {
-      const index = (startIndex + i) % promotions.length;
-      visible.push(promotions[index]);
-    }
-
-    return visible;
+    if (displayPromotions.length === 0) return [];
+    const pageIndex = totalPages > 0 ? carousel.currentIndex % totalPages : 0;
+    const startIndex = pageIndex * 3;
+    return displayPromotions.slice(startIndex, startIndex + 3);
   };
 
   if (error && !loading) {
@@ -65,7 +67,7 @@ export const PromotionCarousel: React.FC<PromotionCarouselProps> = ({
     );
   }
 
-  if (!loading && promotions.length === 0) {
+  if (!loading && displayPromotions.length === 0) {
     return (
       <div className="p-6 bg-yellow-50 border-2 border-yellow-300 rounded-lg text-center">
         <p className="text-yellow-800 font-semibold">No promotions available</p>
@@ -84,7 +86,7 @@ export const PromotionCarousel: React.FC<PromotionCarouselProps> = ({
       <div className="relative w-full">
         {/* Loading state */}
         {loading ? (
-          <div className="grid grid-cols-1 gap-4 pb-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 pb-4 sm:grid-cols-2 lg:grid-cols-3 items-start">
             {[1, 2, 3].map((i) => (
               <PromotionCard
                 key={i}
@@ -97,24 +99,28 @@ export const PromotionCarousel: React.FC<PromotionCarouselProps> = ({
         ) : (
           <>
             {/* Carousel content */}
-            <div className="grid grid-cols-1 gap-4 pb-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 pb-4 sm:grid-cols-2 lg:grid-cols-3 items-start">
               {getVisiblePromos().map((promo, idx) => (
                 <PromotionCard
                   key={`${promo.id}-${idx}`}
                   promotion={promo}
-                  onViewDetails={handleViewDetails}
+                  dashboard={dashboard}
+                  onOpenSignIn={onOpenSignIn}
+                  onOpenBookings={onOpenBookings}
+                  isExpanded={selectedPromotion?.id === promo.id}
+                  onToggleExpand={() => handleToggleExpand(promo)}
                 />
               ))}
             </div>
 
             {/* Navigation arrows */}
-            {promotions.length > 1 && (
+            {totalPages > 1 && (
               <>
                 {/* Previous button */}
                 <button
                   onClick={carousel.previous}
-                  className="absolute left-1 sm:-left-3 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white transition-colors shadow-lg cursor-pointer"
-                  aria-label="Previous promotions"
+                  className="absolute left-1 sm:-left-3 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg cursor-pointer"
+                  aria-label="Previous promotions page"
                 >
                   <svg
                     className="w-5 h-5"
@@ -135,7 +141,7 @@ export const PromotionCarousel: React.FC<PromotionCarouselProps> = ({
                 <button
                   onClick={carousel.advance}
                   className="absolute right-1 sm:-right-3 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white transition-colors shadow-lg cursor-pointer"
-                  aria-label="Next promotions"
+                  aria-label="Next promotions page"
                 >
                   <svg
                     className="w-5 h-5"
@@ -155,18 +161,18 @@ export const PromotionCarousel: React.FC<PromotionCarouselProps> = ({
             )}
 
             {/* Pagination dots */}
-            {promotions.length > 1 && (
+            {totalPages > 1 && (
               <div className="flex justify-center gap-2 mt-4">
-                {promotions.map((_: Promotion, idx: number) => (
+                {Array.from({ length: totalPages }).map((_, idx: number) => (
                   <button
                     key={idx}
                     onClick={() => carousel.goToSlide(idx)}
-                    className={`w-2 h-2 rounded-full transition-colors ${
+                    className={`w-2.5 h-2.5 rounded-full transition-colors cursor-pointer ${
                       idx === carousel.currentIndex
-                        ? "bg-blue-600"
+                        ? "bg-blue-600 w-6"
                         : "bg-gray-300"
                     }`}
-                    aria-label={`Go to promotion ${idx + 1}`}
+                    aria-label={`Go to page ${idx + 1}`}
                   />
                 ))}
               </div>
@@ -174,22 +180,6 @@ export const PromotionCarousel: React.FC<PromotionCarouselProps> = ({
           </>
         )}
       </div>
-
-      {/* Promotion details modal would go here */}
-      {selectedPromotion && (
-        <div className="mt-6 p-4 bg-blue-50 border-2 border-blue-300 rounded-lg">
-          <h3 className="font-bold text-blue-900">{selectedPromotion.name}</h3>
-          <p className="text-sm text-blue-800 mt-2">
-            {selectedPromotion.terms}
-          </p>
-          <button
-            onClick={() => setSelectedPromotion(null)}
-            className="mt-3 text-sm text-blue-600 hover:text-blue-800 font-medium"
-          >
-            Close Details
-          </button>
-        </div>
-      )}
     </div>
   );
 };

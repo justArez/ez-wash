@@ -1,5 +1,7 @@
 import type { LoyaltyStore, TierSet } from "../models/loyalty.model";
 import { TIERS } from "../models/loyalty.model";
+import { db, schema } from "../db/index";
+import { sql } from "drizzle-orm";
 
 export const DEFAULT_TIER_SETS: TierSet[] = [
   {
@@ -85,6 +87,116 @@ export function ensureTierSets(store: LoyaltyStore): TierSet[] {
     store.tierSets = [...DEFAULT_TIER_SETS];
   }
   return store.tierSets;
+}
+
+export async function fetchAllTierSets(
+  store: LoyaltyStore,
+): Promise<TierSet[]> {
+  let sets: TierSet[] = [];
+  if (db) {
+    try {
+      const rows = await db.select().from(schema.tierSets);
+      if (rows && rows.length > 0) {
+        sets = rows.map((r) => ({
+          id: r.id,
+          name: r.name,
+          status: r.status as any,
+          description: r.description || "",
+          tiers: [],
+          createdAt: r.createdAt.toISOString(),
+          updatedAt: r.updatedAt.toISOString(),
+        }));
+      }
+    } catch (err) {
+      console.warn("Could not query tier sets from Postgres DB:", err);
+    }
+  }
+
+  if (sets.length === 0) {
+    sets = getAllTierSets(store);
+  }
+
+  return sets;
+}
+
+export async function createTierSetItem(
+  store: LoyaltyStore,
+  data: Partial<TierSet>,
+): Promise<TierSet> {
+  const tierSet = createTierSet(store, data);
+
+  if (db) {
+    try {
+      await db
+        .insert(schema.tierSets)
+        .values({
+          id: tierSet.id,
+          name: tierSet.name,
+          status: tierSet.status,
+          description: tierSet.description,
+        })
+        .onConflictDoUpdate({
+          target: schema.tierSets.id,
+          set: {
+            name: tierSet.name,
+            status: tierSet.status,
+            description: tierSet.description,
+            updatedAt: new Date(),
+          },
+        });
+    } catch (err) {
+      console.warn("Could not persist tier set to Postgres DB:", err);
+    }
+  }
+
+  return tierSet;
+}
+
+export async function updateTierSetItem(
+  store: LoyaltyStore,
+  id: string,
+  data: Partial<TierSet>,
+): Promise<TierSet | null> {
+  const tierSet = updateTierSet(store, id, data);
+  if (!tierSet) return null;
+
+  if (db) {
+    try {
+      await db
+        .update(schema.tierSets)
+        .set({
+          name: tierSet.name,
+          status: tierSet.status,
+          description: tierSet.description,
+          updatedAt: new Date(),
+        })
+        .where(sql`${schema.tierSets.id} = ${id}`);
+    } catch (err) {
+      console.warn("Could not update tier set in Postgres DB:", err);
+    }
+  }
+
+  return tierSet;
+}
+
+export async function deleteTierSetItem(
+  store: LoyaltyStore,
+  id: string,
+): Promise<boolean> {
+  const success = deleteTierSet(store, id);
+  if (!success) return false;
+
+  if (db) {
+    try {
+      await db
+        .delete(schema.tierSets)
+        .where(sql`${schema.tierSets.id} = ${id}`);
+    } catch (err) {
+      console.warn("Could not delete tier set from Postgres DB:", err);
+    }
+  }
+
+  return true;
 }
 
 export function getAllTierSets(store: LoyaltyStore): TierSet[] {

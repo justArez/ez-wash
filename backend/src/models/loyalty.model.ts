@@ -149,6 +149,15 @@ export type PromotionCategory =
   | "tier_reward"
   | "service_addon";
 
+export type PromotionType =
+  | "bonus_points" // Adds bonus points upon booking completion
+  | "booking_discount" // Adds percentage or fixed discount to total of booking
+  | "service_discount" // Adds discount to specific selected services
+  | "day_of_week_discount" // Adds discount on specific days of week (e.g. Wednesday wash)
+  | "dedicated_day_discount" // Adds discount on a dedicated calendar date / special holiday
+  | "tier_reward"
+  | "new_member";
+
 export type PromotionStatus = "ACTIVE" | "INACTIVE" | "EXPIRED";
 export type ClaimedPromoStatus = "ACTIVE" | "USED" | "EXPIRED";
 
@@ -156,9 +165,16 @@ export interface Promotion {
   id: string;
   name: string;
   title?: string;
+  promoName?: string;
   description: string;
   category?: PromotionCategory;
+  promoType?: PromotionType;
+  bonusPoints?: number;
   discountPercentage?: number;
+  discountAmount?: number;
+  applicableServiceIds?: string[];
+  applicableDaysOfWeek?: number[]; // 0=Sunday, 1=Monday, ..., 6=Saturday
+  dedicatedDate?: string; // YYYY-MM-DD
   pointPrice?: number | string;
   loyaltyPointsRequired?: number;
   loyaltyPointsValue?: number;
@@ -191,6 +207,11 @@ export interface ClaimedPromo {
   validUntil: string;
   status: ClaimedPromoStatus;
   perkIdentifier: string;
+  promoType?: PromotionType;
+  discountPercentage?: number;
+  discountAmount?: number;
+  bonusPoints?: number;
+  applicableServiceIds?: string[];
 }
 
 export interface RewardOffer {
@@ -220,7 +241,8 @@ export interface LoyaltyCustomer {
   licensePlates: string[];
   tierId: string;
   tierName?: string;
-  pointsBalance: number;
+  pointsBalance: number; // Redeemable points for claiming rewards & promos
+  collectedPoints?: number; // Lifetime collected points (used for user tier calculation)
   vehicles: Vehicle[];
   pointHistory: PointTransaction[];
   bookingHistory: Booking[];
@@ -345,62 +367,3 @@ export const TIERS: Record<LoyaltyTierId, LoyaltyTier> = {
     updatedAt: "2026-08-10T00:00:00.000Z",
   },
 };
-
-export const DEFAULT_PROMOTIONS: Promotion[] = [
-  {
-    id: "promo-membership-1",
-    name: "Silver+ Welcome Bonus",
-    description:
-      "Silver tier and above receive 10% off a premium wash when booking within their loyalty window.",
-    applicableTiers: ["silver", "gold", "platinum"],
-    applicableVehicleModels: [],
-    startDate: "2026-08-01",
-    endDate: "2026-12-31",
-    isActive: true,
-  },
-  {
-    id: "promo-gold-ride",
-    name: "Motorcycle Express Treat",
-    description:
-      "Gold and Platinum motorcycle riders receive a free express enhancement with a premium service.",
-    applicableTiers: ["gold", "platinum"],
-    applicableVehicleModels: [],
-    startDate: "2026-08-01",
-    endDate: "2026-12-31",
-    isActive: true,
-  },
-];
-
-export const DEFAULT_REWARD_OFFERS: RewardOffer[] = [
-  {
-    id: "reward-1",
-    title: "Free tire shine",
-    description:
-      "Redeem 200 points for a complimentary tire shine with your next wash.",
-    pointsRequired: 200,
-    eligibleTiers: ["silver", "gold", "platinum"],
-  },
-  {
-    id: "reward-2",
-    title: "Free vacuum add-on",
-    description: "Redeem 300 points for a free interior vacuum add-on.",
-    pointsRequired: 300,
-    eligibleTiers: ["gold", "platinum"],
-  },
-  {
-    id: "reward-3",
-    title: "10% discount on premium wash",
-    description:
-      "Redeem 150 points for a 10% discount on a premium wash package.",
-    pointsRequired: 150,
-    eligibleTiers: ["member", "silver", "gold", "platinum"],
-  },
-  {
-    id: "reward-4",
-    title: "Motorcycle express treatment",
-    description: "Redeem 120 points for a motorcycle express service boost.",
-    pointsRequired: 120,
-    eligibleTiers: ["member", "silver", "gold", "platinum"],
-    vehicleTypes: ["motorcycle"],
-  },
-];

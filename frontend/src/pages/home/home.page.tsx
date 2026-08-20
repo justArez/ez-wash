@@ -13,10 +13,15 @@ interface HomePageProps {
   dashboard?: DashboardResponse | null;
   offers: RewardOffer[];
   availableSlots: string[];
-  onBook: () => void;
+  onBook: (promoContext?: string) => void;
+  onOpenSignIn?: () => void;
 }
 
-export default function HomePage({ dashboard, onBook }: HomePageProps) {
+export default function HomePage({
+  dashboard,
+  onBook,
+  onOpenSignIn,
+}: HomePageProps) {
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
 
   const handleSlotClick = (slot: TimeSlot) => {
@@ -31,7 +36,7 @@ export default function HomePage({ dashboard, onBook }: HomePageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 rounded-xl w-full">
+    <div className="homepage-container min-h-screen bg-gray-50 rounded-xl w-full">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex flex-col gap-8">
         <section aria-labelledby="hero-heading" className="w-full">
           <h2 id="hero-heading" className="sr-only">
@@ -45,6 +50,9 @@ export default function HomePage({ dashboard, onBook }: HomePageProps) {
             Current Promotions
           </h2>
           <PromotionCarousel
+            dashboard={dashboard}
+            onOpenSignIn={onOpenSignIn}
+            onOpenBookings={onBook}
             onPromotionSelected={(promotion: Promotion) => {
               console.log("Selected promotion:", promotion.name);
             }}

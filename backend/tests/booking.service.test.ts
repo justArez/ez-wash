@@ -77,4 +77,47 @@ describe("booking cancellation service", () => {
 
     expect(() => cancelBooking(store, "555-9999", "booking-1")).toThrow();
   });
+
+  it("automatically removes LOW_PRIORITIED mark when user completes 3 bookings", () => {
+    const store = createStore("2099-08-14T12:00:00.000Z", 3);
+    const customer = store.customers[0];
+    customer.priorityStatus = "LOW_PRIORITIED";
+
+    // Add 2 more bookings
+    customer.bookingHistory.push(
+      {
+        id: "booking-2",
+        customerId: "customer-1",
+        vehiclePlate: "ABC123",
+        date: "2099-08-15T12:00:00.000Z",
+        createdAt: "2026-08-13T00:00:00.000Z",
+        appliedPerks: [],
+        status: "confirmed",
+      },
+      {
+        id: "booking-3",
+        customerId: "customer-1",
+        vehiclePlate: "ABC123",
+        date: "2099-08-16T12:00:00.000Z",
+        createdAt: "2026-08-13T00:00:00.000Z",
+        appliedPerks: [],
+        status: "confirmed",
+      },
+    );
+
+    const { adminUpdateBooking } = require("../src/services/booking.service");
+
+    // Complete booking 1
+    adminUpdateBooking(store, "booking-1", { status: "completed" });
+    expect(customer.priorityStatus).toBe("LOW_PRIORITIED");
+
+    // Complete booking 2
+    adminUpdateBooking(store, "booking-2", { status: "completed" });
+    expect(customer.priorityStatus).toBe("LOW_PRIORITIED");
+
+    // Complete booking 3
+    adminUpdateBooking(store, "booking-3", { status: "completed" });
+    expect(customer.priorityStatus).toBe("normal");
+    expect(customer.lateCancellationWarningCount).toBe(0);
+  });
 });

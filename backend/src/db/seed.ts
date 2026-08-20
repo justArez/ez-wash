@@ -9,20 +9,15 @@ import {
   vehicles,
   bookings,
 } from "./schema";
-import { writeFileSync, existsSync, mkdirSync } from "fs";
+import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { fileURLToPath } from "url";
-import {
-  TIERS,
-  DEFAULT_PROMOTIONS,
-  DEFAULT_REWARD_OFFERS,
-} from "../models/loyalty.model";
+import { TIERS, DEFAULT_REWARD_OFFERS } from "../models/loyalty.model";
 import { DEFAULT_SERVICES } from "../services/service.service";
 import { DEFAULT_TIER_SETS } from "../services/tier-set.service";
 
 const __dirname = fileURLToPath(new URL("./", import.meta.url));
 const DATA_DIR = join(__dirname, "..", "..", "data");
-const STORE_PATH = join(DATA_DIR, "loyalty-store.json");
 
 export async function seedDatabase() {
   console.log("🌱 Seeding JSON store data...");
@@ -307,8 +302,6 @@ export async function seedDatabase() {
   if (!existsSync(DATA_DIR)) {
     mkdirSync(DATA_DIR, { recursive: true });
   }
-  writeFileSync(STORE_PATH, JSON.stringify(seedStoreData, null, 2), "utf8");
-  console.log("✅ JSON Store seeded at:", STORE_PATH);
 
   // PostgreSQL / Drizzle Seeding
   if (!db) {
