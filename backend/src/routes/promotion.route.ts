@@ -78,6 +78,7 @@ export function registerPromotionRoutes(app: any) {
 
     return {
       status: "success",
+      success: true,
       message: "Promotion successfully claimed!",
       claimedPromo: result.claimedPromo,
       pointsBalance: result.pointsBalance,

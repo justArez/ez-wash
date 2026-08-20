@@ -206,6 +206,16 @@ export default function PromoPage({
         setClaimedPromos((prev) => [result.claimedPromo, ...prev]);
         appendClaimedPromo(result.claimedPromo, dashboard?.customerId);
 
+        // Re-fetch claimed promos so the page reflects the latest server state
+        fetchClaimedPromos(phone)
+          .then((vouchers) => {
+            setClaimedPromos(vouchers || []);
+            saveClaimedPromos(vouchers || [], dashboard?.customerId);
+          })
+          .catch((err) => {
+            console.error("Failed to refresh claimed promos:", err);
+          });
+
         setClaimToast(`Claimed "${promo.title}"! Added to Your Promos.`);
         setTimeout(() => setClaimToast(null), 4000);
       } else {
