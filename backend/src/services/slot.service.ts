@@ -43,17 +43,35 @@ function formatDisplayTime(timeStr: string): string {
   return `${formattedHour}:${minStr} ${ampm}`;
 }
 
+// Bookings may store time as "HH:MM" (24h) or "H:MM AM/PM"; normalize so both compare equal.
+function normalizeTimeTo24h(timeStr: string | null | undefined): string | null {
+  if (!timeStr) return null;
+  const trimmed = timeStr.trim();
+
+  const ampmMatch = trimmed.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (ampmMatch) {
+    let hour = parseInt(ampmMatch[1], 10);
+    const minutes = ampmMatch[2];
+    const meridiem = ampmMatch[3].toUpperCase();
+    if (meridiem === "PM" && hour !== 12) hour += 12;
+    if (meridiem === "AM" && hour === 12) hour = 0;
+    return `${String(hour).padStart(2, "0")}:${minutes}`;
+  }
+
+  const hmMatch = trimmed.match(/^(\d{1,2}):(\d{2})$/);
+  if (hmMatch) {
+    return `${hmMatch[1].padStart(2, "0")}:${hmMatch[2]}`;
+  }
+
+  return trimmed;
+}
+
 export async function generateSlotsForDate(
   dateStr: string,
 ): Promise<TimeSlotWithComputedFields[]> {
   if (!db) {
     throw new Error("Database connection is not available.");
   }
-
-  const targetDate = new Date(dateStr + "T00:00:00");
-  const dayOfWeek = DAYS_OF_WEEK[targetDate.getDay()];
-  const dayDisplayDate = `${String(targetDate.getDate()).padStart(2, "0")}/${String(targetDate.getMonth() + 1).padStart(2, "0")}`;
-  const now = new Date();
 
   const dateBookings = await db
     .select()
@@ -62,6 +80,18 @@ export async function generateSlotsForDate(
       sql`${schema.bookings.status} = 'confirmed' AND ${schema.bookings.date}::date = ${dateStr}::date`,
     );
 
+  return computeSlotsForDate(dateStr, dateBookings);
+}
+
+function computeSlotsForDate(
+  dateStr: string,
+  dateBookings: (typeof schema.bookings.$inferSelect)[],
+): TimeSlotWithComputedFields[] {
+  const targetDate = new Date(dateStr + "T00:00:00");
+  const dayOfWeek = DAYS_OF_WEEK[targetDate.getDay()];
+  const dayDisplayDate = `${String(targetDate.getDate()).padStart(2, "0")}/${String(targetDate.getMonth() + 1).padStart(2, "0")}`;
+  const now = new Date();
+
   return OPERATING_HOURS.map((timeStr) => {
     const slotId = `slot-${dateStr}-${timeStr.replace(":", "")}`;
     const displayTime = formatDisplayTime(timeStr);
@@ -69,7 +99,9 @@ export async function generateSlotsForDate(
     const slotStart = new Date(`${dateStr}T${timeStr}:00`);
     const isPast = slotStart.getTime() < now.getTime();
 
-    const slotBookings = dateBookings.filter((b) => b.timeSlot === timeStr);
+    const slotBookings = dateBookings.filter(
+      (b) => normalizeTimeTo24h(b.timeSlot) === timeStr,
+    );
 
     const currentBookings = slotBookings.length;
     let status: "available" | "booked" | "maintenance" = "available";
@@ -103,17 +135,51 @@ export async function getSlotsForDays(
   daysCount = 7,
   startDateStr?: string,
 ): Promise<TimeSlotWithComputedFields[]> {
-  const result: TimeSlotWithComputedFields[] = [];
+  if (!db) {
+    throw new Error("Database connection is not available.");
+  }
+
   const start = startDateStr
     ? new Date(startDateStr + "T00:00:00")
     : new Date();
 
+  const dateStrs: string[] = [];
   for (let i = 0; i < daysCount; i++) {
     const current = new Date(start);
     current.setDate(start.getDate() + i);
-    const dateStr = current.toISOString().split("T")[0];
-    const dailySlots = await generateSlotsForDate(dateStr);
-    result.push(...dailySlots);
+    dateStrs.push(current.toISOString().split("T")[0]);
+  }
+
+  const rangeStart = dateStrs[0];
+  const rangeEnd = dateStrs[dateStrs.length - 1];
+
+  // Single query for the whole range instead of one query per day (was causing multi-second latency for 14-day fetches).
+  const rangeBookings = await db
+    .select()
+    .from(schema.bookings)
+    .where(
+      sql`${schema.bookings.status} = 'confirmed' AND ${schema.bookings.date}::date BETWEEN ${rangeStart}::date AND ${rangeEnd}::date`,
+    );
+
+  const bookingsByDate = new Map<
+    string,
+    (typeof schema.bookings.$inferSelect)[]
+  >();
+  for (const booking of rangeBookings) {
+    const key = booking.date.toISOString().split("T")[0];
+    const list = bookingsByDate.get(key);
+    if (list) {
+      list.push(booking);
+    } else {
+      bookingsByDate.set(key, [booking]);
+    }
+  }
+
+  const result: TimeSlotWithComputedFields[] = [];
+  for (const dateStr of dateStrs) {
+    result.push(
+      ...computeSlotsForDate(dateStr, bookingsByDate.get(dateStr) || []),
+    );
   }
 
   return result;

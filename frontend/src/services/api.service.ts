@@ -14,13 +14,13 @@ import type {
   Promotion,
   TimeSlot,
 } from "../types/homepage.types";
-import { createMockTimeSlots, mockPromotions } from "./homepage.mock-data";
+import { mockPromotions } from "./homepage.mock-data";
 
 /**
  * API Configuration
  */
 const API_CONFIG = {
-  BASE_URL: "/api",
+  BASE_URL: "http://localhost:3000/api",
   TIMEOUT: 5000, // 5 seconds
   MAX_RETRIES: 3,
   RETRY_DELAYS: [1000, 2000, 4000], // 1s, 2s, 4s exponential backoff
@@ -239,11 +239,8 @@ export async function fetchSlots(days: number = 7): Promise<TimeSlot[]> {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unknown error fetching slots";
-    console.warn(
-      "[API] Slots endpoint unavailable; using local mock data:",
-      message,
-    );
-    return createMockTimeSlots(days);
+    console.error("[API] Slots endpoint unavailable:", message);
+    throw new Error(message);
   }
 }
 

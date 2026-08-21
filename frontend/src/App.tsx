@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import Header from "./components/header/header.component";
 import Footer from "./components/footer/footer.component";
 import AuthModal from "./components/auth-modal/auth-modal.component";
-import BookingModal from "./components/booking-modal/booking-modal.component";
+import BookingModal, {
+  type BookingModalSubmission,
+} from "./components/booking-modal/booking-modal.component";
 import Toast from "./components/toast/toast.component";
 import { PageRenderer } from "./components/page-renderer/page-renderer.component";
 import type { ViewState } from "./router";
@@ -28,7 +30,6 @@ import type {
   DashboardResponse,
   LinkAccountRequest,
   ServiceOption,
-  Vehicle,
 } from "./models/loyalty.model";
 import "./App.css";
 
@@ -270,18 +271,20 @@ function App() {
     setShowBookingModal(true);
   };
 
-  const handleConfirmBooking = async (
-    slot: string,
-    vehicle: Vehicle,
-    selectedServices?: string[],
-    overridePhone?: string,
-  ) => {
+  const handleConfirmBooking = async ({
+    date,
+    time,
+    vehicle,
+    selectedServices,
+    phone,
+    appliedPromoId,
+  }: BookingModalSubmission) => {
     setShowBookingModal(false);
     setLoading(true);
     setError(null);
     setSuccess(null);
 
-    const bookingPhone = overridePhone || dashboard?.phone || "";
+    const bookingPhone = phone || dashboard?.phone || "";
     if (!bookingPhone) {
       setError("Phone number is required for booking.");
       setLoading(false);
@@ -289,16 +292,13 @@ function App() {
     }
 
     try {
-      const requestedDate = slot.includes("Tomorrow")
-        ? new Date(Date.now() + 86400000).toISOString().split("T")[0]
-        : new Date().toISOString().split("T")[0];
-
       await createBooking({
         phone: bookingPhone,
         vehiclePlate: vehicle.plate,
-        requestedDate,
+        requestedDate: date,
         serviceId: selectedServices?.[0],
-        time: slot,
+        time,
+        appliedPromoId,
       });
       setSuccess("Booking confirmed successfully!");
       if (bookingPhone) {
@@ -421,8 +421,8 @@ function App() {
 
       <BookingModal
         visible={showBookingModal}
-        availableSlots={availableSlots}
         services={serviceOptions}
+        customer={dashboard}
         onClose={() => setShowBookingModal(false)}
         onConfirm={handleConfirmBooking}
       />

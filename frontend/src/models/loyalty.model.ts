@@ -350,6 +350,7 @@ export interface BookingRequest {
   requestedDate: string;
   serviceId?: string;
   time?: string;
+  appliedPromoId?: string;
 }
 
 export interface LoginCredentials {

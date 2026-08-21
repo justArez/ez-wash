@@ -11,7 +11,7 @@
  */
 
 import React, { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Lock } from "lucide-react";
+import { AlertTriangle, ChevronLeft, ChevronRight, Lock } from "lucide-react";
 import type {
   TimeSlot,
   TimeSlotWithComputedFields,
@@ -423,46 +423,69 @@ export const SlotCalendar: React.FC<SlotCalendarProps> = ({
         </div>
       </div>
 
-      {/* Legend */}
-      <div className="flex flex-wrap items-center justify-end gap-4 p-3 bg-gray-50/70 rounded-lg border border-gray-200/60">
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-5 rounded border-2 border-green-500 bg-white" />
-          <span className="text-xs font-medium text-gray-700">Available</span>
+      {/* Legend - hidden while a hard error blocks the calendar */}
+      {!(error && slots.length === 0 && !loading) && (
+        <div className="flex flex-wrap items-center justify-end gap-4 p-3 bg-gray-50/70 rounded-lg border border-gray-200/60">
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded border-2 border-green-500 bg-white" />
+            <span className="text-xs font-medium text-gray-700">Available</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded bg-gray-300" />
+            <span className="text-xs font-medium text-gray-700">Past</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded bg-red-500" />
+            <span className="text-xs font-medium text-gray-700">
+              Fully Booked
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded bg-yellow-400" />
+            <span className="text-xs font-medium text-gray-700">
+              Under Maintenance
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div
+              className="w-5 h-5 rounded border border-gray-400/80"
+              style={{
+                background:
+                  "repeating-linear-gradient(-45deg, rgb(156, 163, 175) 0, rgb(156, 163, 175) 3px, rgb(229, 231, 235) 3px, rgb(229, 231, 235) 7px)",
+              }}
+            />
+            <span className="text-xs font-medium text-gray-700">
+              Tier Locked (Outside Window)
+            </span>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-5 rounded bg-gray-300" />
-          <span className="text-xs font-medium text-gray-700">Past</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-5 rounded bg-red-500" />
-          <span className="text-xs font-medium text-gray-700">
-            Fully Booked
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-5 rounded bg-yellow-400" />
-          <span className="text-xs font-medium text-gray-700">
-            Under Maintenance
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div
-            className="w-5 h-5 rounded border border-gray-400/80"
-            style={{
-              background:
-                "repeating-linear-gradient(-45deg, rgb(156, 163, 175) 0, rgb(156, 163, 175) 3px, rgb(229, 231, 235) 3px, rgb(229, 231, 235) 7px)",
-            }}
-          />
-          <span className="text-xs font-medium text-gray-700">
-            Tier Locked (Outside Window)
-          </span>
-        </div>
-      </div>
+      )}
 
-      {/* Error notification banner if any */}
-      {error && !loading && (
+      {/* Hard error state: no slots could be loaded at all */}
+      {error && slots.length === 0 && !loading && (
+        <div className="flex flex-col items-center justify-center gap-3 p-10 bg-red-50 border border-red-200 rounded-lg text-center">
+          <AlertTriangle className="w-10 h-10 text-red-500" />
+          <div>
+            <p className="text-sm font-semibold text-red-800">
+              Unable to available wash slots
+            </p>
+            <p className="text-xs text-red-700 mt-1">
+              Please contact us for direct booking! - 0123456789
+            </p>
+          </div>
+          <button
+            onClick={handleRefresh}
+            className="mt-1 inline-flex items-center px-3 py-1.5 rounded-md bg-red-600 text-white text-xs font-semibold hover:bg-red-700 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* Soft error banner: refresh failed but we still have slots to show */}
+      {error && !loading && slots.length > 0 && (
         <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between text-sm text-amber-800">
-          <span>{error} - Showing cached/default slots.</span>
+          <span>{error} - Showing last known slots.</span>
           <button
             onClick={handleRefresh}
             className="underline font-medium hover:text-amber-900"
@@ -491,7 +514,7 @@ export const SlotCalendar: React.FC<SlotCalendarProps> = ({
       )}
 
       {/* Transposed slots table */}
-      {(!loading || slots.length > 0) && (
+      {!(error && slots.length === 0) && (!loading || slots.length > 0) && (
         <div
           ref={tableContainerRef}
           className="w-full max-h-[420px] overflow-auto hide-scrollbar rounded-lg border border-gray-200"
