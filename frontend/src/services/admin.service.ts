@@ -7,6 +7,7 @@ import type {
   DashboardMetrics,
   LoyaltyCustomer,
   Promotion,
+  ScheduleBlock,
   ServiceItem,
   TierSet,
 } from "../models/loyalty.model";
@@ -90,7 +91,7 @@ export async function fetchAdminBookings(options?: {
     vehicle: `${b.vehiclePlate || ""} • ${b.vehicleModel || ""}`.trim(),
     timeSlot: b.timeSlot || b.time || b.date || "Scheduled",
     services: b.serviceName || b.service || "Standard Wash",
-    status: (b.status?.toUpperCase() || "CONFIRMED") as AdminBooking["status"],
+    status: (b.status?.toUpperCase() || "PENDING") as AdminBooking["status"],
   }));
 }
 
@@ -381,4 +382,81 @@ export async function fetchAuditLogs(): Promise<AuditLog[]> {
     data: AuditLog[];
   }>(res);
   return json.data;
+}
+
+// -------------------------------------------------------------
+// 8. SCHEDULE & SLOT BLOCKS (Maintenance & Days Off)
+// -------------------------------------------------------------
+export async function fetchScheduleBlocks(options?: {
+  date?: string;
+  type?: string;
+  bayId?: string;
+}): Promise<ScheduleBlock[]> {
+  const params = new URLSearchParams();
+  if (options?.date) params.append("date", options.date);
+  if (options?.type && options.type !== "ALL" && options.type !== "All") {
+    params.append("type", options.type);
+  }
+  if (options?.bayId && options.bayId !== "ALL" && options.bayId !== "All") {
+    params.append("bayId", options.bayId);
+  }
+
+  const url = `${BASE_URL}/schedule-blocks${params.toString() ? `?${params.toString()}` : ""}`;
+  const res = await fetch(url, { headers: getHeaders() });
+  const json = await handleResponse<{
+    status: string;
+    count: number;
+    data: ScheduleBlock[];
+  }>(res);
+  return json.data;
+}
+
+export async function createScheduleBlock(data: {
+  type: "maintenance" | "day_off" | "holiday" | "custom_block";
+  title: string;
+  reason?: string;
+  startDate: string;
+  endDate?: string;
+  startTime?: string;
+  endTime?: string;
+  bayId?: string;
+}): Promise<ScheduleBlock> {
+  const res = await fetch(`${BASE_URL}/schedule-blocks`, {
+    method: "POST",
+    headers: getHeaders(),
+    body: JSON.stringify(data),
+  });
+  const json = await handleResponse<{
+    status: string;
+    data: ScheduleBlock;
+  }>(res);
+  return json.data;
+}
+
+export async function updateScheduleBlock(
+  id: string,
+  data: Partial<Omit<ScheduleBlock, "id" | "createdAt" | "updatedAt">>,
+): Promise<ScheduleBlock> {
+  const res = await fetch(`${BASE_URL}/schedule-blocks/${id}`, {
+    method: "PUT",
+    headers: getHeaders(),
+    body: JSON.stringify(data),
+  });
+  const json = await handleResponse<{
+    status: string;
+    data: ScheduleBlock;
+  }>(res);
+  return json.data;
+}
+
+export async function deleteScheduleBlock(id: string): Promise<boolean> {
+  const res = await fetch(`${BASE_URL}/schedule-blocks/${id}`, {
+    method: "DELETE",
+    headers: getHeaders(),
+  });
+  const json = await handleResponse<{
+    status: string;
+    deleted: boolean;
+  }>(res);
+  return json.deleted;
 }

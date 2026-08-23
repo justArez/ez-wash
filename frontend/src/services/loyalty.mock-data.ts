@@ -138,9 +138,11 @@ export const initialClaimedPromos: ClaimedPromo[] = [
     title: "10% Off Standard",
     description: "10% discount off standard wash booking.",
     claimedAt: "2026-08-01T10:00:00Z",
-    validUntil: "Oct 30",
+    validUntil: "2026-12-31",
     status: "ACTIVE",
     perkIdentifier: "standard-wash-10-off",
+    discountPercentage: 10,
+    promoType: "booking_discount",
   },
   {
     id: "claim-demo-2",
@@ -148,9 +150,11 @@ export const initialClaimedPromos: ClaimedPromo[] = [
     title: "Free Vacuuming",
     description: "Complimentary interior vacuum add-on.",
     claimedAt: "2026-08-05T14:30:00Z",
-    validUntil: "Nov 15",
+    validUntil: "2026-12-31",
     status: "ACTIVE",
     perkIdentifier: "free-vacuuming-addon",
+    discountAmount: 15,
+    promoType: "service_discount",
   },
   {
     id: "claim-demo-3",
@@ -158,9 +162,11 @@ export const initialClaimedPromos: ClaimedPromo[] = [
     title: "Free Tire Shine Voucher",
     description: "Seasonal tire dressing discount voucher.",
     claimedAt: "2026-06-01T10:00:00Z",
-    validUntil: "Jul 15",
+    validUntil: "2026-07-15",
     status: "EXPIRED",
     perkIdentifier: "free-tire-shine-voucher",
+    discountAmount: 6,
+    promoType: "service_discount",
   },
 ];
 

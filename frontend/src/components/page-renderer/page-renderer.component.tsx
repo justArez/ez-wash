@@ -9,6 +9,7 @@ import AdminDashboardPage from "../../pages/admin/admin-dashboard/admin-dashboar
 import AdminPromoPage from "../../pages/admin/admin-promo/admin-promo.page";
 import AdminTierPage from "../../pages/admin/admin-tier/admin-tier.page";
 import AdminBookingsPage from "../../pages/admin/admin-bookings/admin-bookings.page";
+import AdminSlotsPage from "../../pages/admin/admin-slots/admin-slots.page";
 import AdminUsersPage from "../../pages/admin/admin-users/admin-users.page";
 import AdminServicesPage from "../../pages/admin/admin-services/admin-services.page";
 import type { DashboardResponse } from "../../models/loyalty.model";
@@ -20,10 +21,11 @@ export interface PageRendererProps {
   onAdminNavigate: (view: string) => void;
   onAdminSignOut: () => void;
   onAdminLogin: (username: string, password: string) => Promise<void>;
-  onOpenBookings: (promoContext?: string) => void;
+  onOpenBookings: (slotOrPromo?: any) => void;
   onOpenSignIn?: () => void;
   offersList: any[];
   availableSlots: string[];
+  refreshTrigger?: number;
 }
 
 export function PageRenderer({
@@ -37,6 +39,7 @@ export function PageRenderer({
   onOpenSignIn,
   offersList,
   availableSlots,
+  refreshTrigger,
 }: PageRendererProps) {
   // Admin login page
   if (view === "admin-login") {
@@ -48,6 +51,7 @@ export function PageRenderer({
     const adminView = view as
       | "admin-dashboard"
       | "admin-bookings"
+      | "admin-slots"
       | "admin-services"
       | "admin-promo"
       | "admin-tier"
@@ -61,6 +65,7 @@ export function PageRenderer({
       >
         {adminView === "admin-dashboard" && <AdminDashboardPage />}
         {adminView === "admin-bookings" && <AdminBookingsPage />}
+        {adminView === "admin-slots" && <AdminSlotsPage />}
         {adminView === "admin-services" && <AdminServicesPage />}
         {adminView === "admin-promo" && <AdminPromoPage />}
         {adminView === "admin-tier" && <AdminTierPage />}
@@ -90,6 +95,7 @@ export function PageRenderer({
           availableSlots={availableSlots}
           onBook={onOpenBookings}
           onOpenSignIn={onOpenSignIn}
+          refreshTrigger={refreshTrigger}
         />
       );
     }
@@ -104,6 +110,7 @@ export function PageRenderer({
       availableSlots={availableSlots}
       onBook={onOpenBookings}
       onOpenSignIn={onOpenSignIn}
+      refreshTrigger={refreshTrigger}
     />
   );
 }

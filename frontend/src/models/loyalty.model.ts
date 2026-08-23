@@ -330,6 +330,21 @@ export interface AdminDashboardData {
   recentActivity: RecentActivity[];
 }
 
+export interface ScheduleBlock {
+  id: string;
+  type: "maintenance" | "day_off" | "holiday" | "custom_block";
+  title: string;
+  reason?: string;
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD
+  startTime?: string; // HH:MM
+  endTime?: string; // HH:MM
+  bayId?: string; // 'all', '1', '2', '3', '4'
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface AuditLog {
   id: string;
   actor: string;

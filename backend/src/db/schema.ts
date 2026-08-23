@@ -255,7 +255,7 @@ export const bookings = pgTable(
     timeSlot: text("time_slot"),
     durationMinutes: integer("duration_minutes"),
     bayId: text("bay_id"),
-    status: bookingStatusEnum("status").default("confirmed").notNull(),
+    status: bookingStatusEnum("status").default("pending").notNull(),
     pointsEarned: integer("points_earned").default(0).notNull(),
     pointsSpent: integer("points_spent").default(0).notNull(),
     appliedPerks: text("applied_perks").array().notNull(),

@@ -4,6 +4,7 @@ export type AdminViewState =
   | "admin-login"
   | "admin-dashboard"
   | "admin-bookings"
+  | "admin-slots"
   | "admin-services"
   | "admin-promo"
   | "admin-tier"
@@ -42,6 +43,12 @@ export const ROUTES: Record<ViewState, RouteConfig> = {
     requiresAuth: true,
     isAdmin: true,
   },
+  "admin-slots": {
+    path: "/admin/slots",
+    view: "admin-slots",
+    requiresAuth: true,
+    isAdmin: true,
+  },
   "admin-services": {
     path: "/admin/services",
     view: "admin-services",
@@ -75,6 +82,7 @@ export const PATH_TO_VIEW: Record<string, ViewState> = {
   "/admin/login": "admin-login",
   "/admin": "admin-dashboard",
   "/admin/bookings": "admin-bookings",
+  "/admin/slots": "admin-slots",
   "/admin/services": "admin-services",
   "/admin/promo": "admin-promo",
   "/admin/tier": "admin-tier",

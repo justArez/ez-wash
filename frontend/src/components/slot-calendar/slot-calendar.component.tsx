@@ -21,6 +21,7 @@ import "./slot-calendar.component.scss";
 import { useSlots } from "../../hooks/useSlots";
 import { SlotCard } from "../slot-card/slot-card.component";
 import { SlotRefreshButton } from "../slot-refresh-button/slot-refresh-button.component";
+import { fetchUserBookings } from "../../services/loyalty.service";
 
 const STANDARD_OPERATING_HOURS = [
   "09:00",
@@ -159,6 +160,40 @@ const addComputedFields = (slot: TimeSlot): TimeSlotWithComputedFields => {
   };
 };
 
+function normalizeTimeTo24h(timeStr: string | null | undefined): string | null {
+  if (!timeStr) return null;
+  const trimmed = timeStr.trim();
+
+  const ampmMatch = trimmed.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (ampmMatch) {
+    let hour = parseInt(ampmMatch[1], 10);
+    const minutes = ampmMatch[2];
+    const meridiem = ampmMatch[3].toUpperCase();
+    if (meridiem === "PM" && hour !== 12) hour += 12;
+    if (meridiem === "AM" && hour === 12) hour = 0;
+    return `${String(hour).padStart(2, "0")}:${minutes}`;
+  }
+
+  const hmMatch = trimmed.match(/^(\d{1,2}):(\d{2})$/);
+  if (hmMatch) {
+    return `${hmMatch[1].padStart(2, "0")}:${hmMatch[2]}`;
+  }
+
+  const wordTimeMatch = trimmed.match(/(\d{1,2}:\d{2}(?:\s*(?:AM|PM))?)/i);
+  if (wordTimeMatch) {
+    return normalizeTimeTo24h(wordTimeMatch[1]);
+  }
+
+  return trimmed;
+}
+
+function normalizeBookingDate(
+  dateStr: string | null | undefined,
+): string | null {
+  if (!dateStr) return null;
+  return dateStr.slice(0, 10);
+}
+
 const TIER_ADVANCE_DAYS: Record<string, { label: string; days: number }> = {
   member: { label: "Member", days: 7 },
   silver: { label: "Silver", days: 10 },
@@ -172,6 +207,8 @@ export const SlotCalendar: React.FC<SlotCalendarProps> = ({
   onLoadingChange,
   onErrorChange,
   dashboard,
+  userBookings,
+  refreshTrigger,
   initialTierId,
 }) => {
   // Current logged in customer's tier information
@@ -198,9 +235,51 @@ export const SlotCalendar: React.FC<SlotCalendarProps> = ({
   // Fetch up to 14 days so both weeks are immediately available
   const { slots, loading, error, refetch, nextRefreshCountdown } = useSlots(14);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [fetchedUserBookings, setFetchedUserBookings] = useState<any[]>([]);
   const tableContainerRef = React.useRef<HTMLDivElement>(null);
   const theadRef = React.useRef<HTMLTableSectionElement>(null);
   const rowRefs = React.useRef<Map<string, HTMLTableRowElement>>(new Map());
+
+  // Refetch when external refreshTrigger changes (e.g. after a booking confirmation)
+  useEffect(() => {
+    if (refreshTrigger) {
+      refetch();
+    }
+  }, [refreshTrigger, refetch]);
+
+  // Fetch user bookings from API when identifier is available or on refresh
+  useEffect(() => {
+    const identifier =
+      dashboard?.phone || dashboard?.username || dashboard?.email;
+    if (identifier) {
+      fetchUserBookings(identifier)
+        .then((res) => {
+          if (res?.bookingHistory) {
+            setFetchedUserBookings(res.bookingHistory);
+          }
+        })
+        .catch(() => {
+          // fallback to dashboard.bookingHistory
+        });
+    } else {
+      setFetchedUserBookings([]);
+    }
+  }, [dashboard?.phone, dashboard?.username, dashboard?.email, refreshTrigger]);
+
+  // Combine all user booking sources
+  const allUserBookings = React.useMemo(() => {
+    const combined = [
+      ...(dashboard?.bookingHistory || []),
+      ...(userBookings || []),
+      ...fetchedUserBookings,
+    ];
+    const map = new Map<string, any>();
+    combined.forEach((b, idx) => {
+      const key = b.id || `idx-${idx}-${b.date}-${b.time || b.timeSlot}`;
+      map.set(key, b);
+    });
+    return Array.from(map.values());
+  }, [dashboard?.bookingHistory, userBookings, fetchedUserBookings]);
 
   // Notify parent of loading state
   useEffect(() => {
@@ -217,6 +296,14 @@ export const SlotCalendar: React.FC<SlotCalendarProps> = ({
     setIsRefreshing(true);
     try {
       await refetch();
+      const identifier =
+        dashboard?.phone || dashboard?.username || dashboard?.email;
+      if (identifier) {
+        const res = await fetchUserBookings(identifier);
+        if (res?.bookingHistory) {
+          setFetchedUserBookings(res.bookingHistory);
+        }
+      }
     } finally {
       setIsRefreshing(false);
     }
@@ -253,12 +340,25 @@ export const SlotCalendar: React.FC<SlotCalendarProps> = ({
           const isPast = isPastSlot({ date: dayInfo.dateStr, time });
           const displayTime = formatDisplayTime(time);
 
+          const matchingUserBookings = allUserBookings.filter((b) => {
+            if (b.status === "cancelled") return false;
+            const bDate = normalizeBookingDate(b.date);
+            const bTime = normalizeTimeTo24h(b.time || b.timeSlot);
+            return bDate === dayInfo.dateStr && bTime === time;
+          });
+
+          const isUserBooked = matchingUserBookings.length > 0;
+
           if (existingSlot) {
             matrix.set(`${dayInfo.slotLabel}|${time}`, {
               ...existingSlot,
               isTierLocked,
               tierLockReason: isTierLocked
                 ? `Requires ${requiredTier} tier (${dayInfo.dayIndex + 1}-day advance)`
+                : undefined,
+              isUserBooked,
+              userBookingDetails: isUserBooked
+                ? matchingUserBookings
                 : undefined,
               isAvailable: !isTierLocked && !isPast && existingSlot.isAvailable,
             });
@@ -272,12 +372,16 @@ export const SlotCalendar: React.FC<SlotCalendarProps> = ({
               duration: 30,
               status: isPast ? "booked" : "available",
               capacity: 4,
-              currentBookings: 0,
+              currentBookings: isUserBooked ? 1 : 0,
               dayOfWeek: dayInfo.dayOfWeek,
               dayDisplayDate: dayInfo.dayDisplayDate,
               isTierLocked,
               tierLockReason: isTierLocked
                 ? `Requires ${requiredTier} tier (${dayInfo.dayIndex + 1}-day advance)`
+                : undefined,
+              isUserBooked,
+              userBookingDetails: isUserBooked
+                ? matchingUserBookings
                 : undefined,
               isAvailable: !isTierLocked && !isPast,
               isPast,
@@ -295,7 +399,7 @@ export const SlotCalendar: React.FC<SlotCalendarProps> = ({
         slotByDayAndTime: matrix,
         currentWeekDays: daysList,
       };
-    }, [slots, weekOffset, tierBookingWindowDays]);
+    }, [slots, weekOffset, tierBookingWindowDays, allUserBookings]);
 
   // Auto-scroll to closest timeslot from current time
   useEffect(() => {
@@ -426,6 +530,10 @@ export const SlotCalendar: React.FC<SlotCalendarProps> = ({
       {/* Legend - hidden while a hard error blocks the calendar */}
       {!(error && slots.length === 0 && !loading) && (
         <div className="flex flex-wrap items-center justify-end gap-4 p-3 bg-gray-50/70 rounded-lg border border-gray-200/60">
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded border-2 border-blue-500 bg-blue-500 flex items-center justify-center"></div>
+            <span className="text-xs font-semibold">Your Booking</span>
+          </div>
           <div className="flex items-center gap-2">
             <div className="w-5 h-5 rounded border-2 border-green-500 bg-white" />
             <span className="text-xs font-medium text-gray-700">Available</span>

@@ -1,6 +1,7 @@
 import type { TimeSlotWithComputedFields } from "../models/loyalty.model";
 import { db, schema } from "../db/index";
 import { sql } from "drizzle-orm";
+import { fetchScheduleBlocks } from "./schedule.service";
 
 const OPERATING_HOURS = [
   "09:00",
@@ -77,15 +78,19 @@ export async function generateSlotsForDate(
     .select()
     .from(schema.bookings)
     .where(
-      sql`${schema.bookings.status} = 'confirmed' AND ${schema.bookings.date}::date = ${dateStr}::date`,
+      sql`(${schema.bookings.status} = 'confirmed' OR ${schema.bookings.status} = 'pending') AND ${schema.bookings.date}::date = ${dateStr}::date`,
     );
 
-  return computeSlotsForDate(dateStr, dateBookings);
+  const activeBlocks = await fetchScheduleBlocks({ date: dateStr });
+  const dayBlocks = activeBlocks.filter((b) => b.isActive);
+
+  return computeSlotsForDate(dateStr, dateBookings, dayBlocks);
 }
 
 function computeSlotsForDate(
   dateStr: string,
   dateBookings: (typeof schema.bookings.$inferSelect)[],
+  scheduleBlocks: Awaited<ReturnType<typeof fetchScheduleBlocks>> = [],
 ): TimeSlotWithComputedFields[] {
   const targetDate = new Date(dateStr + "T00:00:00");
   const dayOfWeek = DAYS_OF_WEEK[targetDate.getDay()];
@@ -99,6 +104,42 @@ function computeSlotsForDate(
     const slotStart = new Date(`${dateStr}T${timeStr}:00`);
     const isPast = slotStart.getTime() < now.getTime();
 
+    // Check schedule blocks for this specific slot
+    const matchingBlocks = scheduleBlocks.filter((b) => {
+      if (b.startDate > dateStr || b.endDate < dateStr) return false;
+      if (!b.startTime && !b.endTime) return true; // Full day off / holiday
+      if (b.startTime && b.endTime) {
+        return timeStr >= b.startTime && timeStr <= b.endTime;
+      }
+      if (b.startTime) return timeStr >= b.startTime;
+      if (b.endTime) return timeStr <= b.endTime;
+      return false;
+    });
+
+    const isFullDayOff = matchingBlocks.some(
+      (b) =>
+        (b.type === "day_off" || b.type === "holiday") &&
+        (b.bayId === "all" || !b.bayId),
+    );
+    const hasAllBayMaintenance = matchingBlocks.some(
+      (b) =>
+        (b.type === "maintenance" || b.type === "custom_block") &&
+        (b.bayId === "all" || !b.bayId),
+    );
+
+    // Blocked bays count
+    const blockedBays = new Set<string>();
+    matchingBlocks.forEach((b) => {
+      if (b.bayId && b.bayId !== "all") {
+        blockedBays.add(b.bayId);
+      }
+    });
+
+    const effectiveCapacity =
+      isFullDayOff || hasAllBayMaintenance
+        ? 0
+        : Math.max(0, TOTAL_BAY_CAPACITY - blockedBays.size);
+
     const slotBookings = dateBookings.filter(
       (b) => normalizeTimeTo24h(b.timeSlot) === timeStr,
     );
@@ -106,11 +147,20 @@ function computeSlotsForDate(
     const currentBookings = slotBookings.length;
     let status: "available" | "booked" | "maintenance" = "available";
 
-    if (currentBookings >= TOTAL_BAY_CAPACITY || isPast) {
+    if (
+      isFullDayOff ||
+      hasAllBayMaintenance ||
+      blockedBays.size >= TOTAL_BAY_CAPACITY
+    ) {
+      status = "maintenance";
+    } else if (currentBookings >= effectiveCapacity || isPast) {
       status = "booked";
     }
 
-    const isAvailable = !isPast && currentBookings < TOTAL_BAY_CAPACITY;
+    const isAvailable =
+      !isPast &&
+      status !== "maintenance" &&
+      currentBookings < effectiveCapacity;
 
     return {
       id: slotId,
@@ -119,7 +169,7 @@ function computeSlotsForDate(
       displayTime,
       duration: 30,
       status,
-      capacity: TOTAL_BAY_CAPACITY,
+      capacity: effectiveCapacity,
       currentBookings,
       dayOfWeek,
       dayDisplayDate,
@@ -158,8 +208,11 @@ export async function getSlotsForDays(
     .select()
     .from(schema.bookings)
     .where(
-      sql`${schema.bookings.status} = 'confirmed' AND ${schema.bookings.date}::date BETWEEN ${rangeStart}::date AND ${rangeEnd}::date`,
+      sql`(${schema.bookings.status} = 'confirmed' OR ${schema.bookings.status} = 'pending') AND ${schema.bookings.date}::date BETWEEN ${rangeStart}::date AND ${rangeEnd}::date`,
     );
+
+  const activeBlocks = await fetchScheduleBlocks();
+  const validBlocks = activeBlocks.filter((b) => b.isActive);
 
   const bookingsByDate = new Map<
     string,
@@ -177,8 +230,15 @@ export async function getSlotsForDays(
 
   const result: TimeSlotWithComputedFields[] = [];
   for (const dateStr of dateStrs) {
+    const dayBlocks = validBlocks.filter(
+      (b) => b.startDate <= dateStr && b.endDate >= dateStr,
+    );
     result.push(
-      ...computeSlotsForDate(dateStr, bookingsByDate.get(dateStr) || []),
+      ...computeSlotsForDate(
+        dateStr,
+        bookingsByDate.get(dateStr) || [],
+        dayBlocks,
+      ),
     );
   }
 

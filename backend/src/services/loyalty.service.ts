@@ -199,8 +199,8 @@ export async function cancelBooking(
     };
   }
 
-  if (booking.status !== "confirmed") {
-    throw new Error("Only confirmed bookings can be cancelled.");
+  if (booking.status !== "confirmed" && booking.status !== "pending") {
+    throw new Error("Only confirmed or pending bookings can be cancelled.");
   }
 
   const scheduledTime = new Date(
@@ -339,7 +339,7 @@ export async function createBooking(
     date: requested.toISOString().split("T")[0],
     createdAt: new Date().toISOString(),
     appliedPerks,
-    status: "confirmed",
+    status: "pending",
   };
 
   await db.insert(schema.bookings).values({
@@ -347,7 +347,7 @@ export async function createBooking(
     customerId: customer.id,
     vehiclePlate: normalizedVehiclePlate,
     date: requested,
-    status: "confirmed",
+    status: "pending",
     appliedPerks,
   });
 

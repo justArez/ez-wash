@@ -27,8 +27,27 @@ export async function loadCustomerDetails(
       .from(schema.bookings)
       .where(eq(schema.bookings.customerId, dbC.id)),
     db!
-      .select()
+      .select({
+        id: schema.claimedPromos.id,
+        promoId: schema.claimedPromos.promoId,
+        customerId: schema.claimedPromos.customerId,
+        title: schema.claimedPromos.title,
+        description: schema.claimedPromos.description,
+        perkIdentifier: schema.claimedPromos.perkIdentifier,
+        status: schema.claimedPromos.status,
+        claimedAt: schema.claimedPromos.claimedAt,
+        validUntil: schema.claimedPromos.validUntil,
+        promoType: schema.promotions.promoType,
+        discountPercentage: schema.promotions.discountPercentage,
+        discountAmount: schema.promotions.discountAmount,
+        bonusPoints: schema.promotions.bonusPoints,
+        applicableServiceIds: schema.promotions.applicableServiceIds,
+      })
       .from(schema.claimedPromos)
+      .leftJoin(
+        schema.promotions,
+        eq(schema.claimedPromos.promoId, schema.promotions.id),
+      )
       .where(eq(schema.claimedPromos.customerId, dbC.id)),
   ]);
 
@@ -93,6 +112,11 @@ export async function loadCustomerDetails(
       validUntil: c.validUntil.toISOString().split("T")[0],
       status: c.status,
       perkIdentifier: c.perkIdentifier,
+      promoType: (c.promoType as any) || undefined,
+      discountPercentage: c.discountPercentage ?? undefined,
+      discountAmount: c.discountAmount ?? undefined,
+      bonusPoints: c.bonusPoints ?? undefined,
+      applicableServiceIds: c.applicableServiceIds ?? undefined,
     })),
     lateCancellationWarningCount: dbC.lateCancellationWarningCount,
     priorityStatus: dbC.priorityStatus,
@@ -133,6 +157,7 @@ export async function findCustomerRecord(
       .from(schema.loyaltyCustomers)
       .where(
         or(
+          eq(schema.loyaltyCustomers.id, value),
           eq(schema.loyaltyCustomers.phone, value),
           eq(schema.loyaltyCustomers.username, value),
           eq(schema.loyaltyCustomers.email, value),

@@ -33,16 +33,22 @@ export const SlotCard: React.FC<SlotCardProps> = ({
   const isFullyBooked = bookedSlots >= slot.capacity;
 
   const isUnavailable =
-    slot.isTierLocked ||
-    slot.isPast ||
-    slot.status === "maintenance" ||
-    slot.status === "booked" ||
-    isFullyBooked;
+    !slot.isUserBooked &&
+    (slot.isTierLocked ||
+      slot.isPast ||
+      slot.status === "maintenance" ||
+      slot.status === "booked" ||
+      isFullyBooked);
+
   const borderClass = slot.isTierLocked
     ? "border border-gray-400/80"
     : isUnavailable
       ? ""
-      : "border-2 border-green-500";
+      : slot.isPast
+        ? ""
+        : slot.isUserBooked
+          ? ""
+          : "border-2 border-green-500";
 
   const getGradientBackground = (): string => {
     if (slot.isTierLocked) {
@@ -50,6 +56,9 @@ export const SlotCard: React.FC<SlotCardProps> = ({
     }
     if (slot.isPast) {
       return "linear-gradient(to top, rgb(209, 213, 219) 0%, rgb(209, 213, 219) 100%)";
+    }
+    if (slot.isUserBooked) {
+      return "linear-gradient(to top, oklch(62.3% 0.214 259.815) 0%, oklch(62.3% 0.214 259.815) 100%)";
     }
     if (slot.status === "maintenance") {
       return "linear-gradient(to top, rgb(250, 204, 21) 0%, rgb(250, 204, 21) 100%)";
@@ -64,30 +73,39 @@ export const SlotCard: React.FC<SlotCardProps> = ({
 
   const gradientBackground = getGradientBackground();
 
+  const isInteractive = slot.isAvailable || slot.isUserBooked;
   const baseClasses =
     "p-2 rounded-lg transition-all duration-200 cursor-pointer";
-  const interactiveClasses = slot.isAvailable
+  const interactiveClasses = isInteractive
     ? "hover:scale-115"
     : "cursor-not-allowed opacity-90";
 
-  const tooltipLabel = slot.isTierLocked
-    ? `${slot.timeLabel} - Tier locked (${slot.tierLockReason || "Requires higher tier window"})`
-    : `${slot.timeLabel} - ${slot.isPast ? "past" : slot.status} (${bookedSlots}/${slot.capacity} booked)`;
+  const tooltipLabel = slot.isUserBooked
+    ? `${slot.timeLabel} - Your Booking (${bookedSlots}/${slot.capacity} booked)`
+    : slot.isTierLocked
+      ? `${slot.timeLabel} - Tier locked (${slot.tierLockReason || "Requires higher tier window"})`
+      : `${slot.timeLabel} - ${slot.isPast ? "past" : slot.status} (${bookedSlots}/${slot.capacity} booked)`;
 
   return (
     <div
       className={`${baseClasses} ${interactiveClasses}`}
       onClick={handleClick}
-      role={slot.isAvailable ? "button" : "status"}
-      tabIndex={slot.isAvailable ? 0 : -1}
+      role={isInteractive ? "button" : "status"}
+      tabIndex={isInteractive ? 0 : -1}
       onKeyPress={(e) => {
-        if (slot.isAvailable && (e.key === "Enter" || e.key === " ")) {
+        if (isInteractive && (e.key === "Enter" || e.key === " ")) {
           handleClick();
         }
       }}
       aria-label={tooltipLabel}
-      title={slot.isTierLocked ? "Outside your tier booking window" : undefined}
-      aria-disabled={!slot.isAvailable}
+      title={
+        slot.isUserBooked
+          ? "You have a confirmed booking at this timeslot"
+          : slot.isTierLocked
+            ? "Outside your tier booking window"
+            : undefined
+      }
+      aria-disabled={!isInteractive}
     >
       {/* Time is shown in the row header when this card is used in the table. */}
       {showTime && (
@@ -99,12 +117,12 @@ export const SlotCard: React.FC<SlotCardProps> = ({
       {/* Color-coded status square with fill from bottom */}
       <div className="flex justify-center">
         <div
-          className={`w-8 h-8 rounded ${borderClass} ${isSelected ? "ring-2 ring-primary ring-offset-2 scale-110" : ""}`}
+          className={`w-8 h-8 rounded flex items-center justify-center ${borderClass} ${isSelected ? "ring-2 ring-primary ring-offset-2 scale-110" : ""}`}
           style={{
             background: gradientBackground,
           }}
           aria-hidden="true"
-        />
+        ></div>
       </div>
     </div>
   );

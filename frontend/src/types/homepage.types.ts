@@ -64,6 +64,13 @@ export interface TimeSlotWithComputedFields extends TimeSlot {
   isPast: boolean; // Computed: the slot's local date/time has already passed
   isTierLocked?: boolean; // Computed: outside logged-in customer's tier booking window
   tierLockReason?: string;
+  isUserBooked?: boolean; // Computed: logged-in / current user has an active booking on this slot
+  userBookingDetails?: Array<{
+    id?: string;
+    vehiclePlate?: string;
+    service?: string;
+    status?: string;
+  }>;
   slotLabel: string; // Computed: "${dayOfWeek} (${dayDisplayDate})"
   timeLabel: string; // Computed: displayTime
 }
@@ -177,6 +184,16 @@ export interface SlotCalendarProps {
   onLoadingChange?: (loading: boolean) => void;
   onErrorChange?: (error: string | null) => void;
   dashboard?: DashboardResponse | null;
+  userBookings?: Array<{
+    id?: string;
+    date: string;
+    time?: string;
+    timeSlot?: string;
+    status?: string;
+    vehiclePlate?: string;
+    service?: string;
+  }>;
+  refreshTrigger?: number;
   initialTierId?: string;
   advanceDays?: number;
 }

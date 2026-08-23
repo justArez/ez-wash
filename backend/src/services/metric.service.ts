@@ -64,23 +64,42 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     }
   });
 
-  // Active bookings today / overall
-  const activeBookingsCount = allBookings.filter(
-    (b) => b.status === "confirmed" || b.status === "pending",
-  ).length;
+  // 4 bays in total, open 9:00 AM to 5:00 PM with 30-min slots:
+  // Slots: 09:00, 09:30, 10:00, 10:30, 11:00, 11:30, 12:00, 12:30, 13:00, 13:30, 14:00, 14:30, 15:00, 15:30, 16:00, 16:30, 17:00 (17 slots)
+  // Total capacity per day = 4 bays * 17 time slots = 68 booking slots
+  const TOTAL_BAYS = 4;
+  const SLOTS_PER_BAY = 17;
+  const TOTAL_DAILY_SLOTS = TOTAL_BAYS * SLOTS_PER_BAY;
 
-  const totalBays = 5;
-  const occupiedBaysCount = Math.min(
-    todayBookings.filter((b) => b.status === "confirmed").length,
-    totalBays,
+  // Active bookings today (confirmed / pending today)
+  const todayActiveBookings = todayBookings.filter(
+    (b) => b.status === "confirmed" || b.status === "pending",
   );
+  const activeBookingsCount = todayActiveBookings.length;
+
+  // Available slots today: total daily capacity minus today's active/confirmed/completed bookings
+  const todayBookedSlotsCount = todayBookings.filter(
+    (b) =>
+      b.status === "confirmed" ||
+      b.status === "pending" ||
+      b.status === "completed",
+  ).length;
+  const availableSlotsCount = Math.max(
+    0,
+    TOTAL_DAILY_SLOTS - todayBookedSlotsCount,
+  );
+
+  // Distinct bays occupied today / currently active
+  const occupiedBaysCount = Math.min(todayActiveBookings.length, TOTAL_BAYS);
+
+  const bayOccupancyRate = Math.round((occupiedBaysCount / TOTAL_BAYS) * 100);
 
   const metrics: DashboardMetrics = {
     totalRevenueToday: `$${revenueNum.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
-    activeBookings: activeBookingsCount || 150,
-    availableSlots: Math.max(0, 60 - occupiedBaysCount),
-    bayOccupancy: `${occupiedBaysCount}/${totalBays}`,
-    bayOccupancyRate: Math.round((occupiedBaysCount / totalBays) * 100),
+    activeBookings: activeBookingsCount,
+    availableSlots: availableSlotsCount,
+    bayOccupancy: `${occupiedBaysCount}/${TOTAL_BAYS}`,
+    bayOccupancyRate,
   };
 
   // Weekly bookings (last 7 days)
@@ -94,21 +113,43 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     const dStr = d.toISOString().split("T")[0];
     const dayName = daysOfWeek[d.getDay()];
 
-    const count = allBookings.filter(
+    const dayBookings = allBookings.filter(
       (b) => b.date === dStr || b.date?.startsWith(dStr),
-    ).length;
+    );
+    const count = dayBookings.length;
+
+    let dayRevenue = 0;
+    dayBookings.forEach((b) => {
+      if (b.status === "confirmed" || b.status === "completed") {
+        const price =
+          (b.serviceId && servicePriceMap.get(b.serviceId)) ||
+          (b.service && servicePriceMap.get(b.service)) ||
+          25.0;
+        dayRevenue += price;
+      }
+    });
 
     weeklyBookings.push({
       day: dayName,
-      count: count > 0 ? count : Math.floor(Math.random() * 8) + 12, // fallback natural baseline
-      revenue: (count > 0 ? count : 15) * 30,
+      count,
+      revenue: dayRevenue,
     });
   }
 
-  // Bay status
+  // Bay status (4 bays)
   const bayStatus: BayStatus[] = [
-    { bay: "Bay 1", type: "Express Touchless", status: "active", eta: "12m" },
-    { bay: "Bay 2", type: "Full Detail & Steam", status: "active", eta: "25m" },
+    {
+      bay: "Bay 1",
+      type: "Express Touchless",
+      status: "active",
+      eta: "Available",
+    },
+    {
+      bay: "Bay 2",
+      type: "Full Detail & Steam",
+      status: "active",
+      eta: "Available",
+    },
     {
       bay: "Bay 3",
       type: "Self-Serve Jet Foam",
@@ -118,12 +159,6 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     {
       bay: "Bay 4",
       type: "Ceramic Sealant Bay",
-      status: "maintenance",
-      eta: "Under Maintenance",
-    },
-    {
-      bay: "Bay 5",
-      type: "Motorcycle Quick Rinse",
       status: "active",
       eta: "Available",
     },
@@ -137,59 +172,23 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
         new Date(b.createdAt || b.date).getTime() -
         new Date(a.createdAt || a.date).getTime(),
     )
-    .slice(0, 6);
+    .slice(0, 10);
 
-  const recentActivity: RecentActivity[] =
-    sortedBookings.length > 0
-      ? sortedBookings.map((b) => ({
-          id: b.id,
-          name: b.customerName || "Customer",
-          phone: b.customerPhone || "N/A",
-          vehicle: `${b.vehiclePlate} ${b.vehicleModel || ""}`.trim(),
-          service: b.serviceName || b.service || "Exterior Wash",
-          time: b.timeSlot || b.time || "Scheduled",
-          status:
-            b.status === "confirmed"
-              ? "In Progress"
-              : b.status === "completed"
-                ? "Completed"
-                : "Cancelled",
-          timestamp: b.createdAt,
-        }))
-      : [
-          {
-            name: "Alex Rivera",
-            phone: "+1 (555) 234-5678",
-            vehicle: "Tesla Model Y • ABC-1234",
-            service: "Deluxe Polish & Wax",
-            time: "10:30 AM",
-            status: "Completed",
-          },
-          {
-            name: "Jordan Lee",
-            phone: "+1 (555) 876-5432",
-            vehicle: "Honda Civic • XYZ-9876",
-            service: "Basic Exterior Wash",
-            time: "11:15 AM",
-            status: "In Progress",
-          },
-          {
-            name: "Morgan Taylor",
-            phone: "+1 (555) 345-6789",
-            vehicle: "BMW M3 • DEF-5678",
-            service: "Interior Deep Detail",
-            time: "01:00 PM",
-            status: "Completed",
-          },
-          {
-            name: "Casey Smith",
-            phone: "+1 (555) 654-3210",
-            vehicle: "Ducati Monster • GHI-9012",
-            service: "Motorcycle Express Treat",
-            time: "02:30 PM",
-            status: "Cancelled",
-          },
-        ];
+  const recentActivity: RecentActivity[] = sortedBookings.map((b) => ({
+    id: b.id,
+    name: b.customerName || "Customer",
+    phone: b.customerPhone || "N/A",
+    vehicle: `${b.vehiclePlate} ${b.vehicleModel || ""}`.trim(),
+    service: b.serviceName || b.service || "Exterior Wash",
+    time: b.timeSlot || b.time || "Scheduled",
+    status:
+      b.status === "confirmed"
+        ? "In Progress"
+        : b.status === "completed"
+          ? "Completed"
+          : "Cancelled",
+    timestamp: b.createdAt,
+  }));
 
   return {
     metrics,

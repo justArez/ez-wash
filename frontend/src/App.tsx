@@ -19,6 +19,7 @@ import {
   fetchLoyaltyDashboard,
   createBooking,
 } from "./services/loyalty.service";
+import { refreshSlotsCache } from "./services/api.service";
 import {
   loginAdmin,
   saveAdminUserInfo,
@@ -96,6 +97,11 @@ function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>("sign-in");
   const [showBookingModal, setShowBookingModal] = useState(false);
+  const [selectedBookingSlot, setSelectedBookingSlot] = useState<{
+    date: string;
+    time: string;
+  } | null>(null);
+  const [refreshSlotTrigger, setRefreshSlotTrigger] = useState(0);
   const [showDemoToast, setShowDemoToast] = useState(false);
 
   // Initialize view based on current path and auth state
@@ -211,6 +217,9 @@ function App() {
     await refreshDashboard(username, password, true);
     setShowAuthModal(false);
     setSuccess("Signed in successfully!");
+    if (selectedBookingSlot) {
+      setShowBookingModal(true);
+    }
   };
 
   const handleSignUp = async (payload: LinkAccountRequest) => {
@@ -231,6 +240,9 @@ function App() {
         await refreshDashboard(refreshIdentifier, payload.password);
       }
       setShowAuthModal(false);
+      if (selectedBookingSlot) {
+        setShowBookingModal(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -261,7 +273,21 @@ function App() {
     }
   };
 
-  const handleOpenBookings = () => {
+  const handleOpenBookings = (slotOrPromo?: any) => {
+    if (
+      slotOrPromo &&
+      typeof slotOrPromo === "object" &&
+      "date" in slotOrPromo &&
+      "time" in slotOrPromo
+    ) {
+      setSelectedBookingSlot({
+        date: slotOrPromo.date,
+        time: slotOrPromo.time,
+      });
+    } else {
+      setSelectedBookingSlot(null);
+    }
+
     if (!isLoggedIn) {
       setAuthMode("sign-in");
       setShowAuthModal(true);
@@ -280,6 +306,7 @@ function App() {
     appliedPromoId,
   }: BookingModalSubmission) => {
     setShowBookingModal(false);
+    setSelectedBookingSlot(null);
     setLoading(true);
     setError(null);
     setSuccess(null);
@@ -300,7 +327,10 @@ function App() {
         time,
         appliedPromoId,
       });
-      setSuccess("Booking confirmed successfully!");
+      setSuccess("Booking created successfully!");
+      // Invalidate slots cache and trigger calendar re-computation
+      await refreshSlotsCache(14).catch(() => {});
+      setRefreshSlotTrigger((prev) => prev + 1);
       if (bookingPhone) {
         await refreshDashboard(bookingPhone);
       }
@@ -406,6 +436,7 @@ function App() {
         }}
         offersList={dashboard?.rewardSuggestions ?? []}
         availableSlots={availableSlots}
+        refreshTrigger={refreshSlotTrigger}
       />
 
       {!isAdminView(view) && <Footer />}
@@ -423,7 +454,11 @@ function App() {
         visible={showBookingModal}
         services={serviceOptions}
         customer={dashboard}
-        onClose={() => setShowBookingModal(false)}
+        initialSlot={selectedBookingSlot}
+        onClose={() => {
+          setShowBookingModal(false);
+          setSelectedBookingSlot(null);
+        }}
         onConfirm={handleConfirmBooking}
       />
     </main>

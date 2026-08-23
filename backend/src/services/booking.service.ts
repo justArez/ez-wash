@@ -283,7 +283,7 @@ export async function adminCreateBooking(data: {
     timeSlot: data.timeSlot || data.time || null,
     durationMinutes,
     bayId: data.bayId || "Bay 1",
-    status: (data.status?.toLowerCase() as any) || "confirmed",
+    status: (data.status?.toLowerCase() as any) || "pending",
     appliedPerks: tier.perks || [],
     note: data.note || null,
   });
@@ -305,7 +305,7 @@ export async function adminCreateBooking(data: {
     timeSlot: data.timeSlot || data.time,
     durationMinutes,
     bayId: data.bayId || "Bay 1",
-    status: data.status || "confirmed",
+    status: data.status || "pending",
     appliedPerks: tier.perks || [],
     note: data.note,
     createdAt: new Date().toISOString(),

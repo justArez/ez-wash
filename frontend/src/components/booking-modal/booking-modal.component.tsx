@@ -53,6 +53,7 @@ interface BookingModalProps {
   visible: boolean;
   services: ServiceOption[];
   customer?: DashboardResponse | null;
+  initialSlot?: { date: string; time: string } | null;
   onClose: () => void;
   onConfirm: (submission: BookingModalSubmission) => void;
 }
@@ -116,7 +117,7 @@ const validatePromo = (
 ): PromoValidation => {
   if (!promo) return { valid: true, discount: 0 };
 
-  if (promo.status !== "ACTIVE") {
+  if (promo.status && promo.status !== "ACTIVE") {
     return {
       valid: false,
       discount: 0,
@@ -124,12 +125,15 @@ const validatePromo = (
     };
   }
 
-  if (promo.validUntil && new Date(promo.validUntil) < slotDate) {
-    return {
-      valid: false,
-      discount: 0,
-      message: `This promo expires on ${promo.validUntil} and cannot be used for the selected slot.`,
-    };
+  if (promo.validUntil) {
+    const expiry = new Date(promo.validUntil);
+    if (!isNaN(expiry.getTime()) && expiry < slotDate) {
+      return {
+        valid: false,
+        discount: 0,
+        message: `This promo expires on ${promo.validUntil} and cannot be used for the selected slot.`,
+      };
+    }
   }
 
   if (selectedServices.length === 0) {
@@ -168,6 +172,15 @@ const validatePromo = (
     discount = (eligibleSubtotal * promo.discountPercentage) / 100;
   } else if (promo.discountAmount) {
     discount = Math.min(promo.discountAmount, eligibleSubtotal);
+  } else {
+    // Fallback: Check if title or perkIdentifier contains a discount percentage like "10% Off" or "15%"
+    const match = (promo.title || promo.perkIdentifier || "").match(/(\d+)%/);
+    if (match) {
+      const pct = parseFloat(match[1]);
+      if (!isNaN(pct)) {
+        discount = (eligibleSubtotal * pct) / 100;
+      }
+    }
   }
 
   return { valid: true, discount: Math.round(discount * 100) / 100 };
@@ -177,12 +190,13 @@ export default function BookingModal({
   visible,
   services: initialServices,
   customer,
+  initialSlot,
   onClose,
   onConfirm,
 }: BookingModalProps) {
   const [daySlots, setDaySlots] = useState<DaySlot[]>([]);
-  const [selectedDate, setSelectedDate] = useState("");
-  const [selectedTime, setSelectedTime] = useState("");
+  const [selectedDate, setSelectedDate] = useState(initialSlot?.date || "");
+  const [selectedTime, setSelectedTime] = useState(initialSlot?.time || "");
   const [plate, setPlate] = useState("");
   const [model, setModel] = useState("");
   const [type, setType] = useState<VehicleType>("car");
@@ -192,7 +206,9 @@ export default function BookingModal({
   const [services, setServices] = useState<BookingService[]>(() =>
     toBookingServices(initialServices),
   );
-  const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  const [selectedServices, setSelectedServices] = useState<string[]>(() =>
+    initialServices.length > 0 ? [initialServices[0].id] : [],
+  );
   const [promos, setPromos] = useState<ClaimedPromo[]>([]);
   const [selectedPromoId, setSelectedPromoId] = useState("");
   const [recognizedCustomer, setRecognizedCustomer] = useState<{
@@ -201,6 +217,16 @@ export default function BookingModal({
     points?: number;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Sync initialSlot when provided
+  useEffect(() => {
+    if (initialSlot?.date) {
+      setSelectedDate(initialSlot.date);
+    }
+    if (initialSlot?.time) {
+      setSelectedTime(initialSlot.time);
+    }
+  }, [initialSlot]);
 
   // Autofill contact + most used vehicle from the logged-in customer
   useEffect(() => {
@@ -242,13 +268,17 @@ export default function BookingModal({
     fetchPublicServices(true)
       .then((data) => {
         if (!data?.length) return;
-        setServices(
-          data.map((service) => ({
-            id: service.id,
-            name: service.name,
-            durationMinutes: service.durationMinutes,
-            price: service.price,
-          })),
+        const loadedServices = data.map((service) => ({
+          id: service.id,
+          name: service.name,
+          durationMinutes: service.durationMinutes,
+          price: service.price,
+        }));
+        setServices(loadedServices);
+        setSelectedServices((current) =>
+          current.length === 0 && loadedServices.length > 0
+            ? [loadedServices[0].id]
+            : current,
         );
       })
       .catch(() => {
@@ -440,6 +470,42 @@ export default function BookingModal({
             <p>Choose a slot and add service options before confirming.</p>
           </div>
         </div>
+
+        {selectedDate && selectedTime && (
+          <div
+            style={{
+              padding: "10px 14px",
+              marginBottom: "16px",
+              borderRadius: "8px",
+              backgroundColor: "rgba(59, 130, 246, 0.08)",
+              border: "1px solid rgba(59, 130, 246, 0.25)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              fontSize: "0.875rem",
+              color: "#1e40af",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span style={{ fontWeight: 600 }}>📅 Selected Slot:</span>
+              <span>
+                {selectedSlotLabel || `${selectedDate} at ${selectedTime}`}
+              </span>
+            </div>
+            <span
+              style={{
+                fontWeight: 600,
+                fontSize: "0.75rem",
+                backgroundColor: "#dbeafe",
+                color: "#1d4ed8",
+                padding: "2px 8px",
+                borderRadius: "9999px",
+              }}
+            >
+              {totalSlots} × {SLOT_DURATION_MINUTES}m
+            </span>
+          </div>
+        )}
 
         <div className="booking-modal__body">
           <section className="booking-modal__column">

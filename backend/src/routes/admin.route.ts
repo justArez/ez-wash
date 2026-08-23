@@ -42,6 +42,12 @@ import {
   deleteRewardOffer,
   fetchAllRewards,
 } from "../services/reward.service";
+import {
+  createScheduleBlock,
+  deleteScheduleBlock,
+  fetchScheduleBlocks,
+  updateScheduleBlock,
+} from "../services/schedule.service";
 import { getAdminDashboardData } from "../services/metric.service";
 import { fetchAuditLogs, logAudit } from "../services/audit.service";
 import type {
@@ -720,6 +726,7 @@ export function registerAdminRoutes(app: any) {
         ? `\${c.vehicles[0].plate} (\${c.vehicles[0].model})`
         : "No vehicle",
       points: c.pointsBalance,
+      collectedPoints: c.collectedPoints ?? 0,
       status:
         c.priorityStatus === "LOW_PRIORITIED"
           ? "Low Priority"
@@ -990,6 +997,95 @@ export function registerAdminRoutes(app: any) {
       count: auditLogs.length,
       auditLogs,
       data: auditLogs,
+    };
+  });
+
+  // -------------------------------------------------------------
+  // 10. SLOT & SCHEDULE MANAGEMENT (Maintenance & Days Off)
+  // -------------------------------------------------------------
+  app.get("/api/admin/schedule-blocks", async (ctx: any) => {
+    const authError = requireAdmin(ctx);
+    if (authError) return authError;
+
+    const date = ctx.query?.date;
+    const type = ctx.query?.type;
+    const bayId = ctx.query?.bayId;
+
+    const blocks = await fetchScheduleBlocks({ date, type, bayId });
+
+    return {
+      status: "success",
+      count: blocks.length,
+      data: blocks,
+    };
+  });
+
+  app.post("/api/admin/schedule-blocks", async (ctx: any) => {
+    const authError = requireAdmin(ctx);
+    if (authError) return authError;
+
+    const body = (await ctx.body) as any;
+    if (!body?.title || !body?.startDate || !body?.type) {
+      return new Response(
+        JSON.stringify({ error: "title, type, and startDate are required." }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    const block = await createScheduleBlock(body);
+    return {
+      status: "success",
+      data: block,
+    };
+  });
+
+  app.put("/api/admin/schedule-blocks/:id", async (ctx: any) => {
+    const authError = requireAdmin(ctx);
+    if (authError) return authError;
+
+    const id = ctx.params.id;
+    const body = (await ctx.body) as any;
+
+    const updated = await updateScheduleBlock(id, body);
+    if (!updated) {
+      return new Response(
+        JSON.stringify({ error: "Schedule block not found." }),
+        {
+          status: 404,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    return {
+      status: "success",
+      data: updated,
+    };
+  });
+
+  app.delete("/api/admin/schedule-blocks/:id", async (ctx: any) => {
+    const authError = requireAdmin(ctx);
+    if (authError) return authError;
+
+    const id = ctx.params.id;
+    const success = await deleteScheduleBlock(id);
+
+    if (!success) {
+      return new Response(
+        JSON.stringify({ error: "Schedule block not found." }),
+        {
+          status: 404,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    return {
+      status: "success",
+      deleted: true,
     };
   });
 

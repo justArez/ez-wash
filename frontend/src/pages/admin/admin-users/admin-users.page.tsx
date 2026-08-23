@@ -44,6 +44,7 @@ const INITIAL_USERS: User[] = [
     phone: "555-0101",
     mostActiveVehicle: "Honda Accord (29A-1234)",
     points: 5200,
+    collectedPoints: 7400,
     status: "Active",
     tier: "Platinum",
   },
@@ -54,6 +55,7 @@ const INITIAL_USERS: User[] = [
     phone: "555-0102",
     mostActiveVehicle: "Honda SH 150i (29B-9876)",
     points: 120,
+    collectedPoints: 120,
     status: "Low Priority",
     tier: "Member",
   },
@@ -64,6 +66,7 @@ const INITIAL_USERS: User[] = [
     phone: "555-0103",
     mostActiveVehicle: "Toyota Camry (30E-8899)",
     points: 3450,
+    collectedPoints: 4800,
     status: "Active",
     tier: "Gold",
   },
@@ -383,7 +386,8 @@ export default function AdminUsersPage() {
                   <th>Contact Info</th>
                   <th>Primary Vehicle</th>
                   <th>Loyalty Tier</th>
-                  <th>Points Balance</th>
+                  <th>Earned Points</th>
+                  <th>Redeemable Points</th>
                   <th>Standing</th>
                   <th className="text-right">Actions</th>
                 </tr>
@@ -391,7 +395,7 @@ export default function AdminUsersPage() {
               <tbody>
                 {filteredUsers.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-10 text-gray-500">
+                    <td colSpan={8} className="text-center py-10 text-gray-500">
                       No customers match your search criteria.
                     </td>
                   </tr>
@@ -438,6 +442,17 @@ export default function AdminUsersPage() {
                       </td>
 
                       <td>{getTierBadge(user.tier)}</td>
+
+                      <td>
+                        <div className="admin-users__points-value font-semibold text-gray-900">
+                          {(
+                            user.collectedPoints ?? user.points
+                          ).toLocaleString()}
+                          <span className="text-xs text-gray-500 font-normal ml-1">
+                            pts
+                          </span>
+                        </div>
+                      </td>
 
                       <td>
                         <div className="admin-users__points-cell">

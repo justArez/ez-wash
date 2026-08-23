@@ -57,7 +57,7 @@ export default function BookingPage({ dashboard }: BookingPageProps) {
       bookings
         .filter(
           (booking) =>
-            booking.status === "confirmed" &&
+            (booking.status === "confirmed" || booking.status === "pending") &&
             getScheduledTime(booking).getTime() > now,
         )
         .sort(
@@ -186,7 +186,9 @@ export default function BookingPage({ dashboard }: BookingPageProps) {
                       <span className="booking-service">
                         {booking.service ?? "Car Wash"}
                       </span>
-                      <span className="pill">Confirmed</span>
+                      <span className="pill">
+                        {booking.status === "pending" ? "Pending" : "Confirmed"}
+                      </span>
                     </div>
                     <div className="booking-date-block">
                       <strong>{formatDate(booking.date)}</strong>

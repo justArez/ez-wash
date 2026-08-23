@@ -13,20 +13,22 @@ interface HomePageProps {
   dashboard?: DashboardResponse | null;
   offers: RewardOffer[];
   availableSlots: string[];
-  onBook: (promoContext?: string) => void;
+  onBook: (slotOrPromo?: TimeSlot | string) => void;
   onOpenSignIn?: () => void;
+  refreshTrigger?: number;
 }
 
 export default function HomePage({
   dashboard,
   onBook,
   onOpenSignIn,
+  refreshTrigger,
 }: HomePageProps) {
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
 
   const handleSlotClick = (slot: TimeSlot) => {
     setSelectedSlot(slot);
-    onBook();
+    onBook(slot);
   };
 
   const handleScrollToSlots = () => {
@@ -70,6 +72,7 @@ export default function HomePage({
             dashboard={dashboard}
             selectedSlotId={selectedSlot?.id}
             onSlotClick={handleSlotClick}
+            refreshTrigger={refreshTrigger}
           />
         </section>
       </main>

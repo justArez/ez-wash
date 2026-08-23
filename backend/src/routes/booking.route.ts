@@ -66,10 +66,14 @@ export function registerBookingRoutes(app: any) {
   });
 
   app.get("/api/bookings/my-bookings", async (ctx: any) => {
-    const phone = ctx.query?.phone as string | undefined;
-    if (!phone) {
+    const identifier = (ctx.query?.phone ||
+      ctx.query?.identifier ||
+      ctx.query?.username ||
+      ctx.query?.email ||
+      ctx.query?.customerId) as string | undefined;
+    if (!identifier) {
       return new Response(
-        JSON.stringify({ error: "Phone query parameter is required." }),
+        JSON.stringify({ error: "Phone or identifier query parameter is required." }),
         {
           status: 400,
           headers: { "Content-Type": "application/json" },
@@ -77,7 +81,37 @@ export function registerBookingRoutes(app: any) {
       );
     }
 
-    const bookingsData = await fetchCustomerBookings(phone);
+    const bookingsData = await fetchCustomerBookings(identifier);
+    if (!bookingsData) {
+      return new Response(JSON.stringify({ error: "Customer not found." }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    return {
+      status: "success",
+      ...bookingsData,
+    };
+  });
+
+  app.get("/api/bookings/user", async (ctx: any) => {
+    const identifier = (ctx.query?.phone ||
+      ctx.query?.identifier ||
+      ctx.query?.username ||
+      ctx.query?.email ||
+      ctx.query?.customerId) as string | undefined;
+    if (!identifier) {
+      return new Response(
+        JSON.stringify({ error: "Phone or identifier query parameter is required." }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    const bookingsData = await fetchCustomerBookings(identifier);
     if (!bookingsData) {
       return new Response(JSON.stringify({ error: "Customer not found." }), {
         status: 404,

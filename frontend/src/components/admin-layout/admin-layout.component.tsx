@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import {
   LayoutDashboard,
   CalendarCheck2,
+  Clock,
   Wrench,
   Tag,
   Crown,
@@ -20,6 +21,7 @@ interface AdminLayoutProps {
   currentView:
     | "admin-dashboard"
     | "admin-bookings"
+    | "admin-slots"
     | "admin-services"
     | "admin-promo"
     | "admin-tier"
@@ -65,6 +67,11 @@ export default function AdminLayout({
       id: "admin-bookings" as const,
       label: "Bookings",
       icon: CalendarCheck2,
+    },
+    {
+      id: "admin-slots" as const,
+      label: "Slot Schedule",
+      icon: Clock,
     },
     {
       id: "admin-services" as const,

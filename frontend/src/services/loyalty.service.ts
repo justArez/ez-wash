@@ -9,6 +9,7 @@ import type {
   ServiceItem,
   TimeSlot,
 } from "../models/loyalty.model";
+import { DEMO_PHONE, initialClaimedPromos } from "./loyalty.mock-data";
 
 const BASE_URL = "";
 
@@ -89,15 +90,22 @@ export async function fetchCustomerLookup(phone: string) {
 export async function fetchClaimedPromos(
   phone: string,
 ): Promise<ClaimedPromo[]> {
-  const response = await fetch(
-    `${BASE_URL}/api/loyalty/claimed-promos?phone=${encodeURIComponent(phone)}`,
-  );
-  const data = await handleJsonResponse<{
-    status: string;
-    count: number;
-    data: ClaimedPromo[];
-  }>(response);
-  return data.data;
+  try {
+    const response = await fetch(
+      `${BASE_URL}/api/loyalty/claimed-promos?phone=${encodeURIComponent(phone)}`,
+    );
+    const data = await handleJsonResponse<{
+      status: string;
+      count: number;
+      data: ClaimedPromo[];
+    }>(response);
+    return data.data;
+  } catch (error) {
+    if (phone === DEMO_PHONE || phone.trim().toLowerCase() === "demo") {
+      return initialClaimedPromos.filter((p) => p.status === "ACTIVE");
+    }
+    return [];
+  }
 }
 
 export async function claimPromo(
@@ -184,6 +192,19 @@ export async function createBooking(request: BookingRequest) {
 export async function fetchCustomerBookings(phone: string) {
   const response = await fetch(
     `${BASE_URL}/api/bookings/my-bookings?phone=${encodeURIComponent(phone)}`,
+  );
+  return handleJsonResponse<{
+    status: string;
+    totalCount: number;
+    activeCount: number;
+    activeBookings: any[];
+    bookingHistory: any[];
+  }>(response);
+}
+
+export async function fetchUserBookings(identifier: string) {
+  const response = await fetch(
+    `${BASE_URL}/api/bookings/user?phone=${encodeURIComponent(identifier)}`,
   );
   return handleJsonResponse<{
     status: string;
