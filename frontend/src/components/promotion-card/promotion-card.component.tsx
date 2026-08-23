@@ -8,7 +8,7 @@ import type { PromotionCardProps } from "../../types/homepage.types";
 import { Badge } from "../common/badge";
 import { Card } from "../common/card";
 import { Button } from "../common/button";
-import { Sparkles, Crown, Tag, CheckCircle2, Lock } from "lucide-react";
+import { Sparkles, Crown, Tag, CheckCircle2, Lock, Award } from "lucide-react";
 import "./promotion-card.component.scss";
 
 const TIER_RANK: Record<string, number> = {
@@ -121,42 +121,33 @@ export const PromotionCard: React.FC<PromotionCardProps> = ({
     }
   };
 
-  const getTierBadge = (tier?: string) => {
-    if (!tier) {
-      return (
-        <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-semibold">
-          All Tiers
-        </Badge>
-      );
-    }
-    switch (tier.toUpperCase()) {
+  const getTierBadge = (tier: string) => {
+    switch (tier?.toUpperCase()) {
       case "PLATINUM":
         return (
-          <Badge className="bg-[#f3e8ff] text-[#7c3aed] border-[#e9d5ff] font-bold text-[10px] flex items-center gap-1">
-            <Crown className="w-3 h-3 text-[#7c3aed]" />
-            Platinum Only
-          </Badge>
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+            <Crown size={11} className="text-indigo-500" />
+            Platinum
+          </span>
         );
       case "GOLD":
         return (
-          <Badge className="bg-[#fef3c7] text-[#b45309] border-[#fde68a] font-bold text-[10px] flex items-center gap-1">
-            <Crown className="w-3 h-3 text-[#b45309]" />
-            Gold+
-          </Badge>
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+            <Award size={11} className="text-amber-500" />
+            Gold or upper
+          </span>
         );
       case "SILVER":
         return (
-          <Badge className="bg-[#f1f5f9] text-[#475569] border-[#e2e8f0] font-bold text-[10px] flex items-center gap-1">
-            <Crown className="w-3 h-3 text-[#475569]" />
-            Silver+
-          </Badge>
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-300">
+            Silver or upper
+          </span>
         );
       default:
         return (
-          <Badge className="bg-[#f8f7ff] text-[#676375] border-[#e8e6f3] font-bold text-[10px] flex items-center gap-1">
-            <Crown className="w-3 h-3 text-[#676375]" />
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold border border-gray-900/20">
             Member
-          </Badge>
+          </span>
         );
     }
   };
@@ -166,7 +157,7 @@ export const PromotionCard: React.FC<PromotionCardProps> = ({
       {/* Expanded Dialog Backdrop */}
       {isExpanded && (
         <div
-          className="fixed inset-0 z-40 bg-slate-900/20 backdrop-blur-[1px] transition-opacity"
+          className="fixed inset-0 z-40 bg-slate-900/20 backdrop-blur-[1px] transition-all duration-300"
           onClick={handleToggle}
           aria-hidden="true"
         />
@@ -178,11 +169,11 @@ export const PromotionCard: React.FC<PromotionCardProps> = ({
           isUserCurrentTierPromo && isLoggedIn
             ? "border-[#d7d3eb] bg-gradient-to-br from-[#ffffff] via-[#ffffff] to-[#f8f7ff] shadow-[0_10px_25px_rgba(44,38,79,0.05)]"
             : "border-[#d7d3eb] bg-gradient-to-br from-[#ffffff] via-[#ffffff] to-[#f8f7ff] shadow-[0_10px_25px_rgba(44,38,79,0.05)]"
-        } transition-all duration-200 hover:shadow-[0_15px_30px_rgba(44,38,79,0.09)] hover:border-[#3a46ed] flex flex-col justify-between p-4 rounded-[18px] ${
+        } transition-all duration-300 hover:shadow-[0_15px_30px_rgba(44,38,79,0.09)] hover:border-[#3a46ed] flex flex-col justify-between p-4 rounded-[18px] ${
           isExpanded ? "invisible pointer-events-none" : ""
         }`}
       >
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 transition-all duration-300">
           {/* Badges and Action button row */}
           <div className="flex items-center gap-1.5 flex-wrap justify-between">
             <div className="flex items-center gap-1.5 flex-wrap">
@@ -209,11 +200,10 @@ export const PromotionCard: React.FC<PromotionCardProps> = ({
                     {promotion.badgeLabel}
                   </Badge>
                 )}
+              {getTierBadge(requiredTier)}
             </div>
 
             <div className="flex items-center gap-1.5">
-              {getTierBadge(requiredTier)}
-
               {isClaimableReward ? (
                 isClaimed ? (
                   <Button

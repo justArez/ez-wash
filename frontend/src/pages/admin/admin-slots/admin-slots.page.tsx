@@ -25,7 +25,7 @@ import {
   AlertCircle,
   Calendar,
 } from "lucide-react";
-import type { ScheduleBlock } from "@/models/loyalty.model";
+import type { ScheduleBlock } from "@/models/timeslot.model";
 import {
   createScheduleBlock,
   deleteScheduleBlock,

@@ -8,7 +8,6 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
   Plus,
   Search,
@@ -19,14 +18,21 @@ import {
   XCircle,
   Trash2,
   RefreshCw,
+  Award,
+  Crown,
+  Sparkles,
 } from "lucide-react";
-import type { AdminBooking } from "@/models/loyalty.model";
+import type { AdminBooking } from "@/models/booking.model";
 import {
   createAdminBooking,
   deleteAdminBooking,
   fetchAdminBookings,
   updateAdminBooking,
 } from "@/services/admin.service";
+import {
+  isValidVietnamesePlate,
+  formatVietnamesePlate,
+} from "@/lib/plate-validation";
 import "./admin-bookings.page.scss";
 
 export default function AdminBookingsPage() {
@@ -118,11 +124,18 @@ export default function AdminBookingsPage() {
     e.preventDefault();
     if (!newPhone || !newPlate || !newDate) return;
 
+    if (!isValidVietnamesePlate(newPlate)) {
+      alert(
+        "Please enter a valid Vietnamese license plate (e.g., 30A-123.45, 59P1-123.45).",
+      );
+      return;
+    }
+
     try {
       await createAdminBooking({
         phone: newPhone,
-        vehiclePlate: newPlate,
-        vehicleModel: newModel || "Standard Vehicle",
+        vehiclePlate: formatVietnamesePlate(newPlate),
+        vehicleModel: newModel || "Not provided",
         date: newDate,
         timeSlot: newTimeSlot,
         serviceName: newServiceName,
@@ -137,28 +150,41 @@ export default function AdminBookingsPage() {
     }
   };
 
-  const getTierBadge = (tier: AdminBooking["tier"]) => {
-    switch (tier) {
+  const getTierBadge = (tier: string) => {
+    switch (tier?.toUpperCase()) {
+      case "DIAMOND":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-cyan-50 text-cyan-700 border border-cyan-200">
+            <Sparkles size={11} className="text-cyan-500" />
+            Diamond
+          </span>
+        );
       case "PLATINUM":
         return (
-          <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 border-purple-200">
-            Platinum ⭐
-          </Badge>
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+            <Crown size={11} className="text-indigo-500" />
+            Platinum
+          </span>
         );
       case "GOLD":
         return (
-          <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 border-amber-200">
-            Gold ⭐
-          </Badge>
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+            <Award size={11} className="text-amber-500" />
+            Gold
+          </span>
         );
       case "SILVER":
         return (
-          <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100 border-slate-200">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-300">
             Silver
-          </Badge>
+          </span>
         );
       default:
-        return <Badge variant="secondary">Member</Badge>;
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold border border-gray-900/20">
+            Member
+          </span>
+        );
     }
   };
 
@@ -260,7 +286,16 @@ export default function AdminBookingsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredBookings.length === 0 ? (
+                {loading ? (
+                  <tr>
+                    <td colSpan={7} className="text-center py-10 text-gray-400">
+                      <div className="flex items-center justify-center gap-2">
+                        <RefreshCw className="animate-spin w-4 h-4 text-[#3a46ed]" />
+                        <span>Loading bookings...</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredBookings.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="text-center py-10 text-gray-500">
                       No bookings matching your criteria.

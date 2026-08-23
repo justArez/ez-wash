@@ -50,14 +50,14 @@ import {
 } from "../services/schedule.service";
 import { getAdminDashboardData } from "../services/metric.service";
 import { fetchAuditLogs, logAudit } from "../services/audit.service";
-import type {
-  LoyaltyCustomer,
-  LoyaltyTier,
-  Promotion,
-  RewardOffer,
-  ServiceItem,
-  TierSet,
-} from "../models/loyalty.model";
+import type { LoyaltyCustomer } from "../models/customer.model";
+import type { LoyaltyTier, TierSet } from "../models/tier.model";
+import type { Promotion, RewardOffer } from "../models/promo.model";
+import type { ServiceItem } from "../models/service.model";
+import {
+  isValidVietnamesePlate,
+  formatVietnamesePlate,
+} from "../services/plate-validation";
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "admin-secret";
 
@@ -218,6 +218,20 @@ export function registerAdminRoutes(app: any) {
       );
     }
 
+    if (!isValidVietnamesePlate(body.vehiclePlate)) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "Invalid Vietnamese license plate format (e.g., 30A-123.45, 59P1-123.45).",
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    body.vehiclePlate = formatVietnamesePlate(body.vehiclePlate);
     const booking = await adminCreateBooking(body);
     await logAudit({
       actor: "admin",
@@ -252,7 +266,7 @@ export function registerAdminRoutes(app: any) {
       actionType: "update-booking",
       entityType: "booking",
       entityId: booking.id,
-      details: `Updated booking \${id} status to \${booking.status}`,
+      details: `Updated booking ${id} status to ${booking.status}`,
     });
 
     return {
@@ -279,7 +293,7 @@ export function registerAdminRoutes(app: any) {
       actionType: "delete-booking",
       entityType: "booking",
       entityId: id,
-      details: `Deleted booking \${id}`,
+      details: `Deleted booking ${id}`,
     });
 
     return {
@@ -718,12 +732,11 @@ export function registerAdminRoutes(app: any) {
     const customers = await fetchAllCustomers({ query, tier, status });
     const formatted = customers.map((c) => ({
       id: c.id,
-      name: c.fullName || c.username || `Customer (\${c.phone})`,
-      email:
-        c.email || `\${c.phone.replace(/[^0-9]/g, "")}@customer.ezwash.com`,
-      phone: c.phone,
+      name: c.fullName || c.username || `Customer (${c.phone})`,
+      email: c.email || "No email provided",
+      phone: c.phone || "No phone provided",
       mostActiveVehicle: c.vehicles?.[0]
-        ? `\${c.vehicles[0].plate} (\${c.vehicles[0].model})`
+        ? `${c.vehicles[0].plate} (${c.vehicles[0].model})`
         : "No vehicle",
       points: c.pointsBalance,
       collectedPoints: c.collectedPoints ?? 0,
@@ -777,6 +790,22 @@ export function registerAdminRoutes(app: any) {
         status: 400,
         headers: { "Content-Type": "application/json" },
       });
+    }
+
+    if (
+      body.initialVehicle?.plate &&
+      !isValidVietnamesePlate(body.initialVehicle.plate)
+    ) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "Invalid Vietnamese license plate format (e.g., 30A-123.45, 59P1-123.45).",
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
     }
 
     try {

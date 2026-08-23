@@ -26,7 +26,7 @@ import {
   RefreshCw,
   RotateCcw,
 } from "lucide-react";
-import type { AdminUser as User } from "@/models/loyalty.model";
+import type { AdminUser as User } from "@/models/customer.model";
 import {
   adjustAdminUserPoints,
   createAdminUser,
@@ -34,46 +34,14 @@ import {
   resetAdminUserWarnings,
   updateAdminUser,
 } from "@/services/admin.service";
+import {
+  isValidVietnamesePlate,
+  formatVietnamesePlate,
+} from "@/lib/plate-validation";
 import "./admin-users.page.scss";
 
-const INITIAL_USERS: User[] = [
-  {
-    id: "USR-001",
-    name: "Alice Smith",
-    email: "alice.smith@email.com",
-    phone: "555-0101",
-    mostActiveVehicle: "Honda Accord (29A-1234)",
-    points: 5200,
-    collectedPoints: 7400,
-    status: "Active",
-    tier: "Platinum",
-  },
-  {
-    id: "USR-002",
-    name: "Bob Johnson",
-    email: "bob.johnson@email.com",
-    phone: "555-0102",
-    mostActiveVehicle: "Honda SH 150i (29B-9876)",
-    points: 120,
-    collectedPoints: 120,
-    status: "Low Priority",
-    tier: "Member",
-  },
-  {
-    id: "USR-003",
-    name: "Catherine Davis",
-    email: "catherine.d@email.com",
-    phone: "555-0103",
-    mostActiveVehicle: "Toyota Camry (30E-8899)",
-    points: 3450,
-    collectedPoints: 4800,
-    status: "Active",
-    tier: "Gold",
-  },
-];
-
 export default function AdminUsersPage() {
-  const [users, setUsers] = useState<User[]>(INITIAL_USERS);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [tierFilter, setTierFilter] = useState("All Tiers");
@@ -88,11 +56,23 @@ export default function AdminUsersPage() {
   const [newModel, setNewModel] = useState("");
   const [newPoints, setNewPoints] = useState(0);
 
+  // Deactivate confirmation modal
+  const [userToDeactivate, setUserToDeactivate] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+
   // Points inline edit state
   const [editingPointsUserId, setEditingPointsUserId] = useState<string | null>(
     null,
   );
   const [pointsInputVal, setPointsInputVal] = useState<string>("");
+
+  // Earned points inline edit state
+  const [editingEarnedPointsUserId, setEditingEarnedPointsUserId] = useState<
+    string | null
+  >(null);
+  const [earnedPointsInputVal, setEarnedPointsInputVal] = useState<string>("");
 
   const loadUsers = async () => {
     try {
@@ -177,6 +157,70 @@ export default function AdminUsersPage() {
     setEditingPointsUserId(null);
   };
 
+  const handleStartEditEarnedPoints = (user: User) => {
+    setEditingEarnedPointsUserId(user.id);
+    const currentEarned = user.collectedPoints ?? user.points;
+    setEarnedPointsInputVal(currentEarned.toString());
+  };
+
+  const handleSaveEarnedPoints = async (userId: string) => {
+    const parsed = parseInt(earnedPointsInputVal, 10);
+    const currentUser = users.find((u) => u.id === userId);
+    if (!isNaN(parsed) && parsed >= 0 && currentUser) {
+      const currentEarned = currentUser.collectedPoints ?? currentUser.points;
+      const delta = parsed - currentEarned;
+
+      if (delta > 0) {
+        // Whenever earned point is added, redeemable points also increase by that amount
+        const newRedeemable = currentUser.points + delta;
+        setUsers((prev) =>
+          prev.map((u) =>
+            u.id === userId
+              ? { ...u, collectedPoints: parsed, points: newRedeemable }
+              : u,
+          ),
+        );
+        try {
+          await updateAdminUser(userId, {
+            collectedPoints: parsed,
+            pointsBalance: newRedeemable,
+          });
+        } catch (err) {
+          console.error("Failed to update earned & redeemable points:", err);
+          loadUsers();
+        }
+      } else if (delta < 0) {
+        // When subtracted, only change collected points, do nothing to redeemable points
+        setUsers((prev) =>
+          prev.map((u) =>
+            u.id === userId ? { ...u, collectedPoints: parsed } : u,
+          ),
+        );
+        try {
+          await updateAdminUser(userId, {
+            collectedPoints: parsed,
+          });
+        } catch (err) {
+          console.error("Failed to update earned points:", err);
+          loadUsers();
+        }
+      }
+    }
+    setEditingEarnedPointsUserId(null);
+  };
+
+  const handleEarnedPointsKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    userId: string,
+  ) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleSaveEarnedPoints(userId);
+    } else if (e.key === "Escape") {
+      setEditingEarnedPointsUserId(null);
+    }
+  };
+
   const handleResetWarnings = async (userId: string) => {
     if (
       !window.confirm(
@@ -200,6 +244,13 @@ export default function AdminUsersPage() {
     e.preventDefault();
     if (!newPhone.trim()) return;
 
+    if (newPlate.trim() && !isValidVietnamesePlate(newPlate.trim())) {
+      alert(
+        "Please enter a valid Vietnamese license plate (e.g. 30A-123.45, 59P1-123.45).",
+      );
+      return;
+    }
+
     try {
       await createAdminUser({
         phone: newPhone.trim(),
@@ -208,8 +259,8 @@ export default function AdminUsersPage() {
         pointsBalance: Number(newPoints) || 0,
         initialVehicle: newPlate.trim()
           ? {
-              plate: newPlate.trim(),
-              model: newModel.trim() || "Standard Vehicle",
+              plate: formatVietnamesePlate(newPlate.trim()),
+              model: newModel.trim() || "Not provided",
               type: "car",
             }
           : undefined,
@@ -228,8 +279,9 @@ export default function AdminUsersPage() {
     }
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!window.confirm(`Deactivate account for ${name} (${id})?`)) return;
+  const handleConfirmDeactivate = async () => {
+    if (!userToDeactivate) return;
+    const { id } = userToDeactivate;
 
     try {
       await updateAdminUser(id, { status: "Inactive" });
@@ -239,6 +291,8 @@ export default function AdminUsersPage() {
     } catch (err) {
       console.error("Failed to deactivate user:", err);
       loadUsers();
+    } finally {
+      setUserToDeactivate(null);
     }
   };
 
@@ -388,12 +442,24 @@ export default function AdminUsersPage() {
                   <th>Loyalty Tier</th>
                   <th>Earned Points</th>
                   <th>Redeemable Points</th>
-                  <th>Standing</th>
+                  <th>Status</th>
                   <th className="text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredUsers.length === 0 ? (
+                {loading ? (
+                  <tr>
+                    <td
+                      colSpan={8}
+                      className="text-center py-12 text-gray-400 text-sm"
+                    >
+                      <div className="flex items-center justify-center gap-2">
+                        <RefreshCw className="animate-spin w-4 h-4 text-[#3a46ed]" />
+                        <span>Loading customer accounts...</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredUsers.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="text-center py-10 text-gray-500">
                       No customers match your search criteria.
@@ -413,9 +479,6 @@ export default function AdminUsersPage() {
                           <div>
                             <div className="font-semibold text-gray-900 text-sm">
                               {user.name}
-                            </div>
-                            <div className="font-mono text-xs text-gray-400">
-                              {user.id}
                             </div>
                           </div>
                         </div>
@@ -444,13 +507,63 @@ export default function AdminUsersPage() {
                       <td>{getTierBadge(user.tier)}</td>
 
                       <td>
-                        <div className="admin-users__points-value font-semibold text-gray-900">
-                          {(
-                            user.collectedPoints ?? user.points
-                          ).toLocaleString()}
-                          <span className="text-xs text-gray-500 font-normal ml-1">
-                            pts
-                          </span>
+                        <div className="admin-users__points-cell">
+                          {editingEarnedPointsUserId === user.id ? (
+                            <div className="admin-users__points-edit-box">
+                              <input
+                                type="number"
+                                min="0"
+                                value={earnedPointsInputVal}
+                                onChange={(e) =>
+                                  setEarnedPointsInputVal(e.target.value)
+                                }
+                                onKeyDown={(e) =>
+                                  handleEarnedPointsKeyDown(e, user.id)
+                                }
+                                autoFocus
+                                className="admin-users__points-input"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleSaveEarnedPoints(user.id)}
+                                className="admin-users__points-save-btn"
+                                title="Save earned points (Enter)"
+                              >
+                                <Check size={12} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setEditingEarnedPointsUserId(null)
+                                }
+                                className="admin-users__points-cancel-btn"
+                                title="Cancel (Esc)"
+                              >
+                                <X size={12} />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5">
+                              <div className="admin-users__points-value font-semibold text-gray-900">
+                                {(
+                                  user.collectedPoints ?? user.points
+                                ).toLocaleString()}
+                                <span className="text-xs text-gray-500 font-normal ml-1">
+                                  pts
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleStartEditEarnedPoints(user)
+                                }
+                                className="admin-users__point-btn admin-users__point-btn--edit"
+                                title="Edit earned points"
+                              >
+                                <Edit2 size={13} />
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </td>
 
@@ -504,9 +617,9 @@ export default function AdminUsersPage() {
                                     )
                                   }
                                   className="admin-users__point-btn"
-                                  title="Subtract 50 points"
+                                  title="Subtract 100 points"
                                 >
-                                  <Minus size={16} />
+                                  <Minus size={14} />
                                 </button>
                                 <button
                                   type="button"
@@ -517,9 +630,9 @@ export default function AdminUsersPage() {
                                     )
                                   }
                                   className="admin-users__point-btn"
-                                  title="Add 50 points"
+                                  title="Add 100 points"
                                 >
-                                  <Plus size={16} />
+                                  <Plus size={14} />
                                 </button>
                                 <button
                                   type="button"
@@ -527,7 +640,7 @@ export default function AdminUsersPage() {
                                   className="admin-users__point-btn admin-users__point-btn--edit"
                                   title="Enter points by number"
                                 >
-                                  <Edit2 size={14} />
+                                  <Edit2 size={13} />
                                 </button>
                               </div>
                             </>
@@ -570,7 +683,12 @@ export default function AdminUsersPage() {
                             variant="ghost"
                             size="sm"
                             className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                            onClick={() => handleDelete(user.id, user.name)}
+                            onClick={() =>
+                              setUserToDeactivate({
+                                id: user.id,
+                                name: user.name,
+                              })
+                            }
                             title="Delete customer"
                           >
                             <Trash2 size={14} />
@@ -685,6 +803,54 @@ export default function AdminUsersPage() {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Deactivate User Confirmation Modal */}
+      {userToDeactivate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 border border-gray-100 animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle size={20} />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-gray-900">
+                  Deactivate Customer
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Account status will be set to Inactive.
+                </p>
+              </div>
+            </div>
+
+            <p className="text-sm text-gray-700 mb-5">
+              Are you sure you want to deactivate the account for{" "}
+              <span className="font-semibold text-gray-900">
+                {userToDeactivate.name}
+              </span>{" "}
+              <span className="text-xs text-gray-500 font-mono block mt-1">
+                ({userToDeactivate.id})
+              </span>
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setUserToDeactivate(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                className="bg-red-600 hover:bg-red-700 text-white"
+                onClick={handleConfirmDeactivate}
+              >
+                Deactivate
+              </Button>
+            </div>
           </div>
         </div>
       )}

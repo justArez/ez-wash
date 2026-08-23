@@ -1,6 +1,6 @@
 import LoyaltyLinkForm from "../../components/loyalty-link-form/loyalty-link-form.component";
 import "./loyalty-link.page.scss";
-import type { LinkAccountRequest } from "../../models/loyalty.model";
+import type { LinkAccountRequest } from "../../models/customer.model";
 
 interface LoyaltyLinkPageProps {
   onLink: (payload: LinkAccountRequest) => Promise<void>;

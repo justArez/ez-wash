@@ -1,10 +1,7 @@
-import type {
-  Booking,
-  ClaimedPromo,
-  LoyaltyCustomer,
-  RewardOffer,
-  Vehicle,
-} from "../models/loyalty.model";
+import type { Booking } from "../models/booking.model";
+import type { ClaimedPromo, RewardOffer } from "../models/promo.model";
+import type { LoyaltyCustomer } from "../models/customer.model";
+import type { Vehicle } from "../models/vehicle.model";
 import {
   getAppliedPerks,
   getNextBookingWindowDate,
@@ -69,8 +66,10 @@ export async function linkCustomerAccount(
 
   const normalizedPhone = phone ? phone.trim() : "";
   const normalizedPlate = plate ? normalizePlate(plate) : undefined;
-  const username = options?.username?.trim();
-  const email = options?.email?.trim();
+  const username = options?.username
+    ? options.username.trim().toLowerCase()
+    : undefined;
+  const email = options?.email ? options.email.trim().toLowerCase() : undefined;
   const fullName = options?.fullName?.trim();
 
   let existing: LoyaltyCustomer | undefined;
@@ -272,13 +271,6 @@ export async function createBooking(
     throw new Error(
       "Customer not found for the provided phone or vehicle plate.",
     );
-  }
-
-  const vehicle = customer.vehicles.find(
-    (item) => item.plate === normalizedVehiclePlate,
-  );
-  if (!vehicle) {
-    throw new Error("Vehicle not linked to the loyalty account.");
   }
 
   const requested = new Date(requestedDate);

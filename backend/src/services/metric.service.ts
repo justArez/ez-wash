@@ -4,7 +4,7 @@ import type {
   DashboardMetrics,
   RecentActivity,
   WeeklyBookingStat,
-} from "../models/loyalty.model";
+} from "../models/admin.model";
 import { fetchAllServices } from "./service.service";
 import { db, schema } from "../db/index";
 

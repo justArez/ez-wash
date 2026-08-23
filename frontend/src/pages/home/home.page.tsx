@@ -1,9 +1,7 @@
 import { useState } from "react";
 import "./home.page.scss";
-import type {
-  DashboardResponse,
-  RewardOffer,
-} from "../../models/loyalty.model";
+import type { DashboardResponse } from "../../models/customer.model";
+import type { RewardOffer } from "../../models/promo.model";
 import { HeroBanner } from "../../components/hero-banner/hero-banner.component";
 import { PromotionCarousel } from "../../components/promotion-carousel/promotion-carousel.component";
 import { SlotCalendar } from "../../components/slot-calendar/slot-calendar.component";

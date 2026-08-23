@@ -1,4 +1,4 @@
-import type { TimeSlotWithComputedFields } from "../models/loyalty.model";
+import type { TimeSlotWithComputedFields } from "../models/timeslot.model";
 import { db, schema } from "../db/index";
 import { sql } from "drizzle-orm";
 import { fetchScheduleBlocks } from "./schedule.service";

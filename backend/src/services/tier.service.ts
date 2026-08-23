@@ -1,5 +1,5 @@
-import type { LoyaltyTier } from "../models/loyalty.model";
-import { TIERS } from "../models/loyalty.model";
+import type { LoyaltyTier } from "../models/tier.model";
+import { TIERS } from "../models/tier.model";
 import { db, schema } from "../db/index";
 import { sql, eq } from "drizzle-orm";
 

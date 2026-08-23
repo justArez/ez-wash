@@ -12,7 +12,7 @@ import AdminBookingsPage from "../../pages/admin/admin-bookings/admin-bookings.p
 import AdminSlotsPage from "../../pages/admin/admin-slots/admin-slots.page";
 import AdminUsersPage from "../../pages/admin/admin-users/admin-users.page";
 import AdminServicesPage from "../../pages/admin/admin-services/admin-services.page";
-import type { DashboardResponse } from "../../models/loyalty.model";
+import type { DashboardResponse } from "../../models/customer.model";
 
 export interface PageRendererProps {
   view: ViewState;

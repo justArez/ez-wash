@@ -1,11 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import "./booking-modal.component.scss";
-import type {
-  DashboardResponse,
-  ServiceOption,
-  Vehicle,
-  VehicleType,
-} from "../../models/loyalty.model";
+import type { DashboardResponse } from "../../models/customer.model";
+import type { ServiceOption } from "../../models/service.model";
+import type { Vehicle, VehicleType } from "../../models/vehicle.model";
 import type { ClaimedPromo } from "../../models/promo.model";
 import {
   fetchClaimedPromos,
@@ -13,6 +10,10 @@ import {
   fetchPublicServices,
   fetchPublicSlots,
 } from "../../services/loyalty.service";
+import {
+  isValidVietnamesePlate,
+  formatVietnamesePlate,
+} from "../../lib/plate-validation";
 
 /** One bookable timeslot lasts 30 minutes (matches backend slot generation). */
 const SLOT_DURATION_MINUTES = 30;
@@ -81,27 +82,55 @@ const dayLabelForDate = (dateStr: string, dayOfWeek: string): string => {
   return dayOfWeek;
 };
 
-const pickMostUsedVehicle = (
+const pickLatestUsedVehicle = (
   customer: DashboardResponse | null | undefined,
 ): Vehicle | null => {
   if (!customer?.vehicles?.length) return null;
 
-  const usage = new Map<string, number>();
-  for (const booking of customer.bookingHistory ?? []) {
-    if (!booking.vehiclePlate) continue;
-    usage.set(booking.vehiclePlate, (usage.get(booking.vehiclePlate) ?? 0) + 1);
-  }
+  // 1. If customer has booking history, find the most recently booked vehicle
+  if (customer.bookingHistory?.length) {
+    // Sort bookings by date descending (and createdAt/id if available) to get the latest used booking
+    const sortedBookings = [...customer.bookingHistory]
+      .filter((b) => Boolean(b.vehiclePlate))
+      .sort((a, b) => {
+        const dateA = new Date(a.createdAt || a.date).getTime();
+        const dateB = new Date(b.createdAt || b.date).getTime();
+        return dateB - dateA;
+      });
 
-  let best = customer.vehicles[0];
-  let bestCount = usage.get(best.plate) ?? 0;
-  for (const vehicle of customer.vehicles) {
-    const count = usage.get(vehicle.plate) ?? 0;
-    if (count > bestCount) {
-      best = vehicle;
-      bestCount = count;
+    for (const booking of sortedBookings) {
+      const match = customer.vehicles.find(
+        (v) => v.plate.toUpperCase() === booking.vehiclePlate.toUpperCase(),
+      );
+      if (match) {
+        return match;
+      }
+      // If the vehicle was used in booking history but not found in vehicles array, reconstruct from booking info
+      if (booking.vehiclePlate) {
+        return {
+          plate: booking.vehiclePlate,
+          model: booking.vehicleModel || "",
+          type: booking.vehicleType || "car",
+        };
+      }
     }
   }
-  return best;
+
+  // 2. Fall back to the vehicle with the most recent lastWashDate
+  const vehiclesWithWash = customer.vehicles.filter((v) =>
+    Boolean(v.lastWashDate),
+  );
+  if (vehiclesWithWash.length > 0) {
+    const latestWashed = [...vehiclesWithWash].sort((a, b) => {
+      const timeA = new Date(a.lastWashDate!).getTime();
+      const timeB = new Date(b.lastWashDate!).getTime();
+      return timeB - timeA;
+    })[0];
+    return latestWashed;
+  }
+
+  // 3. Fall back to the first linked vehicle
+  return customer.vehicles[0];
 };
 
 interface PromoValidation {
@@ -228,7 +257,7 @@ export default function BookingModal({
     }
   }, [initialSlot]);
 
-  // Autofill contact + most used vehicle from the logged-in customer
+  // Autofill contact + latest used vehicle from the logged-in customer
   useEffect(() => {
     if (!visible || !customer) return;
 
@@ -241,7 +270,7 @@ export default function BookingModal({
       points: customer.pointsBalance,
     });
 
-    const vehicle = pickMostUsedVehicle(customer);
+    const vehicle = pickLatestUsedVehicle(customer);
     if (vehicle) {
       setPlate((current) => current || vehicle.plate);
       setModel((current) => current || vehicle.model);
@@ -429,6 +458,12 @@ export default function BookingModal({
       setError("Phone, plate, and model are required.");
       return;
     }
+    if (!isValidVietnamesePlate(plate)) {
+      setError(
+        "Invalid Vietnamese license plate (e.g. 30A-123.45 or 59P1-123.45).",
+      );
+      return;
+    }
     if (!selectedDate || !selectedTime) {
       setError("Select an available date and timeslot.");
       return;
@@ -442,11 +477,13 @@ export default function BookingModal({
       return;
     }
 
+    const formattedPlate = formatVietnamesePlate(plate);
+
     onConfirm({
       date: selectedDate,
       time: selectedTime,
       slotLabel: selectedSlotLabel,
-      vehicle: { plate, model, type },
+      vehicle: { plate: formattedPlate, model, type },
       selectedServices,
       phone,
       email: email || undefined,

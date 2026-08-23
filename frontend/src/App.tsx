@@ -26,12 +26,8 @@ import {
   loadAdminUserInfo,
   clearAdminUserInfo,
 } from "./services/admin-auth.service";
-import { DEMO_PHONE, demoDashboard } from "./services/loyalty.mock-data";
-import type {
-  DashboardResponse,
-  LinkAccountRequest,
-  ServiceOption,
-} from "./models/loyalty.model";
+import type { DashboardResponse, LinkAccountRequest } from "./models/customer.model";
+import type { ServiceOption } from "./models/service.model";
 import "./App.css";
 
 type AuthMode = "sign-in" | "sign-up";
@@ -55,10 +51,10 @@ const availableSlots = [
 ];
 
 const serviceOptions: ServiceOption[] = [
-  { id: "basic", label: "Basic wash", price: 12 },
-  { id: "wax", label: "Wax protection", price: 8 },
-  { id: "interior", label: "Interior cleaning", price: 15 },
-  { id: "tire", label: "Tire shine", price: 6 },
+  { id: "srv-basic-wash", label: "Basic Exterior Wash", price: 15 },
+  { id: "srv-deluxe-wash", label: "Deluxe Polish & Wax", price: 30 },
+  { id: "srv-interior-detail", label: "Interior Deep Detail", price: 65 },
+  { id: "srv-ceramic-coating", label: "Ceramic Shield Detailing", price: 120 },
 ];
 
 const saveUserMetaToStorage = (userMeta: StoredUserMeta) => {
@@ -160,20 +156,6 @@ function App() {
     setSuccess(null);
 
     try {
-      if (
-        phoneOrUsername.trim() === DEMO_PHONE ||
-        phoneOrUsername.trim().toLowerCase() === "demo"
-      ) {
-        setDashboard(demoDashboard);
-        saveUserMetaToStorage({
-          phone: demoDashboard.phone,
-          username: demoDashboard.username,
-          customerId: demoDashboard.customerId,
-        });
-        setShowDemoToast(true);
-        return;
-      }
-
       const data = await fetchLoyaltyDashboard(phoneOrUsername, password);
       setDashboard(data);
       // Save only user metadata to localStorage
@@ -371,6 +353,22 @@ function App() {
     if (!result.authorized && result.reason === "customer-auth-required") {
       setAuthMode("sign-in");
       setShowAuthModal(true);
+      return;
+    }
+
+    if (
+      result.authorized &&
+      (target === "bookings" ||
+        target === "promo" ||
+        target === "/bookings" ||
+        target === "/promo")
+    ) {
+      const userMeta = loadUserMetaFromStorage();
+      const identifier =
+        userMeta?.username || userMeta?.phone || userMeta?.email;
+      if (identifier) {
+        refreshDashboard(identifier);
+      }
     }
   };
 

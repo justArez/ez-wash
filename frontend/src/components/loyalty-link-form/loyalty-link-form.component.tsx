@@ -1,5 +1,9 @@
 import { useState, type FormEvent } from "react";
-import type { LinkAccountRequest } from "../../models/loyalty.model";
+import type { LinkAccountRequest } from "../../models/customer.model";
+import {
+  isValidVietnamesePlate,
+  formatVietnamesePlate,
+} from "../../lib/plate-validation";
 import "./loyalty-link-form.component.scss";
 
 interface LoyaltyLinkFormProps {
@@ -49,13 +53,20 @@ export default function LoyaltyLinkForm({ onLink }: LoyaltyLinkFormProps) {
       return;
     }
 
+    if (plate.trim() && !isValidVietnamesePlate(plate.trim())) {
+      setFeedback(
+        "Please enter a valid Vietnamese license plate (e.g. 30A-123.45, 59P1-123.45).",
+      );
+      return;
+    }
+
     setFeedback(null);
 
     try {
       await onLink({
         email: trimmedEmail || undefined,
         phone: trimmedPhone || undefined,
-        plate: plate.trim() || undefined,
+        plate: plate.trim() ? formatVietnamesePlate(plate.trim()) : undefined,
         model: model.trim() || undefined,
         type: plate.trim() ? type : undefined,
       });

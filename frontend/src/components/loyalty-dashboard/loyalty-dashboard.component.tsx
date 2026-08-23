@@ -1,4 +1,4 @@
-import type { DashboardResponse } from "../../models/loyalty.model";
+import type { DashboardResponse } from "../../models/customer.model";
 import "./loyalty-dashboard.component.scss";
 
 interface LoyaltyDashboardProps {

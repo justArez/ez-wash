@@ -1,4 +1,4 @@
-import type { RewardOffer } from "../../models/loyalty.model";
+import type { RewardOffer } from "../../models/promo.model";
 import "./promo-carousel.component.scss";
 
 interface PromoCarouselProps {

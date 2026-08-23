@@ -1,8 +1,7 @@
-import type {
-  LoyaltyCustomer,
-  PointTransaction,
-  Vehicle,
-} from "../models/loyalty.model";
+import type { LoyaltyCustomer } from "../models/customer.model";
+import type { PointTransaction } from "../models/point.model";
+import type { ServiceItem } from "../models/service.model";
+import type { Vehicle } from "../models/vehicle.model";
 import { db, schema } from "../db/index";
 import { sql, eq, or } from "drizzle-orm";
 
@@ -13,43 +12,45 @@ function createId() {
 export async function loadCustomerDetails(
   dbC: typeof schema.loyaltyCustomers.$inferSelect,
 ): Promise<LoyaltyCustomer> {
-  const [vehicleRows, txRows, bookingRows, claimedRows] = await Promise.all([
-    db!
-      .select()
-      .from(schema.vehicles)
-      .where(eq(schema.vehicles.customerId, dbC.id)),
-    db!
-      .select()
-      .from(schema.pointTransactions)
-      .where(eq(schema.pointTransactions.customerId, dbC.id)),
-    db!
-      .select()
-      .from(schema.bookings)
-      .where(eq(schema.bookings.customerId, dbC.id)),
-    db!
-      .select({
-        id: schema.claimedPromos.id,
-        promoId: schema.claimedPromos.promoId,
-        customerId: schema.claimedPromos.customerId,
-        title: schema.claimedPromos.title,
-        description: schema.claimedPromos.description,
-        perkIdentifier: schema.claimedPromos.perkIdentifier,
-        status: schema.claimedPromos.status,
-        claimedAt: schema.claimedPromos.claimedAt,
-        validUntil: schema.claimedPromos.validUntil,
-        promoType: schema.promotions.promoType,
-        discountPercentage: schema.promotions.discountPercentage,
-        discountAmount: schema.promotions.discountAmount,
-        bonusPoints: schema.promotions.bonusPoints,
-        applicableServiceIds: schema.promotions.applicableServiceIds,
-      })
-      .from(schema.claimedPromos)
-      .leftJoin(
-        schema.promotions,
-        eq(schema.claimedPromos.promoId, schema.promotions.id),
-      )
-      .where(eq(schema.claimedPromos.customerId, dbC.id)),
-  ]);
+  const [vehicleRows, txRows, bookingRows, claimedRows, serviceRows] =
+    await Promise.all([
+      db!
+        .select()
+        .from(schema.vehicles)
+        .where(eq(schema.vehicles.customerId, dbC.id)),
+      db!
+        .select()
+        .from(schema.pointTransactions)
+        .where(eq(schema.pointTransactions.customerId, dbC.id)),
+      db!
+        .select()
+        .from(schema.bookings)
+        .where(eq(schema.bookings.customerId, dbC.id)),
+      db!
+        .select({
+          id: schema.claimedPromos.id,
+          promoId: schema.claimedPromos.promoId,
+          customerId: schema.claimedPromos.customerId,
+          title: schema.claimedPromos.title,
+          description: schema.claimedPromos.description,
+          perkIdentifier: schema.claimedPromos.perkIdentifier,
+          status: schema.claimedPromos.status,
+          claimedAt: schema.claimedPromos.claimedAt,
+          validUntil: schema.claimedPromos.validUntil,
+          promoType: schema.promotions.promoType,
+          discountPercentage: schema.promotions.discountPercentage,
+          discountAmount: schema.promotions.discountAmount,
+          bonusPoints: schema.promotions.bonusPoints,
+          applicableServiceIds: schema.promotions.applicableServiceIds,
+        })
+        .from(schema.claimedPromos)
+        .leftJoin(
+          schema.promotions,
+          eq(schema.claimedPromos.promoId, schema.promotions.id),
+        )
+        .where(eq(schema.claimedPromos.customerId, dbC.id)),
+      db!.select().from(schema.serviceItems),
+    ]);
 
   const vehicles: Vehicle[] = vehicleRows.map((v) => ({
     plate: v.plate,
@@ -57,6 +58,16 @@ export async function loadCustomerDetails(
     type: v.type,
     lastWashDate: v.lastWashDate?.toISOString(),
   }));
+
+  const vehicleMap = new Map(
+    vehicleRows.map((v) => [v.plate.toUpperCase(), v]),
+  );
+  const serviceMap = new Map<string, any>();
+  serviceRows.forEach((s) => {
+    serviceMap.set(s.id, s);
+    serviceMap.set(s.id.toLowerCase(), s);
+    if (s.name) serviceMap.set(s.name.toLowerCase(), s);
+  });
 
   const pointHistory: PointTransaction[] = txRows.map((t) => ({
     id: t.id,
@@ -66,27 +77,38 @@ export async function loadCustomerDetails(
     description: t.description,
   }));
 
-  const bookingHistory = bookingRows.map((b) => ({
-    id: b.id,
-    customerId: b.customerId,
-    vehiclePlate: b.vehiclePlate,
-    serviceId: b.serviceId || undefined,
-    date: b.date.toISOString().split("T")[0],
-    time: b.timeSlot || undefined,
-    timeSlot: b.timeSlot || undefined,
-    durationMinutes: b.durationMinutes || undefined,
-    bayId: b.bayId || undefined,
-    createdAt: b.createdAt.toISOString(),
-    updatedAt: b.updatedAt.toISOString(),
-    appliedPerks: b.appliedPerks || [],
-    appliedPromoId: b.appliedPromoId || undefined,
-    pointsEarned: b.pointsEarned,
-    pointsSpent: b.pointsSpent,
-    status: b.status,
-    cancelledAt: b.cancelledAt?.toISOString(),
-    isLateCancellation: b.isLateCancellation,
-    note: b.note || undefined,
-  }));
+  const bookingHistory = bookingRows.map((b) => {
+    const srv = b.serviceId ? serviceMap.get(b.serviceId) : undefined;
+    const veh = vehicleMap.get(b.vehiclePlate.toUpperCase());
+    const pts = b.pointsEarned || b.pointsSpent || undefined;
+
+    return {
+      id: b.id,
+      customerId: b.customerId,
+      vehiclePlate: b.vehiclePlate,
+      vehicleModel: veh?.model || undefined,
+      vehicleType: veh?.type || undefined,
+      serviceId: b.serviceId || undefined,
+      serviceName: srv?.name || undefined,
+      service: srv?.name || undefined,
+      date: b.date.toISOString().split("T")[0],
+      time: b.timeSlot || undefined,
+      timeSlot: b.timeSlot || undefined,
+      durationMinutes: b.durationMinutes || srv?.durationMinutes || undefined,
+      bayId: b.bayId || undefined,
+      createdAt: b.createdAt.toISOString(),
+      updatedAt: b.updatedAt.toISOString(),
+      appliedPerks: b.appliedPerks || [],
+      appliedPromoId: b.appliedPromoId || undefined,
+      points: pts,
+      pointsEarned: b.pointsEarned,
+      pointsSpent: b.pointsSpent,
+      status: b.status,
+      cancelledAt: b.cancelledAt?.toISOString(),
+      isLateCancellation: b.isLateCancellation,
+      note: b.note || undefined,
+    };
+  });
 
   return {
     id: dbC.id,
@@ -152,6 +174,7 @@ export async function findCustomerRecord(
 
   if (phoneOrUsernameOrEmail) {
     const value = phoneOrUsernameOrEmail.trim();
+    const valueLower = value.toLowerCase();
     const rows = await db
       .select()
       .from(schema.loyaltyCustomers)
@@ -159,8 +182,8 @@ export async function findCustomerRecord(
         or(
           eq(schema.loyaltyCustomers.id, value),
           eq(schema.loyaltyCustomers.phone, value),
-          eq(schema.loyaltyCustomers.username, value),
-          eq(schema.loyaltyCustomers.email, value),
+          sql`lower(${schema.loyaltyCustomers.username}) = ${valueLower}`,
+          sql`lower(${schema.loyaltyCustomers.email}) = ${valueLower}`,
         ),
       )
       .limit(1);
@@ -275,7 +298,7 @@ export async function createCustomerItem(data: {
       id: createId(),
       customerId: id,
       plate: plateUpper,
-      model: data.initialVehicle.model.trim() || "Standard Vehicle",
+      model: data.initialVehicle.model.trim() || "Not provided",
       type: data.initialVehicle.type || "car",
     });
   }

@@ -4,7 +4,7 @@ import { checkPromoEligibility } from "@/services/promo-eligibility.service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ClaimButton } from "./claim-button.component";
-import { Sparkles, Tag } from "lucide-react";
+import { Award, Crown, Sparkles, Tag } from "lucide-react";
 
 interface ClaimablePromoCardProps {
   promo: ClaimablePromo;
@@ -38,30 +38,39 @@ export const ClaimablePromoCard: React.FC<ClaimablePromoCardProps> = ({
   const isClaimable = buttonState.type === "CLAIMABLE";
 
   const getTierBadge = (tier: string) => {
-    switch (tier.toUpperCase()) {
+    switch (tier?.toUpperCase()) {
+      case "DIAMOND":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-cyan-50 text-cyan-700 border border-cyan-200">
+            <Sparkles size={11} className="text-cyan-500" />
+            Diamond
+          </span>
+        );
       case "PLATINUM":
         return (
-          <Badge className="bg-[#f3e8ff] text-[#7c3aed] border-[#e9d5ff] font-bold text-[10px]">
-            Platinum Tier
-          </Badge>
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+            <Crown size={11} className="text-indigo-500" />
+            Platinum
+          </span>
         );
       case "GOLD":
         return (
-          <Badge className="bg-[#fef3c7] text-[#b45309] border-[#fde68a] font-bold text-[10px]">
-            Gold+
-          </Badge>
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+            <Award size={11} className="text-amber-500" />
+            Gold
+          </span>
         );
       case "SILVER":
         return (
-          <Badge className="bg-[#f1f5f9] text-[#475569] border-[#e2e8f0] font-bold text-[10px]">
-            Silver+
-          </Badge>
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-300">
+            Silver
+          </span>
         );
       default:
         return (
-          <Badge className="bg-[#f8f7ff] text-[#676375] border-[#e8e6f3] font-bold text-[10px]">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold border border-gray-900/20">
             Member
-          </Badge>
+          </span>
         );
     }
   };

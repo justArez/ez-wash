@@ -1,16 +1,14 @@
+import type { AdminBooking, Booking } from "../models/booking.model";
 import type {
-  AdminBooking,
   AdminDashboardData,
-  AdminUser,
   AuditLog,
-  Booking,
   DashboardMetrics,
-  LoyaltyCustomer,
-  Promotion,
-  ScheduleBlock,
-  ServiceItem,
-  TierSet,
-} from "../models/loyalty.model";
+} from "../models/admin.model";
+import type { AdminUser, LoyaltyCustomer } from "../models/customer.model";
+import type { Promotion } from "../models/promo.model";
+import type { ScheduleBlock } from "../models/timeslot.model";
+import type { ServiceItem } from "../models/service.model";
+import type { TierSet } from "../models/tier.model";
 import { getAdminToken } from "./admin-auth.service";
 
 const BASE_URL = "/api/admin";

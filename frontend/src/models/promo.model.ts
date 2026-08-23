@@ -1,4 +1,4 @@
-export type LoyaltyTierLevel = "MEMBER" | "SILVER" | "GOLD" | "PLATINUM";
+import type { LoyaltyTierLevel } from "./tier.model";
 
 export const TIER_RANK: Record<string, number> = {
   member: 0,
@@ -86,3 +86,66 @@ export type PromoButtonState =
   | { type: "INSUFFICIENT_PTS"; pointPrice: number; deficit: number }
   | { type: "ALREADY_CLAIMED" }
   | { type: "UNAUTHENTICATED" };
+
+import type { VehicleType } from "./vehicle.model";
+import type { AdminTier } from "./tier.model";
+
+export type AdminPromotionTier = AdminTier | "GENERAL";
+export type AdminPromotionStatus = "ACTIVE" | "INACTIVE" | "EXPIRED";
+export type PromotionStatus = AdminPromotionStatus;
+export type PromotionCategory =
+  | "discount"
+  | "points_bonus"
+  | "new_member"
+  | "tier_reward"
+  | "service_addon";
+
+export interface Promotion {
+  id: string;
+  name: string;
+  title?: string;
+  promoName?: string;
+  description: string;
+  category?: PromotionCategory;
+  discountPercentage?: number;
+  pointPrice?: number | string;
+  loyaltyPointsRequired?: number;
+  loyaltyPointsValue?: number;
+  applicableTiers?: string[];
+  tierRequired?: AdminPromotionTier;
+  applicableVehicleModels?: string[];
+  requiredTier?: LoyaltyTierLevel | string;
+  tierGroup?: string;
+  perkType?: string;
+  badgeLabel?: string;
+  bannerImage?: string;
+  terms?: string;
+  validityDays?: number;
+  startDate?: string;
+  endDate?: string;
+  validUntil?: string;
+  validRange?: string;
+  status?: PromotionStatus;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AdminPromotion {
+  id: string;
+  promoName: string;
+  description: string;
+  tierRequired: AdminPromotionTier;
+  pointPrice: number | string;
+  status: AdminPromotionStatus;
+  validRange: string;
+}
+
+export interface RewardOffer {
+  id: string;
+  title: string;
+  description: string;
+  pointsRequired: number;
+  eligibleTiers: string[];
+  vehicleTypes?: VehicleType[];
+}

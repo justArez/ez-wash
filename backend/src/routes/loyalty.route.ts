@@ -5,6 +5,10 @@ import {
   fetchCustomerByIdentifier,
   linkCustomerAccount,
 } from "../services/loyalty.service";
+import {
+  isValidVietnamesePlate,
+  formatVietnamesePlate,
+} from "../services/plate-validation";
 
 export function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
@@ -23,11 +27,12 @@ export { checkUsernameExists };
 
 export function registerLoyaltyRoutes(app: any) {
   app.get("/api/loyalty/check-username", async (ctx: any) => {
-    const username = ctx.query?.username as string | undefined;
+    const rawUsername = ctx.query?.username as string | undefined;
+    const username = rawUsername ? rawUsername.trim().toLowerCase() : undefined;
     console.log(
       `[LoyaltyController] GET /api/loyalty/check-username - username: "${username}"`,
     );
-    if (!username || !username.trim()) {
+    if (!username) {
       return new Response(
         JSON.stringify({ error: "Username query parameter is required." }),
         {
@@ -37,29 +42,31 @@ export function registerLoyaltyRoutes(app: any) {
       );
     }
 
-    const exists = await checkUsernameExists(username.trim());
-    console.log(
-      `[LoyaltyController] Username "${username.trim()}" exists: ${exists}`,
-    );
+    const exists = await checkUsernameExists(username);
+    console.log(`[LoyaltyController] Username "${username}" exists: ${exists}`);
     return {
-      username: username.trim(),
+      username,
       exists,
       available: !exists,
     };
   });
 
   app.post("/api/loyalty/link", async (ctx: any) => {
-    const { phone, plate, model, type, username, email, fullName, password } =
-      (await ctx.body) as {
-        phone?: string;
-        plate?: string;
-        model?: string;
-        type?: "car" | "motorcycle";
-        username?: string;
-        email?: string;
-        fullName?: string;
-        password?: string;
-      };
+    const body = (await ctx.body) as {
+      phone?: string;
+      plate?: string;
+      model?: string;
+      type?: "car" | "motorcycle";
+      username?: string;
+      email?: string;
+      fullName?: string;
+      password?: string;
+    };
+    const { phone, plate, model, type, fullName, password } = body;
+    const username = body.username
+      ? body.username.trim().toLowerCase()
+      : undefined;
+    const email = body.email ? body.email.trim().toLowerCase() : undefined;
 
     console.log(
       `[LoyaltyController] POST /api/loyalty/link - username: "${username}", phone: "${phone}", email: "${email}"`,
@@ -91,6 +98,19 @@ export function registerLoyaltyRoutes(app: any) {
     if (phone && !isValidPhone(phone)) {
       return new Response(
         JSON.stringify({ error: "Invalid phone number format." }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    if (plate && !isValidVietnamesePlate(plate)) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "Invalid Vietnamese license plate format (e.g., 30A-123.45, 59P1-123.45).",
+        }),
         {
           status: 400,
           headers: { "Content-Type": "application/json" },

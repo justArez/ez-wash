@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import type { DashboardResponse } from "../../models/loyalty.model";
+import type { DashboardResponse } from "../../models/customer.model";
 import type {
   ClaimablePromo,
   ClaimedPromo,

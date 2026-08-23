@@ -1,4 +1,5 @@
-import type { LoyaltyCustomer, RewardOffer } from "../models/loyalty.model";
+import type { LoyaltyCustomer } from "../models/customer.model";
+import type { RewardOffer } from "../models/promo.model";
 import { db, schema } from "../db/index";
 import { sql } from "drizzle-orm";
 

@@ -1,8 +1,5 @@
-import type {
-  ClaimedPromo,
-  PointTransaction,
-  Promotion,
-} from "../models/loyalty.model";
+import type { ClaimedPromo, Promotion } from "../models/promo.model";
+import type { PointTransaction } from "../models/point.model";
 import { db, schema } from "../db/index";
 import { sql, and, eq } from "drizzle-orm";
 

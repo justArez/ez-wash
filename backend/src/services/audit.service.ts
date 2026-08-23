@@ -1,4 +1,4 @@
-import type { AuditLog } from "../models/loyalty.model";
+import type { AuditLog } from "../models/admin.model";
 import { db, schema } from "../db/index";
 
 function createId() {

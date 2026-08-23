@@ -14,7 +14,6 @@ import type {
   Promotion,
   TimeSlot,
 } from "../types/homepage.types";
-import { mockPromotions } from "./homepage.mock-data";
 
 /**
  * API Configuration
@@ -211,7 +210,7 @@ export async function fetchPromotions(): Promise<Promotion[]> {
       "[API] Promotions endpoint unavailable; using local mock data:",
       message,
     );
-    return mockPromotions;
+    throw new Error(message, { cause: error });
   }
 }
 
@@ -240,7 +239,7 @@ export async function fetchSlots(days: number = 7): Promise<TimeSlot[]> {
     const message =
       error instanceof Error ? error.message : "Unknown error fetching slots";
     console.error("[API] Slots endpoint unavailable:", message);
-    throw new Error(message);
+    throw new Error(message, { cause: error });
   }
 }
 
@@ -277,7 +276,7 @@ export async function createBooking(
     const message =
       error instanceof Error ? error.message : "Unknown error creating booking";
     console.error("[API Error] Booking:", message);
-    throw new Error(`Failed to create booking: ${message}`);
+    throw new Error(`Failed to create booking: ${message}`, { cause: error });
   }
 }
 

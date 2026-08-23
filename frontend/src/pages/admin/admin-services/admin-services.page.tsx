@@ -27,7 +27,7 @@ import {
 import type {
   AdminService as ServiceItem,
   AdminServiceCategory as ServiceCategory,
-} from "@/models/loyalty.model";
+} from "@/models/service.model";
 import {
   createAdminService,
   deleteAdminService,
@@ -36,47 +36,8 @@ import {
 } from "@/services/admin.service";
 import "./admin-services.page.scss";
 
-const INITIAL_SERVICES: ServiceItem[] = [
-  {
-    id: "SRV-001",
-    name: "Express Touchless Exterior",
-    category: "Exterior Wash",
-    description:
-      "High-pressure rinse, foam cannon soap, spot-free rinse & blow dry.",
-    durationMinutes: 15,
-    price: 15.0,
-    popularityCount: 128,
-    status: "ACTIVE",
-    features: ["Foam Cannon", "Spot-free Rinse", "Power Air Dry"],
-  },
-  {
-    id: "SRV-002",
-    name: "Deluxe Exterior & Wheel Clean",
-    category: "Exterior Wash",
-    description:
-      "Complete touchless wash plus deep alloy rim cleaner and tire dressing.",
-    durationMinutes: 25,
-    price: 25.0,
-    popularityCount: 110,
-    status: "ACTIVE",
-    features: ["Wheel Degreaser", "Tire Shine", "Bug Prep", "Wax Shield"],
-  },
-  {
-    id: "SRV-003",
-    name: "Hydro-Ceramic Coat Wash",
-    category: "Exterior Wash",
-    description:
-      "Multi-stage exterior wash with infused SiO2 ceramic sealant protection.",
-    durationMinutes: 30,
-    price: 38.0,
-    popularityCount: 94,
-    status: "ACTIVE",
-    features: ["Ceramic Sealant", "Underbody Wash", "Rain Repellent"],
-  },
-];
-
 export default function AdminServicesPage() {
-  const [services, setServices] = useState<ServiceItem[]>(INITIAL_SERVICES);
+  const [services, setServices] = useState<ServiceItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [searchQuery, setSearchQuery] = useState("");
@@ -417,7 +378,19 @@ export default function AdminServicesPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredServices.length === 0 ? (
+                {loading ? (
+                  <tr>
+                    <td
+                      colSpan={8}
+                      className="text-center py-12 text-gray-400 text-sm"
+                    >
+                      <div className="flex items-center justify-center gap-2">
+                        <RefreshCw className="animate-spin w-4 h-4 text-[#3a46ed]" />
+                        <span>Loading services...</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredServices.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="text-center py-10 text-gray-500">
                       No services match your search or filter criteria.

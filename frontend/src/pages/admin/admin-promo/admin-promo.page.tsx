@@ -23,7 +23,7 @@ import {
   X,
   RefreshCw,
 } from "lucide-react";
-import type { AdminPromotion as Promotion } from "@/models/loyalty.model";
+import type { AdminPromotion as Promotion } from "@/models/promo.model";
 import {
   createAdminPromotion,
   deleteAdminPromotion,
@@ -32,39 +32,8 @@ import {
 } from "@/services/admin.service";
 import "./admin-promo.page.scss";
 
-const INITIAL_PROMOTIONS: Promotion[] = [
-  {
-    id: "PRM-101",
-    promoName: "PLATINUM 100% OFF Detailing Wax",
-    description:
-      "Full exterior detail + SiO2 wax seal voucher for top tier members.",
-    tierRequired: "PLATINUM",
-    pointPrice: "5,000 pts",
-    status: "ACTIVE",
-    validRange: "08.01 - 08.31",
-  },
-  {
-    id: "PRM-102",
-    promoName: "GOLD 40% OFF - Monthly Wash",
-    description: "40% discount on Deluxe exterior Monthly subscription wash.",
-    tierRequired: "GOLD",
-    pointPrice: "1,000 pts",
-    status: "ACTIVE",
-    validRange: "08.01 - 08.31",
-  },
-  {
-    id: "PRM-103",
-    promoName: "SILVER Free Wash Ticket",
-    description: "Single-use complimentary Express Touchless wash ticket.",
-    tierRequired: "SILVER",
-    pointPrice: "500 pts",
-    status: "ACTIVE",
-    validRange: "08.01 - 08.31",
-  },
-];
-
 export default function AdminPromoPage() {
-  const [promotions, setPromotions] = useState<Promotion[]>(INITIAL_PROMOTIONS);
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [tierFilter, setTierFilter] = useState("All");
@@ -369,7 +338,19 @@ export default function AdminPromoPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredPromos.length === 0 ? (
+                {loading ? (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="text-center py-12 text-gray-400 text-sm"
+                    >
+                      <div className="flex items-center justify-center gap-2">
+                        <RefreshCw className="animate-spin w-4 h-4 text-[#3a46ed]" />
+                        <span>Loading promotions...</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredPromos.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="text-center py-10 text-gray-500">
                       No promotions matching your filter.

@@ -4,7 +4,7 @@
  * Feature: 004-homepage-shadcn-redesign
  */
 
-import type { DashboardResponse } from "../models/loyalty.model";
+import type { DashboardResponse } from "../models/customer.model";
 
 /**
  * Promotion - Represents a promotional offer displayed in the carousel

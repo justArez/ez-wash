@@ -4,6 +4,11 @@ import {
   fetchCustomerBookings,
 } from "../services/booking.service";
 
+import {
+  isValidVietnamesePlate,
+  formatVietnamesePlate,
+} from "../services/plate-validation";
+
 export function registerBookingRoutes(app: any) {
   app.post("/api/bookings", async (ctx: any) => {
     const body = (await ctx.body) as {
@@ -41,10 +46,23 @@ export function registerBookingRoutes(app: any) {
       );
     }
 
+    if (!isValidVietnamesePlate(vehiclePlate)) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "Invalid Vietnamese license plate format (e.g., 30A-123.45, 59P1-123.45).",
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+
     try {
       const result = await createPublicBooking({
         phone,
-        vehiclePlate,
+        vehiclePlate: formatVietnamesePlate(vehiclePlate),
         requestedDate,
         serviceId,
         timeSlot: timeSlot || time,
@@ -73,7 +91,9 @@ export function registerBookingRoutes(app: any) {
       ctx.query?.customerId) as string | undefined;
     if (!identifier) {
       return new Response(
-        JSON.stringify({ error: "Phone or identifier query parameter is required." }),
+        JSON.stringify({
+          error: "Phone or identifier query parameter is required.",
+        }),
         {
           status: 400,
           headers: { "Content-Type": "application/json" },
@@ -103,7 +123,9 @@ export function registerBookingRoutes(app: any) {
       ctx.query?.customerId) as string | undefined;
     if (!identifier) {
       return new Response(
-        JSON.stringify({ error: "Phone or identifier query parameter is required." }),
+        JSON.stringify({
+          error: "Phone or identifier query parameter is required.",
+        }),
         {
           status: 400,
           headers: { "Content-Type": "application/json" },

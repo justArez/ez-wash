@@ -15,6 +15,13 @@
       "when": 1787217322220,
       "tag": "0001_huge_obadiah_stane",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787505916590,
+      "tag": "0002_rare_stardust",
+      "breakpoints": true
     }
   ]
 }

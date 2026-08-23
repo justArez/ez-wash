@@ -1,4 +1,5 @@
-import type { Booking, BookingStatus, Vehicle } from "../models/loyalty.model";
+import type { Booking, BookingStatus } from "../models/booking.model";
+import type { Vehicle } from "../models/vehicle.model";
 import {
   createBooking as createLoyaltyBooking,
   cancelBooking as cancelLoyaltyBooking,
@@ -28,6 +29,7 @@ function mapBookingRow(r: typeof schema.bookings.$inferSelect): Booking {
     updatedAt: r.updatedAt.toISOString(),
     appliedPerks: r.appliedPerks || [],
     appliedPromoId: r.appliedPromoId || undefined,
+    points: r.pointsEarned || r.pointsSpent || undefined,
     pointsEarned: r.pointsEarned,
     pointsSpent: r.pointsSpent,
     status: r.status,
@@ -244,7 +246,7 @@ export async function adminCreateBooking(data: {
       id: createId(),
       customerId,
       plate: plateUpper,
-      model: data.vehicleModel?.trim() || "Standard Vehicle",
+      model: data.vehicleModel?.trim() || "Not provided",
       type: data.vehicleType || "car",
     });
     customer = await findCustomerRecord(data.phone);
@@ -255,7 +257,7 @@ export async function adminCreateBooking(data: {
         id: createId(),
         customerId: customer.id,
         plate: plateUpper,
-        model: data.vehicleModel?.trim() || "Standard Vehicle",
+        model: data.vehicleModel?.trim() || "Not provided",
         type: data.vehicleType || "car",
       });
     }
@@ -351,15 +353,15 @@ export async function adminUpdateBooking(
       .limit(1);
     const customer = customerRows[0];
 
-    let price = 30;
+    let price = 15;
     const srvId = data.serviceId ?? booking.serviceId;
     const srv = srvId ? await fetchServiceById(srvId) : null;
     if (srv?.price) price = srv.price;
 
     const tier = getTier(customer.tierId);
     const pointRate = tier?.pointRate ?? 1.0;
-    const baseRate = 100;
-    let earnedPoints = Math.max(10, Math.round(price * baseRate * pointRate));
+    const baseRate = 10;
+    let earnedPoints = Math.max(1, Math.round(price * baseRate * pointRate));
 
     if (booking.appliedPromoId) {
       const promoRows = await db
@@ -429,6 +431,36 @@ export async function adminUpdateBooking(
       amount: earnedPoints,
       description: `Completed wash booking ${booking.id} (+${earnedPoints} pts, rate: ${pointRate}x)`,
     });
+
+    // Update vehicle's last_wash_date when booking is completed
+    const plateUpper = booking.vehiclePlate.trim().toUpperCase();
+    const vehicleModel =
+      data.vehicleModel?.trim() || booking.vehicleModel || "Not provided";
+    const existingVehicle = await db
+      .select({ id: schema.vehicles.id })
+      .from(schema.vehicles)
+      .where(
+        sql`${schema.vehicles.customerId} = ${customerId} AND upper(${schema.vehicles.plate}) = ${plateUpper}`,
+      )
+      .limit(1);
+
+    if (existingVehicle.length > 0) {
+      await db
+        .update(schema.vehicles)
+        .set({
+          lastWashDate: now,
+        })
+        .where(eq(schema.vehicles.id, existingVehicle[0].id));
+    } else {
+      await db.insert(schema.vehicles).values({
+        id: createId(),
+        customerId,
+        plate: plateUpper,
+        model: vehicleModel,
+        type: "car",
+        lastWashDate: now,
+      });
+    }
   }
 
   await db

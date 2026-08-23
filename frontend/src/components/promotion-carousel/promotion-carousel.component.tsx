@@ -167,7 +167,7 @@ export const PromotionCarousel: React.FC<PromotionCarouselProps> = ({
                   <button
                     key={idx}
                     onClick={() => carousel.goToSlide(idx)}
-                    className={`w-2.5 h-2.5 rounded-full transition-colors cursor-pointer ${
+                    className={`w-2.5 h-2.5 rounded-full duration-200 transition-all ease-in-out cursor-pointer ${
                       idx === carousel.currentIndex
                         ? "bg-blue-600 w-6"
                         : "bg-gray-300"

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import type { BookingRequest, Vehicle } from "../../models/loyalty.model";
+import type { BookingRequest } from "../../models/booking.model";
+import type { Vehicle } from "../../models/vehicle.model";
 import { createBooking } from "../../services/loyalty.service";
 import "./booking-flow.component.scss";
 

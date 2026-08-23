@@ -1,4 +1,4 @@
-import type { TierSet } from "../models/loyalty.model";
+import type { TierSet } from "../models/tier.model";
 import { db, schema } from "../db/index";
 import { sql } from "drizzle-orm";
 

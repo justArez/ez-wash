@@ -1,8 +1,22 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "./booking.page.scss";
-import type { DashboardResponse } from "../../models/loyalty.model";
-import { cancelBooking } from "../../services/loyalty.service";
-import { TriangleAlertIcon } from "lucide-react";
+import type { DashboardResponse } from "../../models/customer.model";
+import type { ServiceItem } from "../../models/service.model";
+import {
+  cancelBooking,
+  fetchCustomerBookings,
+  fetchPublicServices,
+} from "../../services/loyalty.service";
+import {
+  Calendar,
+  Clock,
+  Car,
+  Coins,
+  ShieldCheck,
+  TriangleAlertIcon,
+  Tag,
+  Sparkles,
+} from "lucide-react";
 
 interface BookingPageProps {
   dashboard: DashboardResponse;
@@ -22,6 +36,7 @@ export default function BookingPage({ dashboard }: BookingPageProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [bookings, setBookings] = useState(dashboard.bookingHistory ?? []);
+  const [services, setServices] = useState<ServiceItem[]>([]);
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(
     null,
   );
@@ -29,6 +44,42 @@ export default function BookingPage({ dashboard }: BookingPageProps) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [now] = useState(() => Date.now());
+
+  // Load public services to resolve service price / duration
+  useEffect(() => {
+    fetchPublicServices(false)
+      .then((data) => {
+        if (data?.length) setServices(data);
+      })
+      .catch((err) => {
+        console.error("Failed to fetch public services:", err);
+      });
+  }, []);
+
+  // Re-fetch bookings on load
+  useEffect(() => {
+    if (dashboard?.phone) {
+      fetchCustomerBookings(dashboard.phone)
+        .then((res) => {
+          if (res?.bookingHistory) {
+            setBookings(res.bookingHistory);
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to fetch customer bookings on load:", err);
+        });
+    }
+  }, [dashboard?.phone]);
+
+  const serviceMap = useMemo(() => {
+    const map = new Map<string, ServiceItem>();
+    services.forEach((s) => {
+      map.set(s.id, s);
+      map.set(s.id.toLowerCase(), s);
+      if (s.name) map.set(s.name.toLowerCase(), s);
+    });
+    return map;
+  }, [services]);
 
   const formatDate = (value: string) => {
     const date = new Date(value);
@@ -52,6 +103,55 @@ export default function BookingPage({ dashboard }: BookingPageProps) {
     return "Time unavailable";
   };
 
+  const getPointsDisplay = (booking: BookingRecord) => {
+    if (booking.pointsEarned && booking.pointsEarned > 0) {
+      return `+${booking.pointsEarned} pts`;
+    }
+    if (booking.pointsSpent && booking.pointsSpent > 0) {
+      return `-${booking.pointsSpent} pts`;
+    }
+    if (booking.points && booking.points > 0) {
+      return `+${booking.points} pts`;
+    }
+    if (booking.status === "cancelled") {
+      return "0 pts";
+    }
+    return "--";
+  };
+
+  const calculateProjectedPoints = (booking: BookingRecord) => {
+    if (booking.pointsEarned && booking.pointsEarned > 0) {
+      return booking.pointsEarned;
+    }
+    if (booking.points && booking.points > 0) {
+      return booking.points;
+    }
+    const srv =
+      (booking.serviceId ? serviceMap.get(booking.serviceId) : undefined) ||
+      (booking.service
+        ? serviceMap.get(booking.service.toLowerCase())
+        : undefined) ||
+      (booking.serviceName
+        ? serviceMap.get(booking.serviceName.toLowerCase())
+        : undefined);
+    const price = srv ? srv.price : 15;
+    const pointRate = dashboard.tier?.pointRate ?? 1.0;
+    const baseRate = 10;
+    let projected = Math.max(1, Math.round(price * baseRate * pointRate));
+
+    if (booking.appliedPromoId && dashboard.claimedPromos) {
+      const promo = dashboard.claimedPromos.find(
+        (p) =>
+          p.promoId === booking.appliedPromoId ||
+          p.id === booking.appliedPromoId,
+      );
+      if (promo?.bonusPoints && promo.bonusPoints > 0) {
+        projected += promo.bonusPoints;
+      }
+    }
+    return projected;
+  };
+
   const activeBookings = useMemo(
     () =>
       bookings
@@ -65,7 +165,7 @@ export default function BookingPage({ dashboard }: BookingPageProps) {
             getScheduledTime(left).getTime() -
             getScheduledTime(right).getTime(),
         )
-        .slice(0, 3),
+        .slice(0, 5),
     [bookings, now],
   );
 
@@ -177,32 +277,111 @@ export default function BookingPage({ dashboard }: BookingPageProps) {
               {activeBookings.map((booking) => {
                 const scheduledTime = getScheduledTime(booking).getTime();
                 const isLateWindow = scheduledTime - now <= 4 * 60 * 60 * 1000;
+                const projectedPts = calculateProjectedPoints(booking);
+                const srv =
+                  (booking.serviceId
+                    ? serviceMap.get(booking.serviceId)
+                    : undefined) ||
+                  (booking.service
+                    ? serviceMap.get(booking.service.toLowerCase())
+                    : undefined);
+                const serviceDisplayName = srv
+                  ? srv.name
+                  : booking.service || booking.serviceName || "Standard Wash";
+
                 return (
                   <article
                     className="booking-card booking-card-featured"
                     key={booking.id}
                   >
-                    <div className="booking-card-topline">
-                      <span className="booking-service">
-                        {booking.service ?? "Car Wash"}
-                      </span>
-                      <span className="pill">
+                    <div className="booking-card-header">
+                      <div className="booking-card-title-wrap">
+                        <div className="booking-service-badge">
+                          <Sparkles className="w-4 h-4 text-primary" />
+                          <span className="booking-service-title">
+                            {serviceDisplayName}
+                          </span>
+                        </div>
+                        <span className="booking-id-tag">
+                          #{booking.id.slice(0, 8).toUpperCase()}
+                        </span>
+                      </div>
+                      <span className={`pill pill-${booking.status}`}>
                         {booking.status === "pending" ? "Pending" : "Confirmed"}
                       </span>
                     </div>
-                    <div className="booking-date-block">
-                      <strong>{formatDate(booking.date)}</strong>
-                      <span>{formatTime(booking)}</span>
+
+                    <div className="booking-card-body-grid">
+                      <div className="booking-meta-item">
+                        <Calendar className="w-4 h-4 text-muted-foreground" />
+                        <div>
+                          <span className="booking-meta-label">Date</span>
+                          <strong className="booking-meta-value">
+                            {formatDate(booking.date)}
+                          </strong>
+                        </div>
+                      </div>
+
+                      <div className="booking-meta-item">
+                        <Clock className="w-4 h-4 text-muted-foreground" />
+                        <div>
+                          <span className="booking-meta-label">Time & Bay</span>
+                          <strong className="booking-meta-value">
+                            {formatTime(booking)}
+                            {booking.bayId ? ` · ${booking.bayId}` : ""}
+                          </strong>
+                        </div>
+                      </div>
+
+                      <div className="booking-meta-item">
+                        <Car className="w-4 h-4 text-muted-foreground" />
+                        <div>
+                          <span className="booking-meta-label">Vehicle</span>
+                          <strong className="booking-meta-value">
+                            {booking.vehiclePlate}
+                            {booking.vehicleModel
+                              ? ` (${booking.vehicleModel})`
+                              : ""}
+                          </strong>
+                        </div>
+                      </div>
+
+                      <div className="booking-meta-item booking-meta-points">
+                        <Coins className="w-4 h-4 text-amber-500" />
+                        <div>
+                          <span className="booking-meta-label">
+                            Points to Earn
+                          </span>
+                          <strong className="booking-meta-value text-amber-600 dark:text-amber-400">
+                            +{projectedPts} pts
+                          </strong>
+                        </div>
+                      </div>
                     </div>
-                    <p className="booking-vehicle">
-                      {booking.vehicleModel ?? "Vehicle"} <span>·</span>{" "}
-                      {booking.vehiclePlate}
-                    </p>
+
+                    {/* Applied perks or promotion indicator */}
+                    {((booking.appliedPerks &&
+                      booking.appliedPerks.length > 0) ||
+                      booking.appliedPromoId) && (
+                      <div className="booking-perks-row">
+                        {booking.appliedPromoId && (
+                          <span className="booking-perk-chip promo">
+                            <Tag className="w-3.5 h-3.5" /> Promo Applied
+                          </span>
+                        )}
+                        {booking.appliedPerks?.map((perk, idx) => (
+                          <span key={idx} className="booking-perk-chip">
+                            <ShieldCheck className="w-3.5 h-3.5" /> {perk}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
                     <div className="booking-card-footer">
                       <span className={isLateWindow ? "warning-copy" : "note"}>
                         {isLateWindow
-                          ? "Less than 4 hours: a warning applies."
-                          : "Cancel free of charge more than 4 hours ahead."}
+                          ? "⚠️ Less than 4 hours: a warning applies."
+                          : "✓ Cancel free of charge more than 4 hours ahead."}
                       </span>
                       <button
                         className="button button-danger"
@@ -272,12 +451,15 @@ export default function BookingPage({ dashboard }: BookingPageProps) {
                         <td data-label="Date">{formatDate(booking.date)}</td>
                         <td data-label="Time">{formatTime(booking)}</td>
                         <td data-label="Services">
-                          {booking.service ?? "Car Wash"}
+                          {booking.service ?? booking.serviceName ?? "Car Wash"}
                         </td>
                         <td data-label="Status">
-                          <span className="pill">{booking.status}</span>
+                          <span className="pill">
+                            {booking.status.slice(0, 1).toLocaleUpperCase() +
+                              booking.status.slice(1).toLowerCase()}
+                          </span>
                         </td>
-                        <td data-label="Points">{booking.points ?? "--"}</td>
+                        <td data-label="Points">{getPointsDisplay(booking)}</td>
                       </tr>
                     ))}
                   </tbody>

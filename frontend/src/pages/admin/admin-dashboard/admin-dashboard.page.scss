@@ -75,6 +75,50 @@
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
   }
 
+  /* Filter Tabs */
+  &__tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    background: var(--surface-strong, #f1efff);
+    padding: 4px;
+    border-radius: 12px;
+  }
+
+  &__tab-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text-secondary, #6b7280);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover {
+      color: var(--text, #1e1b4b);
+    }
+
+    &--active {
+      background: #ffffff;
+      color: var(--accent, #3a46ed);
+      font-weight: 600;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+    }
+  }
+
+  &__tab-count {
+    font-size: 10.5px;
+    padding: 1px 5px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.06);
+    color: inherit;
+  }
+
   /* Bar Chart Simulation */
   &__chart-container {
     display: flex;
@@ -181,14 +225,32 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 3px 8px;
+    padding: 4px 10px;
     border-radius: 999px;
     font-size: 11px;
     font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s ease;
+
+    &:hover {
+      opacity: 0.85;
+      transform: scale(1.02);
+    }
+
+    &--confirmed {
+      background: #eff6ff;
+      color: #2563eb;
+    }
 
     &--completed {
       background: #ecfdf5;
       color: #059669;
+    }
+
+    &--pending {
+      background: #fffbeb;
+      color: #b45309;
     }
 
     &--cancelled {

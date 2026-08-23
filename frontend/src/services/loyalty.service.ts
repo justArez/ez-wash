@@ -1,15 +1,12 @@
+import type { BookingRequest } from "../models/booking.model";
 import type {
-  BookingRequest,
-  ClaimedPromo,
   DashboardResponse,
   LinkAccountRequest,
   LinkAccountResponse,
-  Promotion,
-  RewardOffer,
-  ServiceItem,
-  TimeSlot,
-} from "../models/loyalty.model";
-import { DEMO_PHONE, initialClaimedPromos } from "./loyalty.mock-data";
+} from "../models/customer.model";
+import type { ClaimedPromo, Promotion, RewardOffer } from "../models/promo.model";
+import type { ServiceItem } from "../models/service.model";
+import type { TimeSlot } from "../models/timeslot.model";
 
 const BASE_URL = "";
 
@@ -101,9 +98,6 @@ export async function fetchClaimedPromos(
     }>(response);
     return data.data;
   } catch (error) {
-    if (phone === DEMO_PHONE || phone.trim().toLowerCase() === "demo") {
-      return initialClaimedPromos.filter((p) => p.status === "ACTIVE");
-    }
     return [];
   }
 }

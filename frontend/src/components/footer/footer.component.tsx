@@ -20,11 +20,13 @@ export default function Footer() {
             </ul>
           </div>
           <div>
-            <h4 className="text-white font-semibold mb-3">Support</h4>
+            <h4 className="text-white font-semibold mb-3">
+              Team X - Team Member
+            </h4>
             <ul className="space-y-2">
-              <li>Contact</li>
-              <li>FAQ</li>
-              <li>Privacy</li>
+              <li>Nguyen Kien Cuong - CE161131</li>
+              <li>Nguyen Van B - CE161132</li>
+              <li>Nguyen Van C - CE161133</li>
             </ul>
           </div>
         </div>

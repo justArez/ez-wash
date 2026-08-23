@@ -1,0 +1,10 @@
+// Re-export all model types for backward compatibility
+export * from "./vehicle.model";
+export * from "./tier.model";
+export * from "./service.model";
+export * from "./booking.model";
+export * from "./timeslot.model";
+export * from "./point.model";
+export * from "./promo.model";
+export * from "./customer.model";
+export * from "./admin.model";

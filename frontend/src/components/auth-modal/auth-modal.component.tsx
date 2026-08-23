@@ -5,7 +5,7 @@ import "./auth-modal.component.scss";
 import type {
   LinkAccountRequest,
   LoginCredentials,
-} from "../../models/loyalty.model";
+} from "../../models/customer.model";
 
 export type { LoginCredentials };
 
@@ -64,7 +64,7 @@ export default function AuthModal({
       return;
     }
 
-    const trimmed = username.trim();
+    const trimmed = username.trim().toLowerCase();
     if (!trimmed) {
       return;
     }
@@ -127,9 +127,15 @@ export default function AuthModal({
         return;
       }
 
+      // If login identifier doesn't look like a phone number (i.e. is a username/email), lowercase it
+      const isDigitsOnly = /^[+]?[\d\s\-().]+$/.test(loginIdentifier);
+      const normalizedIdentifier = isDigitsOnly
+        ? loginIdentifier
+        : loginIdentifier.toLowerCase();
+
       try {
         setIsSubmitting(true);
-        await onSignIn(loginIdentifier, password.trim());
+        await onSignIn(normalizedIdentifier, password.trim());
       } catch (err) {
         setError(
           err instanceof Error
@@ -144,10 +150,10 @@ export default function AuthModal({
 
     // Sign-up validations
     const trimmedFullName = fullName.trim();
-    const trimmedUsername = username.trim();
+    const trimmedUsername = username.trim().toLowerCase();
     const trimmedPassword = password.trim();
     const trimmedConfirmPassword = confirmPassword.trim();
-    const trimmedEmail = email.trim();
+    const trimmedEmail = email.trim().toLowerCase();
     const trimmedPhone = phone.trim();
 
     if (!trimmedUsername) {
