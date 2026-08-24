@@ -255,7 +255,7 @@ export const bookings = pgTable(
     timeSlot: text("time_slot"),
     durationMinutes: integer("duration_minutes"),
     bayId: text("bay_id"),
-    status: bookingStatusEnum("status").default("pending").notNull(),
+    status: bookingStatusEnum("status").default("confirmed").notNull(),
     pointsEarned: integer("points_earned").default(0).notNull(),
     pointsSpent: integer("points_spent").default(0).notNull(),
     appliedPerks: text("applied_perks").array().notNull(),
@@ -265,6 +265,10 @@ export const bookings = pgTable(
       .notNull(),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
     note: text("note"),
+    depositImageUrl: text("deposit_image_url"),
+    depositSubmittedAt: timestamp("deposit_submitted_at", {
+      withTimezone: true,
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

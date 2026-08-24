@@ -25,8 +25,12 @@ import {
   Award,
   ChevronLeft,
   ChevronRight,
+  ImageIcon,
 } from "lucide-react";
 import type { AdminBooking } from "@/models/booking.model";
+import DepositPaymentModal, {
+  type DepositBookingInfo,
+} from "@/components/deposit-modal/deposit-modal.component";
 import type {
   AdminDashboardMetrics,
   AdminWeeklyBooking,
@@ -52,6 +56,8 @@ export default function AdminDashboardPage() {
   >("ALL");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [depositBooking, setDepositBooking] =
+    useState<DepositBookingInfo | null>(null);
 
   const loadData = async () => {
     try {
@@ -450,6 +456,30 @@ export default function AdminDashboardPage() {
                               <Button
                                 variant="ghost"
                                 size="sm"
+                                className={`h-8 w-8 p-0 ${
+                                  b.depositImageUrl
+                                    ? "text-[#3a46ed] hover:text-[#2f3ac4] hover:bg-indigo-50"
+                                    : "text-gray-300 hover:text-gray-500 hover:bg-gray-50"
+                                }`}
+                                onClick={() =>
+                                  setDepositBooking({
+                                    id: b.id,
+                                    serviceName: b.services,
+                                    timeSlot: b.timeSlot,
+                                    depositImageUrl: b.depositImageUrl,
+                                  })
+                                }
+                                title={
+                                  b.depositImageUrl
+                                    ? "View deposit slip"
+                                    : "No deposit slip submitted"
+                                }
+                              >
+                                <ImageIcon size={14} />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
                                 className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
                                 onClick={() => handleDelete(b.id)}
                                 title="Cancel booking"
@@ -662,6 +692,12 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
       </div>
+      <DepositPaymentModal
+        visible={Boolean(depositBooking)}
+        booking={depositBooking}
+        readOnly
+        onClose={() => setDepositBooking(null)}
+      />
     </section>
   );
 }

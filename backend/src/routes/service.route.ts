@@ -7,11 +7,7 @@ export function registerServiceRoutes(app: any) {
   app.get("/api/services", async (ctx: any) => {
     const onlyActive = ctx.query?.onlyActive !== "false";
 
-    let services = await fetchAllServices(onlyActive);
-
-    if (onlyActive) {
-      services = services.filter((s) => s.status !== "INACTIVE");
-    }
+    const services = await fetchAllServices(onlyActive);
 
     return {
       status: "success",
@@ -22,6 +18,7 @@ export function registerServiceRoutes(app: any) {
 
   app.get("/api/services/:id", async (ctx: any) => {
     const id = ctx.params?.id;
+
     const service = await fetchServiceById(id);
     if (!service) {
       return new Response(JSON.stringify({ error: "Service not found." }), {

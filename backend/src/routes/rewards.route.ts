@@ -24,7 +24,7 @@ export function registerRewardRoutes(app: any) {
       );
     }
 
-    return getRewardRecommendations(phone);
+    return await getRewardRecommendations(phone);
   });
 
   return app;

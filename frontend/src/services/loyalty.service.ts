@@ -1,4 +1,4 @@
-import type { BookingRequest } from "../models/booking.model";
+import type { Booking, BookingRequest } from "../models/booking.model";
 import type {
   DashboardResponse,
   LinkAccountRequest,
@@ -177,9 +177,28 @@ export async function createBooking(request: BookingRequest) {
   });
   return handleJsonResponse<{
     success: boolean;
-    booking?: unknown;
+    booking?: Booking;
     reason?: string;
     nextEligibleBookingDate?: string;
+  }>(response);
+}
+
+export async function submitBookingDeposit(
+  bookingId: string,
+  phone: string,
+  depositImageUrl: string,
+) {
+  const response = await fetch(
+    `${BASE_URL}/api/bookings/${encodeURIComponent(bookingId)}/deposit`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone, depositImageUrl }),
+    },
+  );
+  return handleJsonResponse<{
+    status: string;
+    data: Booking;
   }>(response);
 }
 

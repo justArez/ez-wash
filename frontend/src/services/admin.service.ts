@@ -90,6 +90,7 @@ export async function fetchAdminBookings(options?: {
     timeSlot: b.timeSlot || b.time || b.date || "Scheduled",
     services: b.serviceName || b.service || "Standard Wash",
     status: (b.status?.toUpperCase() || "PENDING") as AdminBooking["status"],
+    depositImageUrl: b.depositImageUrl || undefined,
   }));
 }
 

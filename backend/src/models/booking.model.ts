@@ -39,4 +39,6 @@ export interface Booking {
   cancelledAt?: string;
   isLateCancellation?: boolean;
   note?: string;
+  depositImageUrl?: string;
+  depositSubmittedAt?: string;
 }

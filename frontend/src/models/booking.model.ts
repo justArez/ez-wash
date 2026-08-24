@@ -27,6 +27,7 @@ export interface AdminBooking {
   timeSlot: string;
   services: string;
   status: AdminBookingStatus;
+  depositImageUrl?: string;
 }
 
 export interface Booking {
@@ -57,6 +58,8 @@ export interface Booking {
   cancelledAt?: string;
   isLateCancellation?: boolean;
   note?: string;
+  depositImageUrl?: string;
+  depositSubmittedAt?: string;
 }
 
 export interface BookingRequest {

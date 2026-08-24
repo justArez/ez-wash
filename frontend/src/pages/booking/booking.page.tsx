@@ -16,7 +16,11 @@ import {
   TriangleAlertIcon,
   Tag,
   Sparkles,
+  Wallet,
 } from "lucide-react";
+import DepositPaymentModal, {
+  type DepositBookingInfo,
+} from "../../components/deposit-modal/deposit-modal.component";
 
 interface BookingPageProps {
   dashboard: DashboardResponse;
@@ -40,6 +44,8 @@ export default function BookingPage({ dashboard }: BookingPageProps) {
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(
     null,
   );
+  const [depositBooking, setDepositBooking] =
+    useState<DepositBookingInfo | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -384,6 +390,27 @@ export default function BookingPage({ dashboard }: BookingPageProps) {
                           : "✓ Cancel free of charge more than 4 hours ahead."}
                       </span>
                       <button
+                        className="secondary-button booking-deposit-button"
+                        type="button"
+                        onClick={() =>
+                          setDepositBooking({
+                            id: booking.id,
+                            serviceName: serviceDisplayName,
+                            date: formatDate(booking.date),
+                            timeSlot: formatTime(booking),
+                            vehiclePlate: booking.vehiclePlate,
+                            depositImageUrl: booking.depositImageUrl,
+                            depositSubmittedAt: booking.depositSubmittedAt,
+                          })
+                        }
+                        aria-label={`Seat deposit for booking on ${formatDate(booking.date)}`}
+                      >
+                        <Wallet className="w-4 h-4" />
+                        {booking.depositImageUrl
+                          ? "View Deposit"
+                          : "Pay Deposit"}
+                      </button>
+                      <button
                         className="button button-danger"
                         type="button"
                         onClick={() => setSelectedBookingId(booking.id)}
@@ -512,6 +539,28 @@ export default function BookingPage({ dashboard }: BookingPageProps) {
             </div>
           </section>
         )}
+
+        <DepositPaymentModal
+          visible={Boolean(depositBooking)}
+          booking={depositBooking}
+          phone={dashboard.phone}
+          onClose={() => setDepositBooking(null)}
+          onSubmitted={(bookingId, imageUrl) => {
+            setBookings((current) =>
+              current.map((booking) =>
+                booking.id === bookingId
+                  ? {
+                      ...booking,
+                      depositImageUrl: imageUrl,
+                      depositSubmittedAt: new Date().toISOString(),
+                    }
+                  : booking,
+              ),
+            );
+            setDepositBooking(null);
+            setActionMessage("Seat deposit submitted successfully.");
+          }}
+        />
 
         {selectedBookingId && (
           <div className="modal-overlay" role="presentation">

@@ -5,6 +5,9 @@ import AuthModal from "./components/auth-modal/auth-modal.component";
 import BookingModal, {
   type BookingModalSubmission,
 } from "./components/booking-modal/booking-modal.component";
+import DepositPaymentModal, {
+  type DepositBookingInfo,
+} from "./components/deposit-modal/deposit-modal.component";
 import Toast from "./components/toast/toast.component";
 import { PageRenderer } from "./components/page-renderer/page-renderer.component";
 import type { ViewState } from "./router";
@@ -99,6 +102,8 @@ function App() {
   } | null>(null);
   const [refreshSlotTrigger, setRefreshSlotTrigger] = useState(0);
   const [showDemoToast, setShowDemoToast] = useState(false);
+  const [depositBooking, setDepositBooking] =
+    useState<DepositBookingInfo | null>(null);
 
   // Initialize view based on current path and auth state
   const [view, setView] = useState<ViewState>(() => {
@@ -301,7 +306,7 @@ function App() {
     }
 
     try {
-      await createBooking({
+      const result = await createBooking({
         phone: bookingPhone,
         vehiclePlate: vehicle.plate,
         requestedDate: date,
@@ -309,6 +314,12 @@ function App() {
         time,
         appliedPromoId,
       });
+
+      if (!result.success || !result.booking) {
+        setError(result.reason || "Failed to confirm booking.");
+        return;
+      }
+
       setSuccess("Booking created successfully!");
       // Invalidate slots cache and trigger calendar re-computation
       await refreshSlotsCache(14).catch(() => {});
@@ -316,6 +327,20 @@ function App() {
       if (bookingPhone) {
         await refreshDashboard(bookingPhone);
       }
+
+      // Offer the seat-deposit payment slip upload right after confirmation
+      const primaryService = serviceOptions.find(
+        (option) => option.id === selectedServices?.[0],
+      );
+      setDepositBooking({
+        id: result.booking.id,
+        serviceName: primaryService?.label,
+        date,
+        timeSlot: time,
+        vehiclePlate: vehicle.plate,
+        depositImageUrl: result.booking.depositImageUrl,
+        depositSubmittedAt: result.booking.depositSubmittedAt,
+      });
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to confirm booking.",
@@ -458,6 +483,20 @@ function App() {
           setSelectedBookingSlot(null);
         }}
         onConfirm={handleConfirmBooking}
+      />
+
+      <DepositPaymentModal
+        visible={Boolean(depositBooking)}
+        booking={depositBooking}
+        phone={dashboard?.phone}
+        onClose={() => setDepositBooking(null)}
+        onSubmitted={async () => {
+          setDepositBooking(null);
+          setSuccess("Seat deposit submitted!");
+          if (dashboard?.phone) {
+            await refreshDashboard(dashboard.phone);
+          }
+        }}
       />
     </main>
   );

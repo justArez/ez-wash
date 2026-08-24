@@ -36,6 +36,8 @@ function mapBookingRow(r: typeof schema.bookings.$inferSelect): Booking {
     cancelledAt: r.cancelledAt?.toISOString(),
     isLateCancellation: r.isLateCancellation,
     note: r.note || undefined,
+    depositImageUrl: r.depositImageUrl || undefined,
+    depositSubmittedAt: r.depositSubmittedAt?.toISOString(),
   };
 }
 
@@ -125,6 +127,49 @@ export async function fetchCustomerBookings(phone: string) {
 
 export async function cancelPublicBooking(phone: string, bookingId: string) {
   return cancelLoyaltyBooking(phone, bookingId);
+}
+
+export async function submitBookingDeposit(params: {
+  bookingId: string;
+  phone: string;
+  depositImageUrl: string;
+}): Promise<Booking> {
+  if (!db) {
+    throw new Error("Database connection is not available.");
+  }
+
+  const { bookingId, phone, depositImageUrl } = params;
+  if (!bookingId || !phone || !depositImageUrl) {
+    throw new Error("bookingId, phone and depositImageUrl are required.");
+  }
+
+  const customer = await findCustomerRecord(phone);
+  if (!customer) {
+    throw new Error("Customer not found.");
+  }
+
+  const ownsBooking = (customer.bookingHistory || []).some(
+    (b) => b.id === bookingId,
+  );
+  if (!ownsBooking) {
+    throw new Error("Booking not found for this customer.");
+  }
+
+  const now = new Date();
+  await db
+    .update(schema.bookings)
+    .set({
+      depositImageUrl,
+      depositSubmittedAt: now,
+      updatedAt: now,
+    })
+    .where(eq(schema.bookings.id, bookingId));
+
+  const match = await getBookingById(bookingId);
+  if (!match) {
+    throw new Error("Booking not found.");
+  }
+  return match.booking;
 }
 
 export async function getAllBookings(options?: {

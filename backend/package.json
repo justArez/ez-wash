@@ -13,6 +13,7 @@
     "db:test": "bun run src/db/test-connection.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1116.0",
     "@elysiajs/cors": "^1.4.2",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
@@ -22,7 +23,7 @@
   "devDependencies": {
     "bun-types": "latest",
     "concurrently": "^10.0.5",
-    "drizzle-kit": "^0.31.10"
+    "drizzle-kit": "^0.18.1"
   },
   "module": "src/index.ts"
 }

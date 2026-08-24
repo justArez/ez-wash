@@ -1,20 +1,20 @@
 import {
-  createTierItem,
-  deleteTierItem,
   fetchAllTiers,
+  createTierItem,
   updateTierItem,
+  deleteTierItem,
 } from "../services/tier.service";
 import {
-  createPromotionItem,
-  deletePromotionItem,
   fetchAllPromotions,
+  createPromotionItem,
   updatePromotionItem,
+  deletePromotionItem,
 } from "../services/promotion.service";
 import {
-  createServiceItem,
-  deleteServiceItem,
   fetchAllServices,
+  createServiceItem,
   updateServiceItem,
+  deleteServiceItem,
 } from "../services/service.service";
 import {
   adminCreateBooking,
@@ -42,22 +42,12 @@ import {
   deleteRewardOffer,
   fetchAllRewards,
 } from "../services/reward.service";
-import {
-  createScheduleBlock,
-  deleteScheduleBlock,
-  fetchScheduleBlocks,
-  updateScheduleBlock,
-} from "../services/schedule.service";
 import { getAdminDashboardData } from "../services/metric.service";
 import { fetchAuditLogs, logAudit } from "../services/audit.service";
 import type { LoyaltyCustomer } from "../models/customer.model";
 import type { LoyaltyTier, TierSet } from "../models/tier.model";
 import type { Promotion, RewardOffer } from "../models/promo.model";
 import type { ServiceItem } from "../models/service.model";
-import {
-  isValidVietnamesePlate,
-  formatVietnamesePlate,
-} from "../services/plate-validation";
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "admin-secret";
 
@@ -189,7 +179,6 @@ export function registerAdminRoutes(app: any) {
     }
 
     const customer = await fetchCustomerById(match.customerId);
-
     return {
       status: "success",
       data: {
@@ -218,20 +207,6 @@ export function registerAdminRoutes(app: any) {
       );
     }
 
-    if (!isValidVietnamesePlate(body.vehiclePlate)) {
-      return new Response(
-        JSON.stringify({
-          error:
-            "Invalid Vietnamese license plate format (e.g., 30A-123.45, 59P1-123.45).",
-        }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        },
-      );
-    }
-
-    body.vehiclePlate = formatVietnamesePlate(body.vehiclePlate);
     const booking = await adminCreateBooking(body);
     await logAudit({
       actor: "admin",
@@ -346,7 +321,7 @@ export function registerAdminRoutes(app: any) {
       actionType: "create-service",
       entityType: "service",
       entityId: service.id,
-      details: `Created service package \${service.name}`,
+      details: `Created service package ${service.name}`,
     });
 
     return {
@@ -374,7 +349,7 @@ export function registerAdminRoutes(app: any) {
       actionType: "update-service",
       entityType: "service",
       entityId: service.id,
-      details: `Updated service package \${service.name}`,
+      details: `Updated service package ${service.name}`,
     });
 
     return {
@@ -401,7 +376,7 @@ export function registerAdminRoutes(app: any) {
       actionType: "delete-service",
       entityType: "service",
       entityId: id,
-      details: `Deleted service \${id}`,
+      details: `Deleted service ${id}`,
     });
 
     return {
@@ -449,7 +424,7 @@ export function registerAdminRoutes(app: any) {
       actionType: "create-promotion",
       entityType: "promotion",
       entityId: promotion.id,
-      details: `Created promotion \${promotion.name}`,
+      details: `Created promotion ${promotion.name}`,
     });
 
     return {
@@ -478,7 +453,7 @@ export function registerAdminRoutes(app: any) {
       actionType: "update-promotion",
       entityType: "promotion",
       entityId: promotion.id,
-      details: `Updated promotion \${promotion.name}`,
+      details: `Updated promotion ${promotion.name}`,
     });
 
     return {
@@ -506,7 +481,7 @@ export function registerAdminRoutes(app: any) {
       actionType: "delete-promotion",
       entityType: "promotion",
       entityId: promotionId,
-      details: `Deleted promotion \${promotionId}`,
+      details: `Deleted promotion ${promotionId}`,
     });
 
     return {
@@ -543,7 +518,7 @@ export function registerAdminRoutes(app: any) {
       actionType: "create-tier-set",
       entityType: "tier-set",
       entityId: tierSet.id,
-      details: `Created tier set \${tierSet.name}`,
+      details: `Created tier set ${tierSet.name}`,
     });
 
     return {
@@ -571,7 +546,7 @@ export function registerAdminRoutes(app: any) {
       actionType: "update-tier-set",
       entityType: "tier-set",
       entityId: tierSet.id,
-      details: `Updated tier set \${tierSet.name}`,
+      details: `Updated tier set ${tierSet.name}`,
     });
 
     return {
@@ -598,7 +573,7 @@ export function registerAdminRoutes(app: any) {
       actionType: "delete-tier-set",
       entityType: "tier-set",
       entityId: id,
-      details: `Deleted tier set \${id}`,
+      details: `Deleted tier set ${id}`,
     });
 
     return {
@@ -636,7 +611,7 @@ export function registerAdminRoutes(app: any) {
     for (const field of required) {
       if (body[field as keyof LoyaltyTier] === undefined) {
         return new Response(
-          JSON.stringify({ error: `\${field} is required.` }),
+          JSON.stringify({ error: `${field} is required.` }),
           {
             status: 400,
             headers: { "Content-Type": "application/json" },
@@ -645,14 +620,14 @@ export function registerAdminRoutes(app: any) {
       }
     }
 
-    const tier = await createTierItem(body as LoyaltyTier);
+    const tier = await createTierItem(body);
 
     await logAudit({
       actor: "admin",
       actionType: "create-tier",
       entityType: "tier",
       entityId: tier.id,
-      details: `Created tier \${tier.name}`,
+      details: `Created tier ${tier.name}`,
     });
 
     return {
@@ -668,7 +643,7 @@ export function registerAdminRoutes(app: any) {
 
     const tierId = ctx.params.tierId as string;
     const body = (await ctx.body) as Partial<LoyaltyTier>;
-    const tier = await updateTierItem(tierId, body as Partial<LoyaltyTier>);
+    const tier = await updateTierItem(tierId, body);
     if (!tier) {
       return new Response(JSON.stringify({ error: "Tier not found." }), {
         status: 404,
@@ -681,7 +656,7 @@ export function registerAdminRoutes(app: any) {
       actionType: "update-tier",
       entityType: "tier",
       entityId: tier.id,
-      details: `Updated tier \${tier.name}`,
+      details: `Updated tier ${tier.name}`,
     });
 
     return {
@@ -709,7 +684,7 @@ export function registerAdminRoutes(app: any) {
       actionType: "delete-tier",
       entityType: "tier",
       entityId: tierId,
-      details: `Deleted tier \${tierId}`,
+      details: `Deleted tier ${tierId}`,
     });
 
     return {
@@ -733,13 +708,12 @@ export function registerAdminRoutes(app: any) {
     const formatted = customers.map((c) => ({
       id: c.id,
       name: c.fullName || c.username || `Customer (${c.phone})`,
-      email: c.email || "No email provided",
-      phone: c.phone || "No phone provided",
+      email: c.email || `${c.phone.replace(/[^0-9]/g, "")}@customer.ezwash.com`,
+      phone: c.phone,
       mostActiveVehicle: c.vehicles?.[0]
         ? `${c.vehicles[0].plate} (${c.vehicles[0].model})`
         : "No vehicle",
       points: c.pointsBalance,
-      collectedPoints: c.collectedPoints ?? 0,
       status:
         c.priorityStatus === "LOW_PRIORITIED"
           ? "Low Priority"
@@ -792,22 +766,6 @@ export function registerAdminRoutes(app: any) {
       });
     }
 
-    if (
-      body.initialVehicle?.plate &&
-      !isValidVietnamesePlate(body.initialVehicle.plate)
-    ) {
-      return new Response(
-        JSON.stringify({
-          error:
-            "Invalid Vietnamese license plate format (e.g., 30A-123.45, 59P1-123.45).",
-        }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        },
-      );
-    }
-
     try {
       const customer = await createCustomerItem(body);
 
@@ -816,7 +774,7 @@ export function registerAdminRoutes(app: any) {
         actionType: "create-user",
         entityType: "customer",
         entityId: customer.id,
-        details: `Created customer \${customer.phone}`,
+        details: `Created customer ${customer.phone}`,
       });
 
       return {
@@ -850,7 +808,7 @@ export function registerAdminRoutes(app: any) {
       actionType: "update-user",
       entityType: "customer",
       entityId: customer.id,
-      details: `Updated user profile/tier for \${customer.phone}`,
+      details: `Updated user profile/tier for ${customer.phone}`,
     });
 
     return {
@@ -884,7 +842,6 @@ export function registerAdminRoutes(app: any) {
       delta,
       reason || "Admin manual adjustment",
     );
-
     if (!result) {
       return new Response(JSON.stringify({ error: "User not found." }), {
         status: 404,
@@ -897,7 +854,7 @@ export function registerAdminRoutes(app: any) {
       actionType: "adjust-points",
       entityType: "customer",
       entityId: id,
-      details: `Adjusted points: \${delta > 0 ? "+" : ""}\${delta} pts. Reason: \${reason || "Manual adjustment"}`,
+      details: `Adjusted points: ${delta > 0 ? "+" : ""}${delta} pts. Reason: ${reason || "Manual adjustment"}`,
     });
 
     return {
@@ -925,7 +882,7 @@ export function registerAdminRoutes(app: any) {
       actionType: "reset-warnings",
       entityType: "customer",
       entityId: id,
-      details: `Reset late cancellation warning count and restored NORMAL priority for customer \${customer.phone}`,
+      details: `Reset late cancellation warning count and restored NORMAL priority for customer ${customer.phone}`,
     });
 
     return {
@@ -973,7 +930,7 @@ export function registerAdminRoutes(app: any) {
       actionType: "create-reward",
       entityType: "reward",
       entityId: newOffer.id,
-      details: `Created reward offer \${newOffer.title}`,
+      details: `Created reward offer ${newOffer.title}`,
     });
 
     return {
@@ -1003,7 +960,7 @@ export function registerAdminRoutes(app: any) {
       actionType: "delete-reward",
       entityType: "reward",
       entityId: id,
-      details: `Deleted reward offer \${id}`,
+      details: `Deleted reward offer ${id}`,
     });
 
     return {
@@ -1019,102 +976,13 @@ export function registerAdminRoutes(app: any) {
     const authError = requireAdmin(ctx);
     if (authError) return authError;
 
-    const auditLogs = await fetchAuditLogs();
+    const logs = await fetchAuditLogs();
 
     return {
       status: "success",
-      count: auditLogs.length,
-      auditLogs,
-      data: auditLogs,
-    };
-  });
-
-  // -------------------------------------------------------------
-  // 10. SLOT & SCHEDULE MANAGEMENT (Maintenance & Days Off)
-  // -------------------------------------------------------------
-  app.get("/api/admin/schedule-blocks", async (ctx: any) => {
-    const authError = requireAdmin(ctx);
-    if (authError) return authError;
-
-    const date = ctx.query?.date;
-    const type = ctx.query?.type;
-    const bayId = ctx.query?.bayId;
-
-    const blocks = await fetchScheduleBlocks({ date, type, bayId });
-
-    return {
-      status: "success",
-      count: blocks.length,
-      data: blocks,
-    };
-  });
-
-  app.post("/api/admin/schedule-blocks", async (ctx: any) => {
-    const authError = requireAdmin(ctx);
-    if (authError) return authError;
-
-    const body = (await ctx.body) as any;
-    if (!body?.title || !body?.startDate || !body?.type) {
-      return new Response(
-        JSON.stringify({ error: "title, type, and startDate are required." }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        },
-      );
-    }
-
-    const block = await createScheduleBlock(body);
-    return {
-      status: "success",
-      data: block,
-    };
-  });
-
-  app.put("/api/admin/schedule-blocks/:id", async (ctx: any) => {
-    const authError = requireAdmin(ctx);
-    if (authError) return authError;
-
-    const id = ctx.params.id;
-    const body = (await ctx.body) as any;
-
-    const updated = await updateScheduleBlock(id, body);
-    if (!updated) {
-      return new Response(
-        JSON.stringify({ error: "Schedule block not found." }),
-        {
-          status: 404,
-          headers: { "Content-Type": "application/json" },
-        },
-      );
-    }
-
-    return {
-      status: "success",
-      data: updated,
-    };
-  });
-
-  app.delete("/api/admin/schedule-blocks/:id", async (ctx: any) => {
-    const authError = requireAdmin(ctx);
-    if (authError) return authError;
-
-    const id = ctx.params.id;
-    const success = await deleteScheduleBlock(id);
-
-    if (!success) {
-      return new Response(
-        JSON.stringify({ error: "Schedule block not found." }),
-        {
-          status: 404,
-          headers: { "Content-Type": "application/json" },
-        },
-      );
-    }
-
-    return {
-      status: "success",
-      deleted: true,
+      count: logs.length,
+      auditLogs: logs,
+      data: logs,
     };
   });
 

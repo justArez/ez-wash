@@ -3,6 +3,7 @@ import {
   fetchAllPromotions,
   fetchPromotionById,
 } from "../services/promotion.service";
+import type { Promotion } from "../models/promo.model";
 
 export function registerPromotionRoutes(app: any) {
   app.get("/api/promotions", async (ctx: any) => {
@@ -10,7 +11,7 @@ export function registerPromotionRoutes(app: any) {
     const tier = ctx.query?.tier as string | undefined;
     const onlyActive = ctx.query?.onlyActive !== "false";
 
-    let promotions = await fetchAllPromotions(onlyActive);
+    let promotions: Promotion[] = await fetchAllPromotions(onlyActive);
 
     if (category) {
       promotions = promotions.filter(
@@ -78,7 +79,6 @@ export function registerPromotionRoutes(app: any) {
 
     return {
       status: "success",
-      success: true,
       message: "Promotion successfully claimed!",
       claimedPromo: result.claimedPromo,
       pointsBalance: result.pointsBalance,

@@ -107,6 +107,8 @@ export async function loadCustomerDetails(
       cancelledAt: b.cancelledAt?.toISOString(),
       isLateCancellation: b.isLateCancellation,
       note: b.note || undefined,
+      depositImageUrl: b.depositImageUrl || undefined,
+      depositSubmittedAt: b.depositSubmittedAt?.toISOString(),
     };
   });
 

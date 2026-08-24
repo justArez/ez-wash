@@ -21,8 +21,12 @@ import {
   Award,
   Crown,
   Sparkles,
+  ImageIcon,
 } from "lucide-react";
 import type { AdminBooking } from "@/models/booking.model";
+import DepositPaymentModal, {
+  type DepositBookingInfo,
+} from "@/components/deposit-modal/deposit-modal.component";
 import {
   createAdminBooking,
   deleteAdminBooking,
@@ -49,6 +53,8 @@ export default function AdminBookingsPage() {
   );
   const [newTimeSlot, setNewTimeSlot] = useState("10:00 AM");
   const [newServiceName, setNewServiceName] = useState("Basic Exterior Wash");
+  const [depositBooking, setDepositBooking] =
+    useState<DepositBookingInfo | null>(null);
 
   const loadBookings = async () => {
     try {
@@ -356,6 +362,30 @@ export default function AdminBookingsPage() {
                           <Button
                             variant="ghost"
                             size="sm"
+                            className={`h-8 w-8 p-0 ${
+                              b.depositImageUrl
+                                ? "text-[#3a46ed] hover:text-[#2f3ac4] hover:bg-indigo-50"
+                                : "text-gray-300 hover:text-gray-500 hover:bg-gray-50"
+                            }`}
+                            onClick={() =>
+                              setDepositBooking({
+                                id: b.id,
+                                serviceName: b.services,
+                                timeSlot: b.timeSlot,
+                                depositImageUrl: b.depositImageUrl,
+                              })
+                            }
+                            title={
+                              b.depositImageUrl
+                                ? "View deposit slip"
+                                : "No deposit slip submitted"
+                            }
+                          >
+                            <ImageIcon size={14} />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
                             onClick={() => handleDelete(b.id)}
                             title="Cancel booking"
@@ -475,6 +505,13 @@ export default function AdminBookingsPage() {
           </div>
         </div>
       )}
+
+      <DepositPaymentModal
+        visible={Boolean(depositBooking)}
+        booking={depositBooking}
+        readOnly
+        onClose={() => setDepositBooking(null)}
+      />
     </section>
   );
 }

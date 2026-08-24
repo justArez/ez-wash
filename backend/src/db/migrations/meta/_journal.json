@@ -22,6 +22,13 @@
       "when": 1787505916590,
       "tag": "0002_rare_stardust",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787505916591,
+      "tag": "0003_add_booking_deposit",
+      "breakpoints": true
     }
   ]
 }
