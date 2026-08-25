@@ -1,0 +1,1 @@
+ALTER TABLE "promotions" ADD COLUMN IF NOT EXISTS "is_infinite_use" boolean DEFAULT false NOT NULL;

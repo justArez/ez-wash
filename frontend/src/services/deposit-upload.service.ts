@@ -27,7 +27,9 @@ export async function uploadDepositImage(
 
   const json = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(json?.error || `Upload failed with status ${response.status}`);
+    throw new Error(
+      json?.error || `Upload failed with status ${response.status}`,
+    );
   }
 
   return json.data;

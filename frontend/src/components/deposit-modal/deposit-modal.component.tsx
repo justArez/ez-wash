@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import {
+  Check,
+  Copy,
+  Crown,
   ImageIcon,
   Loader2,
   Receipt,
@@ -8,6 +11,13 @@ import {
   X,
 } from "lucide-react";
 import { uploadDepositImage } from "../../services/deposit-upload.service";
+import {
+  CAR_WASH_BANK_ACCOUNT,
+  buildDepositQrUrl,
+  buildDepositTransferNote,
+  getDepositAmountForTier,
+  getDepositPercentForTier,
+} from "../../config/payment.config";
 import "./deposit-modal.component.scss";
 
 export interface DepositBookingInfo {
@@ -16,6 +26,8 @@ export interface DepositBookingInfo {
   date?: string;
   timeSlot?: string;
   vehiclePlate?: string;
+  /** Service price in USD, used to compute the tier-adjusted deposit. */
+  bookingPrice?: number;
   depositImageUrl?: string;
   depositSubmittedAt?: string;
 }
@@ -25,6 +37,8 @@ interface DepositPaymentModalProps {
   booking: DepositBookingInfo | null;
   /** Customer phone — required when submitting a deposit. */
   phone?: string;
+  /** Customer's loyalty tier id — determines the deposit percentage owed. */
+  tierId?: string;
   /** Admin view: never allow uploading, only viewing. */
   readOnly?: boolean;
   onClose: () => void;
@@ -35,6 +49,7 @@ export default function DepositPaymentModal({
   visible,
   booking,
   phone,
+  tierId,
   readOnly = false,
   onClose,
   onSubmitted,
@@ -45,6 +60,7 @@ export default function DepositPaymentModal({
   const [isReplacing, setIsReplacing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Reset state during render whenever a different booking is opened
@@ -68,8 +84,16 @@ export default function DepositPaymentModal({
 
   if (!visible || !booking) return null;
 
+  const depositPercent = getDepositPercentForTier(tierId);
+  const depositAmount = getDepositAmountForTier(
+    tierId,
+    booking.bookingPrice ?? 0,
+  );
   const hasSubmittedImage = Boolean(imageUrl);
-  const showUploadForm = !readOnly && (!hasSubmittedImage || isReplacing);
+  const isWaived = !readOnly && depositPercent <= 0;
+  const showWaivedPanel = isWaived && !hasSubmittedImage;
+  const showUploadForm =
+    !readOnly && !isWaived && (!hasSubmittedImage || isReplacing);
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -91,7 +115,6 @@ export default function DepositPaymentModal({
     setSelectedFile(file);
     setPreviewUrl(URL.createObjectURL(file));
   };
-
   const handleSubmit = async () => {
     if (!selectedFile || !booking) return;
     if (!phone) {
@@ -140,9 +163,11 @@ export default function DepositPaymentModal({
         <h2 id="deposit-modal-title">
           {readOnly
             ? "Deposit payment slip"
-            : hasSubmittedImage && !isReplacing
-              ? "Deposit submitted"
-              : "Pay your seat deposit"}
+            : showWaivedPanel
+              ? "No deposit required"
+              : hasSubmittedImage && !isReplacing
+                ? "Deposit submitted"
+                : "Pay your seat deposit"}
         </h2>
 
         <div className="deposit-modal__booking-summary">
@@ -165,52 +190,116 @@ export default function DepositPaymentModal({
             <ImageIcon size={32} />
             <p>No deposit slip has been submitted for this booking yet.</p>
           </div>
+        ) : showWaivedPanel ? (
+          <div className="deposit-modal__waived">
+            <Crown size={32} />
+            <p>
+              Your loyalty tier waives the seat deposit entirely. No payment is
+              needed — you're all set!
+            </p>
+          </div>
         ) : showUploadForm ? (
           <div className="deposit-modal__upload">
             <p className="deposit-modal__hint">
-              Transfer the seat deposit to our account, then upload a photo or
-              screenshot of the payment slip to secure your slot.
+              Transfer {depositPercent}% of the seat deposit to our account,
+              then upload a photo or screenshot of the payment slip to secure
+              your slot.
             </p>
 
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="sr-only"
-              onChange={handleFileChange}
-              aria-label="Choose deposit slip image"
-            />
-
-            {previewUrl ? (
-              <div className="deposit-modal__preview">
-                <img src={previewUrl} alt="Selected deposit slip preview" />
-                <button
-                  className="secondary-button"
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isSubmitting}
-                >
-                  Choose another image
-                </button>
+            <div className="deposit-modal__columns">
+              <div className="deposit-modal__col deposit-modal__col--bank">
+                <div className="deposit-modal__bank-info">
+                  <img
+                    className="deposit-modal__qr"
+                    src={buildDepositQrUrl(booking.id, depositAmount)}
+                    alt="Scan to pay the seat deposit via bank transfer"
+                    width={180}
+                    height={180}
+                  />
+                  <dl className="deposit-modal__bank-details">
+                    <div>
+                      <dt>Bank</dt>
+                      <dd>{CAR_WASH_BANK_ACCOUNT.bankLabel}</dd>
+                    </div>
+                    <div>
+                      <dt>Account number</dt>
+                      <dd>
+                        {CAR_WASH_BANK_ACCOUNT.accountNumber}
+                        <button
+                          type="button"
+                          className="deposit-modal__copy-btn"
+                          onClick={() => {
+                            navigator.clipboard
+                              .writeText(CAR_WASH_BANK_ACCOUNT.accountNumber)
+                              .then(() => {
+                                setCopied(true);
+                                setTimeout(() => setCopied(false), 2000);
+                              });
+                          }}
+                          aria-label="Copy account number"
+                        >
+                          {copied ? <Check size={13} /> : <Copy size={13} />}
+                        </button>
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Account holder</dt>
+                      <dd>{CAR_WASH_BANK_ACCOUNT.accountName}</dd>
+                    </div>
+                    <div>
+                      <dt>Amount ({depositPercent}%)</dt>
+                      <dd>{depositAmount.toLocaleString("en-US")} VND</dd>
+                    </div>
+                    <div>
+                      <dt>Transfer note</dt>
+                      <dd>{buildDepositTransferNote(booking.id)}</dd>
+                    </div>
+                  </dl>
+                </div>
               </div>
-            ) : (
-              <button
-                className="deposit-modal__dropzone"
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isSubmitting}
-              >
-                <Upload size={22} />
-                <span>Tap to upload payment slip</span>
-                <small>JPG or PNG, up to 5 MB</small>
-              </button>
-            )}
 
-            {error && (
-              <p className="deposit-modal__error" role="alert">
-                {error}
-              </p>
-            )}
+              <div className="deposit-modal__col deposit-modal__col--upload">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={handleFileChange}
+                  aria-label="Choose deposit slip image"
+                />
+
+                {previewUrl ? (
+                  <div className="deposit-modal__preview">
+                    <img src={previewUrl} alt="Selected deposit slip preview" />
+                    <button
+                      className="secondary-button"
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isSubmitting}
+                    >
+                      Choose another image
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    className="deposit-modal__dropzone"
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isSubmitting}
+                  >
+                    <Upload size={22} />
+                    <span>Tap to upload payment slip</span>
+                    <small>JPG or PNG, up to 5 MB</small>
+                  </button>
+                )}
+
+                {error && (
+                  <p className="deposit-modal__error" role="alert">
+                    {error}
+                  </p>
+                )}
+              </div>
+            </div>
 
             <div className="modal-actions">
               {isReplacing && (

@@ -3,10 +3,11 @@ import "./booking-modal.component.scss";
 import type { DashboardResponse } from "../../models/customer.model";
 import type { ServiceOption } from "../../models/service.model";
 import type { Vehicle, VehicleType } from "../../models/vehicle.model";
-import type { ClaimedPromo } from "../../models/promo.model";
+import type { ClaimedPromo, Promotion } from "../../models/promo.model";
 import {
   fetchClaimedPromos,
   fetchCustomerLookup,
+  fetchPublicPromotions,
   fetchPublicServices,
   fetchPublicSlots,
 } from "../../services/loyalty.service";
@@ -257,36 +258,44 @@ export default function BookingModal({
     }
   }, [initialSlot]);
 
-  // Autofill contact + latest used vehicle from the logged-in customer
+  // Autofill contact + latest used vehicle from the logged-in customer and reset transient selections
   useEffect(() => {
-    if (!visible || !customer) return;
+    if (!visible) {
+      // Reset service selection, promo selection, and errors when modal closes
+      setSelectedPromoId("");
+      setError(null);
+      return;
+    }
 
-    setPhone((current) => current || customer.phone || "");
-    setFullName((current) => current || customer.fullName || "");
-    setEmail((current) => current || customer.email || "");
-    setRecognizedCustomer({
-      name: customer.fullName || customer.phone,
-      tier: customer.tier?.name || customer.tier?.level,
-      points: customer.pointsBalance,
-    });
+    // Reset error & promo when opening
+    setError(null);
+    setSelectedPromoId("");
 
-    const vehicle = pickLatestUsedVehicle(customer);
-    if (vehicle) {
-      setPlate((current) => current || vehicle.plate);
-      setModel((current) => current || vehicle.model);
-      setType(vehicle.type ?? "car");
+    if (customer) {
+      setPhone(customer.phone || "");
+      setFullName(customer.fullName || "");
+      setEmail(customer.email || "");
+      setRecognizedCustomer({
+        name: customer.fullName || customer.phone,
+        tier: customer.tier?.name || customer.tier?.level,
+        points: customer.pointsBalance,
+      });
+
+      const vehicle = pickLatestUsedVehicle(customer);
+      if (vehicle) {
+        setPlate(vehicle.plate);
+        setModel(vehicle.model);
+        setType(vehicle.type ?? "car");
+      }
     }
   }, [visible, customer]);
 
-  // Load bookable slots and keep only future, non-full, non-maintenance ones
+  // Load bookable slots (keep all slots for schedule continuity checks)
   useEffect(() => {
     if (!visible) return;
     fetchPublicSlots(14)
       .then((data) => {
-        const upcoming = (data as unknown as DaySlot[]).filter(
-          (slot) => slot.status === "available" && slot.isAvailable !== false,
-        );
-        setDaySlots(upcoming);
+        setDaySlots(data as unknown as DaySlot[]);
       })
       .catch(() => setDaySlots([]));
   }, [visible]);
@@ -315,16 +324,77 @@ export default function BookingModal({
       });
   }, [visible]);
 
-  // Load the customer's claimed promos so they can be applied to this booking
+  // Load the customer's claimed promos + active global promos so they can be applied to this booking
   useEffect(() => {
+    if (!visible) return;
+
     const cleanPhone = phone.trim();
-    if (!visible || cleanPhone.length < 7) {
-      setPromos([]);
-      return;
-    }
-    fetchClaimedPromos(cleanPhone)
-      .then((data) => setPromos(data ?? []))
-      .catch(() => setPromos([]));
+    const fetchVouchers =
+      cleanPhone.length >= 7
+        ? fetchClaimedPromos(cleanPhone).catch(() => [] as ClaimedPromo[])
+        : Promise.resolve([] as ClaimedPromo[]);
+
+    const fetchGlobals = fetchPublicPromotions().catch(() => [] as Promotion[]);
+
+    Promise.all([fetchVouchers, fetchGlobals]).then(([vouchers, publicPromos]) => {
+      // Filter out used or expired claimed vouchers
+      const activeVouchers = (vouchers ?? []).filter(
+        (v) => v.status === "ACTIVE",
+      );
+
+      // Track all promo IDs that the customer has claimed/used
+      const usedOrClaimedPromoIds = new Set(
+        (vouchers ?? []).map((v) => v.promoId),
+      );
+
+      // Map active global promos (free, member/all tiers) into promo options
+      const globalOptions: ClaimedPromo[] = (publicPromos || [])
+        .filter((p: Promotion) => {
+          const tiers = p.applicableTiers || [];
+          const isGlobalTier =
+            tiers.length === 0 ||
+            tiers.map((t: string) => t.toLowerCase()).includes("member") ||
+            p.category === "new_member";
+          const isFree = !p.pointPrice || Number(p.pointPrice) === 0;
+          const isInfinite = p.isInfiniteUse || p.isInifiteUse || false;
+
+          // If not infinite use, only include if user hasn't used/claimed it before
+          if (!isInfinite && usedOrClaimedPromoIds.has(p.id)) {
+            return false;
+          }
+
+          return (
+            isGlobalTier &&
+            isFree &&
+            p.category !== "tier_reward" &&
+            p.isActive !== false
+          );
+        })
+        .map((p: Promotion) => ({
+          id: p.id,
+          promoId: p.id,
+          title: p.title || p.name,
+          description: p.description,
+          claimedAt: new Date().toISOString(),
+          validUntil: p.validUntil || p.endDate || "2026-12-31",
+          status: "ACTIVE" as const,
+          perkIdentifier: p.id,
+          promoType: p.promoType,
+          discountPercentage: p.discountPercentage,
+          discountAmount: p.discountAmount,
+          bonusPoints: p.bonusPoints,
+          applicableServiceIds: p.applicableServiceIds,
+        }));
+
+      // Combine user active vouchers and global promotions, avoiding duplicates by promoId
+      const combined = [...activeVouchers];
+      for (const gp of globalOptions) {
+        if (!combined.some((c) => c.promoId === gp.promoId || c.id === gp.id)) {
+          combined.push(gp);
+        }
+      }
+      setPromos(combined);
+    });
   }, [visible, phone]);
 
   // Recognize walk-in customers typed in manually
@@ -359,39 +429,6 @@ export default function BookingModal({
     return () => clearTimeout(timer);
   }, [phone, customer]);
 
-  const dateOptions = useMemo(() => {
-    const seen = new Map<string, DaySlot>();
-    for (const slot of daySlots) {
-      if (!seen.has(slot.date)) seen.set(slot.date, slot);
-    }
-    return Array.from(seen.values()).sort((a, b) =>
-      a.date.localeCompare(b.date),
-    );
-  }, [daySlots]);
-
-  const timeOptions = useMemo(
-    () =>
-      daySlots
-        .filter((slot) => slot.date === selectedDate)
-        .sort((a, b) => a.time.localeCompare(b.time)),
-    [daySlots, selectedDate],
-  );
-
-  // Default the date/time selects to the first available option once slots load
-  useEffect(() => {
-    if (dateOptions.length === 0) return;
-    if (!dateOptions.some((option) => option.date === selectedDate)) {
-      setSelectedDate(dateOptions[0].date);
-    }
-  }, [dateOptions, selectedDate]);
-
-  useEffect(() => {
-    if (timeOptions.length === 0) return;
-    if (!timeOptions.some((option) => option.time === selectedTime)) {
-      setSelectedTime(timeOptions[0].time);
-    }
-  }, [timeOptions, selectedTime]);
-
   const selectedServiceItems = useMemo(
     () => services.filter((service) => selectedServices.includes(service.id)),
     [services, selectedServices],
@@ -411,7 +448,67 @@ export default function BookingModal({
     [selectedServiceItems],
   );
 
-  const totalSlots = Math.ceil(totalMinutes / SLOT_DURATION_MINUTES);
+  const totalSlots = Math.ceil(totalMinutes / SLOT_DURATION_MINUTES) || 1;
+
+  // Check whether `totalSlots` consecutive slots starting from `startTime` are available on `dateStr`
+  const checkConsecutiveSlotsAvailability = useMemo(() => {
+    return (dateStr: string, startTime: string, neededSlots: number) => {
+      const allSlotsOnDate = daySlots
+        .filter((slot) => slot.date === dateStr)
+        .sort((a, b) => a.time.localeCompare(b.time));
+
+      const startIndex = allSlotsOnDate.findIndex((s) => s.time === startTime);
+      if (startIndex === -1) return false;
+      if (startIndex + neededSlots > allSlotsOnDate.length) return false;
+
+      for (let i = 0; i < neededSlots; i++) {
+        const slot = allSlotsOnDate[startIndex + i];
+        if (slot.status !== "available" || slot.isAvailable === false) {
+          return false;
+        }
+      }
+      return true;
+    };
+  }, [daySlots]);
+
+  const dateOptions = useMemo(() => {
+    const seen = new Map<string, DaySlot>();
+    for (const slot of daySlots) {
+      if (!seen.has(slot.date)) seen.set(slot.date, slot);
+    }
+    return Array.from(seen.values()).sort((a, b) =>
+      a.date.localeCompare(b.date),
+    );
+  }, [daySlots]);
+
+  // Filter selectable timeslots: only those where all consecutive `totalSlots` are free
+  const timeOptions = useMemo(() => {
+    const slotsOnDate = daySlots
+      .filter((slot) => slot.date === selectedDate)
+      .sort((a, b) => a.time.localeCompare(b.time));
+
+    return slotsOnDate.filter((slot) =>
+      checkConsecutiveSlotsAvailability(selectedDate, slot.time, totalSlots),
+    );
+  }, [daySlots, selectedDate, totalSlots, checkConsecutiveSlotsAvailability]);
+
+  // Default the date/time selects to the first available option once slots load
+  useEffect(() => {
+    if (dateOptions.length === 0) return;
+    if (!dateOptions.some((option) => option.date === selectedDate)) {
+      setSelectedDate(dateOptions[0].date);
+    }
+  }, [dateOptions, selectedDate]);
+
+  useEffect(() => {
+    if (timeOptions.length === 0) {
+      setSelectedTime("");
+      return;
+    }
+    if (!timeOptions.some((option) => option.time === selectedTime)) {
+      setSelectedTime(timeOptions[0].time);
+    }
+  }, [timeOptions, selectedTime]);
 
   const selectedSlotLabel = useMemo(() => {
     const dayInfo = dateOptions.find((option) => option.date === selectedDate);
@@ -468,6 +565,12 @@ export default function BookingModal({
       setError("Select an available date and timeslot.");
       return;
     }
+    if (!checkConsecutiveSlotsAvailability(selectedDate, selectedTime, totalSlots)) {
+      setError(
+        `The selected ${totalMinutes}-minute service duration (${totalSlots} slot${totalSlots > 1 ? "s" : ""}) overlaps with other occupied slots or exceeds operating hours. Please choose another timeslot.`,
+      );
+      return;
+    }
     if (selectedServices.length === 0) {
       setError("Select at least one service.");
       return;
@@ -478,6 +581,14 @@ export default function BookingModal({
     }
 
     const formattedPlate = formatVietnamesePlate(plate);
+
+    // Reset promo and services to defaults upon booking confirmation
+    setSelectedPromoId("");
+    if (services.length > 0) {
+      setSelectedServices([services[0].id]);
+    } else {
+      setSelectedServices([]);
+    }
 
     onConfirm({
       date: selectedDate,

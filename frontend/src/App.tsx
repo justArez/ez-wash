@@ -29,7 +29,10 @@ import {
   loadAdminUserInfo,
   clearAdminUserInfo,
 } from "./services/admin-auth.service";
-import type { DashboardResponse, LinkAccountRequest } from "./models/customer.model";
+import type {
+  DashboardResponse,
+  LinkAccountRequest,
+} from "./models/customer.model";
 import type { ServiceOption } from "./models/service.model";
 import "./App.css";
 
@@ -291,6 +294,8 @@ function App() {
     selectedServices,
     phone,
     appliedPromoId,
+    totalMinutes,
+    totalCost,
   }: BookingModalSubmission) => {
     setShowBookingModal(false);
     setSelectedBookingSlot(null);
@@ -311,6 +316,8 @@ function App() {
         vehiclePlate: vehicle.plate,
         requestedDate: date,
         serviceId: selectedServices?.[0],
+        serviceIds: selectedServices,
+        durationMinutes: totalMinutes,
         time,
         appliedPromoId,
       });
@@ -329,15 +336,21 @@ function App() {
       }
 
       // Offer the seat-deposit payment slip upload right after confirmation
+      const serviceLabels = selectedServices
+        .map((id) => serviceOptions.find((opt) => opt.id === id)?.label)
+        .filter(Boolean)
+        .join(", ");
       const primaryService = serviceOptions.find(
         (option) => option.id === selectedServices?.[0],
       );
       setDepositBooking({
         id: result.booking.id,
-        serviceName: primaryService?.label,
+        serviceName:
+          serviceLabels || primaryService?.label || "Car Wash Service",
         date,
         timeSlot: time,
         vehiclePlate: vehicle.plate,
+        bookingPrice: totalCost ?? primaryService?.price,
         depositImageUrl: result.booking.depositImageUrl,
         depositSubmittedAt: result.booking.depositSubmittedAt,
       });
@@ -489,6 +502,7 @@ function App() {
         visible={Boolean(depositBooking)}
         booking={depositBooking}
         phone={dashboard?.phone}
+        tierId={dashboard?.tier?.id}
         onClose={() => setDepositBooking(null)}
         onSubmitted={async () => {
           setDepositBooking(null);

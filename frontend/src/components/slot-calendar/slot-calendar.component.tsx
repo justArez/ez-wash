@@ -139,6 +139,11 @@ const getClosestTime = (times: string[]): string | null => {
   return closest;
 };
 
+function timeToMinutes(timeStr: string): number {
+  const [h, m] = timeStr.split(":").map(Number);
+  return h * 60 + m;
+}
+
 const addComputedFields = (slot: TimeSlot): TimeSlotWithComputedFields => {
   const isPast = isPastSlot(slot);
   const effectiveStatus =
@@ -339,15 +344,69 @@ export const SlotCalendar: React.FC<SlotCalendarProps> = ({
           const existingSlot = apiSlotMap.get(key);
           const isPast = isPastSlot({ date: dayInfo.dateStr, time });
           const displayTime = formatDisplayTime(time);
+          const currentSlotMinutes = timeToMinutes(time);
 
+          // Find any active booking by this user covering this slot interval: [start, start + duration)
+          // Only user bookings with "confirmed" or "pending" status count as user booked (blue mark)
           const matchingUserBookings = allUserBookings.filter((b) => {
-            if (b.status === "cancelled") return false;
+            const status = (b.status || "").toLowerCase();
+            if (status !== "confirmed" && status !== "pending") return false;
             const bDate = normalizeBookingDate(b.date);
+            if (bDate !== dayInfo.dateStr) return false;
             const bTime = normalizeTimeTo24h(b.time || b.timeSlot);
-            return bDate === dayInfo.dateStr && bTime === time;
+            if (!bTime) return false;
+            const bStart = timeToMinutes(bTime);
+            const bDuration =
+              b.durationMinutes && b.durationMinutes > 0
+                ? b.durationMinutes
+                : 30;
+            return (
+              currentSlotMinutes >= bStart &&
+              currentSlotMinutes < bStart + bDuration
+            );
           });
 
           const isUserBooked = matchingUserBookings.length > 0;
+
+          // Compute user booking position and status for multi-slot connection styling
+          let userBookingPosition:
+            | "single"
+            | "start"
+            | "middle"
+            | "end"
+            | undefined = undefined;
+          let userBookingDurationMinutes: number | undefined = undefined;
+          let userBookingStatus: "confirmed" | "pending" | undefined =
+            undefined;
+
+          if (isUserBooked) {
+            const primaryBooking = matchingUserBookings[0];
+            userBookingStatus =
+              primaryBooking.status === "pending" ? "pending" : "confirmed";
+            const bTime = normalizeTimeTo24h(
+              primaryBooking.time || primaryBooking.timeSlot,
+            );
+            const bStart = bTime ? timeToMinutes(bTime) : currentSlotMinutes;
+            const bDuration =
+              primaryBooking.durationMinutes &&
+              primaryBooking.durationMinutes > 0
+                ? primaryBooking.durationMinutes
+                : 30;
+            userBookingDurationMinutes = bDuration;
+
+            const isStart = currentSlotMinutes === bStart;
+            const isEnd = currentSlotMinutes + 30 === bStart + bDuration;
+
+            if (bDuration <= 30 || (isStart && isEnd)) {
+              userBookingPosition = "single";
+            } else if (isStart) {
+              userBookingPosition = "start";
+            } else if (isEnd) {
+              userBookingPosition = "end";
+            } else {
+              userBookingPosition = "middle";
+            }
+          }
 
           if (existingSlot) {
             matrix.set(`${dayInfo.slotLabel}|${time}`, {
@@ -357,6 +416,9 @@ export const SlotCalendar: React.FC<SlotCalendarProps> = ({
                 ? `Requires ${requiredTier} tier (${dayInfo.dayIndex + 1}-day advance)`
                 : undefined,
               isUserBooked,
+              userBookingStatus,
+              userBookingPosition,
+              userBookingDurationMinutes,
               userBookingDetails: isUserBooked
                 ? matchingUserBookings
                 : undefined,
@@ -380,6 +442,9 @@ export const SlotCalendar: React.FC<SlotCalendarProps> = ({
                 ? `Requires ${requiredTier} tier (${dayInfo.dayIndex + 1}-day advance)`
                 : undefined,
               isUserBooked,
+              userBookingStatus,
+              userBookingPosition,
+              userBookingDurationMinutes,
               userBookingDetails: isUserBooked
                 ? matchingUserBookings
                 : undefined,
@@ -531,8 +596,12 @@ export const SlotCalendar: React.FC<SlotCalendarProps> = ({
       {!(error && slots.length === 0 && !loading) && (
         <div className="flex flex-wrap items-center justify-end gap-4 p-3 bg-gray-50/70 rounded-lg border border-gray-200/60">
           <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded border-2 border-blue-500 bg-blue-500 flex items-center justify-center"></div>
+            <div className="w-5 h-5 rounded border-2 border-blue-600 bg-blue-600 flex items-center justify-center"></div>
             <span className="text-xs font-semibold">Your Booking</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded bg-sky-300 flex items-center justify-center"></div>
+            <span className="text-xs font-semibold">Your Pending Booking</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-5 h-5 rounded border-2 border-green-500 bg-white" />

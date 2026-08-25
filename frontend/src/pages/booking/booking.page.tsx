@@ -46,6 +46,7 @@ export default function BookingPage({ dashboard }: BookingPageProps) {
   );
   const [depositBooking, setDepositBooking] =
     useState<DepositBookingInfo | null>(null);
+  const [isDepositReadOnly, setIsDepositReadOnly] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -107,6 +108,29 @@ export default function BookingPage({ dashboard }: BookingPageProps) {
       }).format(new Date(booking.date));
     }
     return "Time unavailable";
+  };
+
+  const resolveServiceForBooking = (booking: BookingRecord) =>
+    (booking.serviceId ? serviceMap.get(booking.serviceId) : undefined) ||
+    (booking.service ? serviceMap.get(booking.service.toLowerCase()) : undefined) ||
+    (booking.serviceName
+      ? serviceMap.get(booking.serviceName.toLowerCase())
+      : undefined);
+
+  const openBookingDetails = (booking: BookingRecord) => {
+    const srv = resolveServiceForBooking(booking);
+    setIsDepositReadOnly(true);
+    setDepositBooking({
+      id: booking.id,
+      serviceName:
+        srv?.name || booking.service || booking.serviceName || "Car Wash",
+      date: formatDate(booking.date),
+      timeSlot: formatTime(booking),
+      vehiclePlate: booking.vehiclePlate,
+      bookingPrice: srv ? srv.price : 15,
+      depositImageUrl: booking.depositImageUrl,
+      depositSubmittedAt: booking.depositSubmittedAt,
+    });
   };
 
   const getPointsDisplay = (booking: BookingRecord) => {
@@ -171,7 +195,7 @@ export default function BookingPage({ dashboard }: BookingPageProps) {
             getScheduledTime(left).getTime() -
             getScheduledTime(right).getTime(),
         )
-        .slice(0, 5),
+        .slice(0, 3),
     [bookings, now],
   );
 
@@ -331,7 +355,7 @@ export default function BookingPage({ dashboard }: BookingPageProps) {
                       <div className="booking-meta-item">
                         <Clock className="w-4 h-4 text-muted-foreground" />
                         <div>
-                          <span className="booking-meta-label">Time & Bay</span>
+                          <span className="booking-meta-label">Time</span>
                           <strong className="booking-meta-value">
                             {formatTime(booking)}
                             {booking.bayId ? ` · ${booking.bayId}` : ""}
@@ -344,10 +368,10 @@ export default function BookingPage({ dashboard }: BookingPageProps) {
                         <div>
                           <span className="booking-meta-label">Vehicle</span>
                           <strong className="booking-meta-value">
-                            {booking.vehiclePlate}
+                            {booking.vehiclePlate} -
                             {booking.vehicleModel
                               ? ` (${booking.vehicleModel})`
-                              : ""}
+                              : "Not provided"}
                           </strong>
                         </div>
                       </div>
@@ -392,17 +416,19 @@ export default function BookingPage({ dashboard }: BookingPageProps) {
                       <button
                         className="secondary-button booking-deposit-button"
                         type="button"
-                        onClick={() =>
+                        onClick={() => {
+                          setIsDepositReadOnly(false);
                           setDepositBooking({
                             id: booking.id,
                             serviceName: serviceDisplayName,
                             date: formatDate(booking.date),
                             timeSlot: formatTime(booking),
                             vehiclePlate: booking.vehiclePlate,
+                            bookingPrice: srv ? srv.price : 15,
                             depositImageUrl: booking.depositImageUrl,
                             depositSubmittedAt: booking.depositSubmittedAt,
-                          })
-                        }
+                          });
+                        }}
                         aria-label={`Seat deposit for booking on ${formatDate(booking.date)}`}
                       >
                         <Wallet className="w-4 h-4" />
@@ -473,7 +499,20 @@ export default function BookingPage({ dashboard }: BookingPageProps) {
                   </thead>
                   <tbody>
                     {paginatedHistory.map((booking) => (
-                      <tr key={booking.id}>
+                      <tr
+                        key={booking.id}
+                        className="booking-table-row-clickable"
+                        tabIndex={0}
+                        role="button"
+                        onClick={() => openBookingDetails(booking)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            openBookingDetails(booking);
+                          }
+                        }}
+                        aria-label={`View details for booking on ${formatDate(booking.date)}`}
+                      >
                         <td data-label="ID">{booking.id.slice(0, 8)}</td>
                         <td data-label="Date">{formatDate(booking.date)}</td>
                         <td data-label="Time">{formatTime(booking)}</td>
@@ -544,7 +583,12 @@ export default function BookingPage({ dashboard }: BookingPageProps) {
           visible={Boolean(depositBooking)}
           booking={depositBooking}
           phone={dashboard.phone}
-          onClose={() => setDepositBooking(null)}
+          tierId={dashboard.tier?.id}
+          readOnly={isDepositReadOnly}
+          onClose={() => {
+            setDepositBooking(null);
+            setIsDepositReadOnly(false);
+          }}
           onSubmitted={(bookingId, imageUrl) => {
             setBookings((current) =>
               current.map((booking) =>

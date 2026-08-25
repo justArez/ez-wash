@@ -121,7 +121,7 @@ export const PromotionCard: React.FC<PromotionCardProps> = ({
     }
   };
 
-  const getTierBadge = (tier: string) => {
+  const getTierBadge = (tier?: string) => {
     switch (tier?.toUpperCase()) {
       case "PLATINUM":
         return (

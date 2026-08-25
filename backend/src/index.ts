@@ -30,6 +30,15 @@ const app = new Elysia()
     const status = set.status || 200;
     console.log(`[HTTP RESPONSE] 📤 ${method} ${url} - Status: ${status}`);
   })
+  .onError(({ error, request, set }) => {
+    const url = new URL(request.url).pathname;
+    console.error(`[HTTP ERROR] 💥 ${request.method} ${url}:`, error);
+    set.status = 500;
+    return {
+      error:
+        error instanceof Error ? error.message : "Internal server error.",
+    };
+  })
   .get("/", () => ({
     status: "online",
     service: "EZ-Wash API",

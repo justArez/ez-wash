@@ -18,9 +18,9 @@ const isPlaceholder = (value?: string) =>
 
 export const isStorageConfigured = Boolean(
   !isPlaceholder(endpoint) &&
-    !isPlaceholder(accessKeyId) &&
-    !isPlaceholder(secretAccessKey) &&
-    !isPlaceholder(publicBaseUrl),
+  !isPlaceholder(accessKeyId) &&
+  !isPlaceholder(secretAccessKey) &&
+  !isPlaceholder(publicBaseUrl),
 );
 
 let bucketEnsured = false;
@@ -41,10 +41,9 @@ async function ensureBucketIsPublic(): Promise<void> {
   };
 
   try {
-    const getRes = await fetch(
-      `${publicBaseUrl}/storage/v1/bucket/${bucket}`,
-      { headers },
-    );
+    const getRes = await fetch(`${publicBaseUrl}/storage/v1/bucket/${bucket}`, {
+      headers,
+    });
 
     if (getRes.status === 404) {
       await fetch(`${publicBaseUrl}/storage/v1/bucket`, {
@@ -83,7 +82,10 @@ function getClient(): S3Client {
     client = new S3Client({
       endpoint,
       region,
-      credentials: { accessKeyId: accessKeyId!, secretAccessKey: secretAccessKey! },
+      credentials: {
+        accessKeyId: accessKeyId!,
+        secretAccessKey: secretAccessKey!,
+      },
       forcePathStyle: true,
     });
   }

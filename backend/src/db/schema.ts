@@ -199,6 +199,7 @@ export const promotions = pgTable("promotions", {
   badgeLabel: text("badge_label"),
   bannerImage: text("banner_image"),
   terms: text("terms"),
+  isInfiniteUse: boolean("is_infinite_use").default(false).notNull(),
   startDate: timestamp("start_date", { withTimezone: true }).notNull(),
   endDate: timestamp("end_date", { withTimezone: true }).notNull(),
   status: promoStatusEnum("status").default("ACTIVE").notNull(),

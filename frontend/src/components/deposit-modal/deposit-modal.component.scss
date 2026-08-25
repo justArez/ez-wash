@@ -4,6 +4,10 @@
   padding: 28px;
   box-shadow: 0 24px 60px rgba(15, 13, 26, 0.25);
 
+  &.modal {
+    width: min(900px, 96vw);
+  }
+
   h2 {
     margin: 4px 0 16px;
   }
@@ -40,6 +44,89 @@
     font-size: 0.88rem;
     color: var(--text-secondary, #6b7280);
     margin: 0 0 14px;
+  }
+
+  &__columns {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+  }
+
+  &__col--bank {
+    flex: 0 0 380px;
+  }
+
+  &__col--upload {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  &__bank-info {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    padding: 14px;
+    border-radius: 16px;
+    border: 1px solid var(--border, #e5e7eb);
+    background: #f9fafb;
+    height: 100%;
+  }
+
+  &__qr {
+    flex-shrink: 0;
+    width: 120px;
+    height: 120px;
+    border-radius: 10px;
+    background: #fff;
+    border: 1px solid var(--border, #e5e7eb);
+  }
+
+  &__bank-details {
+    flex: 1;
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    min-width: 0;
+
+    div {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      font-size: 0.82rem;
+    }
+
+    dt {
+      color: var(--text-secondary, #6b7280);
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    dd {
+      margin: 0;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      overflow-wrap: anywhere;
+    }
+  }
+
+  &__copy-btn {
+    border: none;
+    background: rgba(124, 58, 237, 0.1);
+    color: var(--accent, #7c3aed);
+    border-radius: 6px;
+    padding: 3px;
+    display: inline-flex;
+    cursor: pointer;
+
+    &:hover {
+      background: rgba(124, 58, 237, 0.18);
+    }
   }
 
   &__dropzone {
@@ -126,6 +213,25 @@
     font-size: 0.9rem;
   }
 
+  &__waived {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 36px 16px;
+    color: var(--accent, #7c3aed);
+    text-align: center;
+    font-size: 0.95rem;
+    font-weight: 600;
+
+    p {
+      color: var(--text-secondary, #6b7280);
+      font-weight: 400;
+      max-width: 340px;
+      margin: 0;
+    }
+  }
+
   &__error {
     margin: 12px 0 0;
     font-size: 0.85rem;
@@ -146,5 +252,34 @@
 @keyframes deposit-modal-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 680px) {
+  .deposit-modal.modal {
+    width: min(480px, 100%);
+  }
+
+  .deposit-modal__columns {
+    flex-direction: column;
+  }
+
+  .deposit-modal__col--bank {
+    flex-basis: auto;
+    width: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  .deposit-modal__bank-info {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .deposit-modal__qr {
+    width: 100%;
+    height: auto;
+    max-width: 180px;
+    margin: 0 auto;
   }
 }

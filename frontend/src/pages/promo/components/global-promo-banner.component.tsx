@@ -26,7 +26,9 @@ export const GlobalPromoBanner: React.FC<GlobalPromoBannerProps> = ({
   if (!promotions || promotions.length === 0) return null;
 
   // Take 3-6 featured global promos for carousel
-  const featuredPromos = promotions.slice(0, 6);
+  const featuredPromos = promotions
+    // .filter((promo) => promo.promoType)
+    .slice(0, 6);
   const safeIndex = currentIndex >= featuredPromos.length ? 0 : currentIndex;
   const current = featuredPromos[safeIndex];
 

@@ -42,9 +42,9 @@
 }
 
 .booking-card-grid {
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-	gap: 20px;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
 }
 
 .booking-card-featured {
@@ -274,6 +274,21 @@
 
 	td {
 		color: var(--text);
+	}
+}
+
+.booking-table-row-clickable {
+	cursor: pointer;
+	transition: background-color 0.15s ease;
+
+	&:hover,
+	&:focus-visible {
+		background-color: rgba(59, 130, 246, 0.06);
+	}
+
+	&:focus-visible {
+		outline: 2px solid var(--primary, #3b82f6);
+		outline-offset: -2px;
 	}
 }
 

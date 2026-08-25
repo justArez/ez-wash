@@ -74,17 +74,24 @@ export async function generateSlotsForDate(
     throw new Error("Database connection is not available.");
   }
 
+  // Public slot occupancy only counts confirmed bookings (pending bookings from other users are hidden and not occupying public bays)
   const dateBookings = await db
     .select()
     .from(schema.bookings)
     .where(
-      sql`(${schema.bookings.status} = 'confirmed' OR ${schema.bookings.status} = 'pending') AND ${schema.bookings.date}::date = ${dateStr}::date`,
+      sql`${schema.bookings.status} = 'confirmed' AND ${schema.bookings.date}::date = ${dateStr}::date`,
     );
 
   const activeBlocks = await fetchScheduleBlocks({ date: dateStr });
   const dayBlocks = activeBlocks.filter((b) => b.isActive);
 
   return computeSlotsForDate(dateStr, dateBookings, dayBlocks);
+}
+
+// Helper to convert "HH:MM" to minutes from midnight
+function timeToMinutes(timeStr: string): number {
+  const [h, m] = timeStr.split(":").map(Number);
+  return h * 60 + m;
 }
 
 function computeSlotsForDate(
@@ -103,6 +110,7 @@ function computeSlotsForDate(
 
     const slotStart = new Date(`${dateStr}T${timeStr}:00`);
     const isPast = slotStart.getTime() < now.getTime();
+    const currentSlotMinutes = timeToMinutes(timeStr);
 
     // Check schedule blocks for this specific slot
     const matchingBlocks = scheduleBlocks.filter((b) => {
@@ -140,9 +148,18 @@ function computeSlotsForDate(
         ? 0
         : Math.max(0, TOTAL_BAY_CAPACITY - blockedBays.size);
 
-    const slotBookings = dateBookings.filter(
-      (b) => normalizeTimeTo24h(b.timeSlot) === timeStr,
-    );
+    // An appointment occupies this timeslot if:
+    // bookingStart <= currentSlotMinutes < bookingStart + durationMinutes
+    const slotBookings = dateBookings.filter((b) => {
+      const normalizedTime = normalizeTimeTo24h(b.timeSlot);
+      if (!normalizedTime) return false;
+      const bStart = timeToMinutes(normalizedTime);
+      const bDuration =
+        b.durationMinutes && b.durationMinutes > 0 ? b.durationMinutes : 30;
+      return (
+        currentSlotMinutes >= bStart && currentSlotMinutes < bStart + bDuration
+      );
+    });
 
     const currentBookings = slotBookings.length;
     let status: "available" | "booked" | "maintenance" = "available";
@@ -204,11 +221,12 @@ export async function getSlotsForDays(
   const rangeEnd = dateStrs[dateStrs.length - 1];
 
   // Single query for the whole range instead of one query per day (was causing multi-second latency for 14-day fetches).
+  // Only confirmed bookings occupy public bays so other users do not see pending bookings
   const rangeBookings = await db
     .select()
     .from(schema.bookings)
     .where(
-      sql`(${schema.bookings.status} = 'confirmed' OR ${schema.bookings.status} = 'pending') AND ${schema.bookings.date}::date BETWEEN ${rangeStart}::date AND ${rangeEnd}::date`,
+      sql`${schema.bookings.status} = 'confirmed' AND ${schema.bookings.date}::date BETWEEN ${rangeStart}::date AND ${rangeEnd}::date`,
     );
 
   const activeBlocks = await fetchScheduleBlocks();

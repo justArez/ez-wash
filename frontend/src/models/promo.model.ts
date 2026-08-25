@@ -38,6 +38,8 @@ export interface GlobalPromotion {
   applicableDaysOfWeek?: number[]; // 0=Sun, 1=Mon, ..., 6=Sat
   dedicatedDate?: string;
   badgeLabel?: string;
+  isInfiniteUse?: boolean;
+  isInifiteUse?: boolean;
   validUntil: string;
   isActive: boolean;
 }
@@ -107,7 +109,13 @@ export interface Promotion {
   promoName?: string;
   description: string;
   category?: PromotionCategory;
+  promoType?: PromotionType;
   discountPercentage?: number;
+  discountAmount?: number;
+  bonusPoints?: number;
+  applicableServiceIds?: string[];
+  applicableDaysOfWeek?: number[];
+  dedicatedDate?: string;
   pointPrice?: number | string;
   loyaltyPointsRequired?: number;
   loyaltyPointsValue?: number;
@@ -120,6 +128,8 @@ export interface Promotion {
   badgeLabel?: string;
   bannerImage?: string;
   terms?: string;
+  isInfiniteUse?: boolean;
+  isInifiteUse?: boolean;
   validityDays?: number;
   startDate?: string;
   endDate?: string;

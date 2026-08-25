@@ -265,7 +265,7 @@ export default function AuthModal({
           <h2>{mode === "sign-in" ? "Sign In" : "Sign Up"}</h2>
           <p>
             {mode === "sign-in"
-              ? "Continue with your username/phone and password. Demo account: 555-0100."
+              ? "Continue with your username/phone and password."
               : "Create your EzWash account and start booking."}
           </p>
         </div>

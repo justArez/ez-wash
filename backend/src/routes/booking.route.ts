@@ -13,6 +13,8 @@ export function registerBookingRoutes(app: any) {
       vehiclePlate: string;
       requestedDate: string;
       serviceId?: string;
+      serviceIds?: string[];
+      durationMinutes?: number;
       timeSlot?: string;
       time?: string;
       appliedPromoId?: string;
@@ -49,8 +51,10 @@ export function registerBookingRoutes(app: any) {
     }
   });
 
-  app.get("/api/bookings/my-bookings", async (ctx: any) => {
-    const phone = ctx.query?.phone as string | undefined;
+  const handleFetchCustomerBookings = async (ctx: any) => {
+    const phone = (ctx.query?.phone || ctx.query?.identifier) as
+      | string
+      | undefined;
     if (!phone) {
       return new Response(
         JSON.stringify({ error: "Phone query parameter is required." }),
@@ -88,7 +92,10 @@ export function registerBookingRoutes(app: any) {
         },
       );
     }
-  });
+  };
+
+  app.get("/api/bookings/my-bookings", handleFetchCustomerBookings);
+  app.get("/api/bookings/user", handleFetchCustomerBookings);
 
   app.post("/api/bookings/:bookingId/cancel", async (ctx: any) => {
     const { phone } = (await ctx.body) as { phone?: string };
@@ -157,13 +164,10 @@ export function registerBookingRoutes(app: any) {
     const bookingId = ctx.params?.bookingId as string | undefined;
 
     if (!bookingId) {
-      return new Response(
-        JSON.stringify({ error: "bookingId is required." }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        },
-      );
+      return new Response(JSON.stringify({ error: "bookingId is required." }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     const body = (await ctx.body) as { phone?: string; file?: File };

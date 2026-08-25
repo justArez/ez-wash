@@ -67,6 +67,10 @@ export interface BookingRequest {
   vehiclePlate: string;
   requestedDate: string;
   serviceId?: string;
+  serviceIds?: string[];
+  durationMinutes?: number;
   time?: string;
+  timeSlot?: string;
   appliedPromoId?: string;
+  note?: string;
 }

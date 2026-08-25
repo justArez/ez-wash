@@ -62,15 +62,21 @@ export default function PromoPage({
     fetchPublicPromotions()
       .then((data) => {
         if (data && data.length > 0) {
-          // Map to global promotions
+          // Map to global promotions (applicable to all members / general promotions without specific tier restrictions or point cost)
           const globals: GlobalPromotion[] = data
-            .filter(
-              (p) =>
-                p.category === "discount" ||
-                p.category === "new_member" ||
-                !p.requiredTier ||
-                p.pointPrice === 0,
-            )
+            .filter((p) => {
+              const tiers = p.applicableTiers || [];
+              const isGlobalTier =
+                tiers.length === 0 ||
+                tiers.map((t) => t.toLowerCase()).includes("member") ||
+                p.category === "new_member";
+              const isFreeOrGeneral =
+                !p.pointPrice || Number(p.pointPrice) === 0;
+
+              return (
+                isGlobalTier && isFreeOrGeneral && p.category !== "tier_reward"
+              );
+            })
             .map((p) => ({
               id: p.id,
               title: p.title || p.name,
@@ -261,7 +267,7 @@ export default function PromoPage({
 
         {/* Section 2: Your Promos (Claimed) */}
         <ClaimedPromosSection
-          claimedPromos={claimedPromos}
+          claimedPromos={claimedPromos.filter((p) => p.status === "ACTIVE")}
           onUseNow={handleUseClaimedPromo}
           isLoggedIn={isLoggedIn}
         />

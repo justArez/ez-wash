@@ -6,7 +6,8 @@ import {
 } from "./loyalty.service";
 import { findCustomerRecord } from "./customer.service";
 import { getTier } from "./tier.service";
-import { fetchServiceById } from "./service.service";
+import { fetchServiceById, fetchAllServices } from "./service.service";
+import { generateSlotsForDate } from "./slot.service";
 import { db, schema } from "../db/index";
 import { sql, eq } from "drizzle-orm";
 
@@ -46,6 +47,8 @@ export async function createPublicBooking(params: {
   vehiclePlate: string;
   requestedDate: string;
   serviceId?: string;
+  serviceIds?: string[];
+  durationMinutes?: number;
   timeSlot?: string;
   time?: string;
   appliedPromoId?: string;
@@ -60,35 +63,151 @@ export async function createPublicBooking(params: {
     vehiclePlate,
     requestedDate,
     serviceId,
+    serviceIds,
     timeSlot,
     time,
     appliedPromoId,
     note,
   } = params;
 
+  const targetTime = timeSlot || time;
+
+  // Determine all services and calculate total duration
+  const allServiceIds: string[] = [];
+  if (Array.isArray(serviceIds) && serviceIds.length > 0) {
+    allServiceIds.push(...serviceIds);
+  } else if (serviceId) {
+    allServiceIds.push(serviceId);
+  }
+
+  let totalDuration = params.durationMinutes || 0;
+  let primaryServiceName = "";
+  let primaryServiceId = allServiceIds[0] || serviceId;
+
+  if (allServiceIds.length > 0) {
+    const fetchedServices = await Promise.all(
+      allServiceIds.map((id) => fetchServiceById(id)),
+    );
+    const validServices = fetchedServices.filter(
+      (s): s is NonNullable<typeof s> => Boolean(s),
+    );
+
+    if (validServices.length > 0) {
+      primaryServiceId = validServices[0].id;
+      primaryServiceName = validServices.map((s) => s.name).join(", ");
+      if (!params.durationMinutes) {
+        totalDuration = validServices.reduce(
+          (sum, s) => sum + (s.durationMinutes || 30),
+          0,
+        );
+      }
+    }
+  }
+
+  if (totalDuration <= 0) {
+    totalDuration = 30;
+  }
+
+  // Check multi-slot availability before creating booking if targetTime is provided
+  if (targetTime && requestedDate) {
+    const daySlots = await generateSlotsForDate(requestedDate);
+    const neededSlotsCount = Math.ceil(totalDuration / 30);
+    const startIndex = daySlots.findIndex((s) => s.time === targetTime);
+
+    if (startIndex === -1) {
+      throw new Error(`Timeslot ${targetTime} is not within operating hours.`);
+    }
+
+    if (startIndex + neededSlotsCount > daySlots.length) {
+      throw new Error(
+        `Selected services take ${totalDuration} minutes which exceeds daily operating hours.`,
+      );
+    }
+
+    // Verify each consecutive slot has available bay capacity
+    for (let i = 0; i < neededSlotsCount; i++) {
+      const slot = daySlots[startIndex + i];
+      if (
+        !slot.isAvailable ||
+        slot.status === "booked" ||
+        slot.status === "maintenance"
+      ) {
+        throw new Error(
+          `Timeslot ${slot.time} (${slot.displayTime}) is already fully booked or unavailable for the required ${totalDuration}-minute duration.`,
+        );
+      }
+    }
+  }
+
   const result = await createLoyaltyBooking(phone, vehiclePlate, requestedDate);
   if (result.success && result.booking) {
     const updates: Record<string, unknown> = {};
 
-    if (serviceId) {
-      result.booking.serviceId = serviceId;
-      const srv = await fetchServiceById(serviceId);
-      if (srv) {
-        result.booking.serviceName = srv.name;
-        result.booking.service = srv.name;
-        result.booking.durationMinutes = srv.durationMinutes;
-        updates.serviceId = serviceId;
-        updates.durationMinutes = srv.durationMinutes;
-      }
+    if (primaryServiceId) {
+      result.booking.serviceId = primaryServiceId;
+      updates.serviceId = primaryServiceId;
     }
-    if (timeSlot || time) {
-      result.booking.timeSlot = timeSlot || time;
-      result.booking.time = timeSlot || time;
-      updates.timeSlot = timeSlot || time;
+    if (primaryServiceName) {
+      result.booking.serviceName = primaryServiceName;
+      result.booking.service = primaryServiceName;
+    }
+    if (totalDuration) {
+      result.booking.durationMinutes = totalDuration;
+      updates.durationMinutes = totalDuration;
+    }
+
+    if (targetTime) {
+      result.booking.timeSlot = targetTime;
+      result.booking.time = targetTime;
+      updates.timeSlot = targetTime;
     }
     if (appliedPromoId) {
       result.booking.appliedPromoId = appliedPromoId;
       updates.appliedPromoId = appliedPromoId;
+
+      // Handle promo usage: mark as USED unless promo is infinite use
+      const customer = await findCustomerRecord(phone);
+      if (customer) {
+        // 1. Check if applied promo is a claimed voucher ID or promo ID
+        const existingClaimed = customer.claimedPromos?.find(
+          (c) => c.id === appliedPromoId || c.promoId === appliedPromoId,
+        );
+
+        const promoId = existingClaimed?.promoId || appliedPromoId;
+        const promoRows = await db
+          .select()
+          .from(schema.promotions)
+          .where(eq(schema.promotions.id, promoId))
+          .limit(1);
+        const promo = promoRows[0];
+
+        const isInfinite = promo?.isInfiniteUse ?? false;
+
+        if (!isInfinite) {
+          if (existingClaimed) {
+            // Update existing claimed voucher to USED
+            await db
+              .update(schema.claimedPromos)
+              .set({ status: "USED" })
+              .where(eq(schema.claimedPromos.id, existingClaimed.id));
+          } else if (promo) {
+            // Record the single-use of this global/public promo as USED
+            const claimedId = `used-${createId()}`;
+            const validUntilDate =
+              promo.endDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+            await db.insert(schema.claimedPromos).values({
+              id: claimedId,
+              promoId: promo.id,
+              customerId: customer.id,
+              title: promo.title || promo.name,
+              description: promo.description,
+              perkIdentifier: promo.id,
+              status: "USED",
+              validUntil: validUntilDate,
+            });
+          }
+        }
+      }
     }
     if (note) {
       result.booking.note = note;

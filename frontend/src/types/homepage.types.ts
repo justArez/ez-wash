@@ -65,11 +65,15 @@ export interface TimeSlotWithComputedFields extends TimeSlot {
   isTierLocked?: boolean; // Computed: outside logged-in customer's tier booking window
   tierLockReason?: string;
   isUserBooked?: boolean; // Computed: logged-in / current user has an active booking on this slot
+  userBookingStatus?: "confirmed" | "pending"; // Primary status of user's booking on this slot
+  userBookingPosition?: "single" | "start" | "middle" | "end";
+  userBookingDurationMinutes?: number;
   userBookingDetails?: Array<{
     id?: string;
     vehiclePlate?: string;
     service?: string;
     status?: string;
+    durationMinutes?: number;
   }>;
   slotLabel: string; // Computed: "${dayOfWeek} (${dayDisplayDate})"
   timeLabel: string; // Computed: displayTime
