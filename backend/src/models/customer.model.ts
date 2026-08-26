@@ -19,7 +19,8 @@ export interface LoyaltyCustomer {
   claimedPromos?: ClaimedPromo[];
   lateCancellationWarningCount?: number;
   priorityStatus?: PriorityStatus;
-  status?: "Active" | "Inactive" | "Low Priority";
+  status?: "Active" | "Inactive" | "Low Priority" | "Blocked";
+  blockedUntil?: string | null;
   fullName?: string;
   username?: string;
   password?: string;

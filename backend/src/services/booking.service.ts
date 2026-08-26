@@ -21,6 +21,15 @@ function mapBookingRow(r: typeof schema.bookings.$inferSelect): Booking {
     customerId: r.customerId,
     vehiclePlate: r.vehiclePlate,
     serviceId: r.serviceId || undefined,
+    serviceIds:
+      r.serviceIds && r.serviceIds.length > 0
+        ? r.serviceIds
+        : r.serviceId
+          ? [r.serviceId]
+          : undefined,
+    serviceName: r.serviceName || undefined,
+    service: r.serviceName || undefined,
+    bookingPrice: r.bookingPrice ?? undefined,
     date: r.date.toISOString().split("T")[0],
     time: r.timeSlot || undefined,
     timeSlot: r.timeSlot || undefined,
@@ -45,6 +54,8 @@ function mapBookingRow(r: typeof schema.bookings.$inferSelect): Booking {
 export async function createPublicBooking(params: {
   phone: string;
   vehiclePlate: string;
+  vehicleModel?: string;
+  vehicleType?: "car" | "motorcycle" | "suv" | "van";
   requestedDate: string;
   serviceId?: string;
   serviceIds?: string[];
@@ -61,6 +72,8 @@ export async function createPublicBooking(params: {
   const {
     phone,
     vehiclePlate,
+    vehicleModel,
+    vehicleType,
     requestedDate,
     serviceId,
     serviceIds,
@@ -83,6 +96,7 @@ export async function createPublicBooking(params: {
   let totalDuration = params.durationMinutes || 0;
   let primaryServiceName = "";
   let primaryServiceId = allServiceIds[0] || serviceId;
+  let totalRawPrice = 0;
 
   if (allServiceIds.length > 0) {
     const fetchedServices = await Promise.all(
@@ -95,6 +109,7 @@ export async function createPublicBooking(params: {
     if (validServices.length > 0) {
       primaryServiceId = validServices[0].id;
       primaryServiceName = validServices.map((s) => s.name).join(", ");
+      totalRawPrice = validServices.reduce((sum, s) => sum + (s.price || 0), 0);
       if (!params.durationMinutes) {
         totalDuration = validServices.reduce(
           (sum, s) => sum + (s.durationMinutes || 30),
@@ -141,8 +156,47 @@ export async function createPublicBooking(params: {
 
   const result = await createLoyaltyBooking(phone, vehiclePlate, requestedDate);
   if (result.success && result.booking) {
+    const customer = await findCustomerRecord(phone);
+    if (customer) {
+      const plateUpper = vehiclePlate.trim().toUpperCase();
+      const existingVehicle = await db
+        .select({ id: schema.vehicles.id, model: schema.vehicles.model })
+        .from(schema.vehicles)
+        .where(
+          sql`${schema.vehicles.customerId} = ${customer.id} AND upper(${schema.vehicles.plate}) = ${plateUpper}`,
+        )
+        .limit(1);
+
+      if (existingVehicle.length === 0) {
+        await db.insert(schema.vehicles).values({
+          id: createId(),
+          customerId: customer.id,
+          plate: plateUpper,
+          model: vehicleModel?.trim() || "Not provided",
+          type: vehicleType || "car",
+        });
+      } else if (
+        vehicleModel?.trim() &&
+        (!existingVehicle[0].model ||
+          existingVehicle[0].model === "Not provided" ||
+          existingVehicle[0].model === "Default Vehicle")
+      ) {
+        await db
+          .update(schema.vehicles)
+          .set({
+            model: vehicleModel.trim(),
+            ...(vehicleType ? { type: vehicleType } : {}),
+          })
+          .where(eq(schema.vehicles.id, existingVehicle[0].id));
+      }
+    }
+
     const updates: Record<string, unknown> = {};
 
+    if (allServiceIds.length > 0) {
+      result.booking.serviceIds = allServiceIds;
+      updates.serviceIds = allServiceIds;
+    }
     if (primaryServiceId) {
       result.booking.serviceId = primaryServiceId;
       updates.serviceId = primaryServiceId;
@@ -150,6 +204,11 @@ export async function createPublicBooking(params: {
     if (primaryServiceName) {
       result.booking.serviceName = primaryServiceName;
       result.booking.service = primaryServiceName;
+      updates.serviceName = primaryServiceName;
+    }
+    if (totalRawPrice > 0) {
+      result.booking.bookingPrice = totalRawPrice;
+      updates.bookingPrice = totalRawPrice;
     }
     if (totalDuration) {
       result.booking.durationMinutes = totalDuration;

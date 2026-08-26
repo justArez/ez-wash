@@ -8,7 +8,8 @@ export type AdminViewState =
   | "admin-services"
   | "admin-promo"
   | "admin-tier"
-  | "admin-users";
+  | "admin-users"
+  | "admin-banking";
 export type ViewState = CustomerViewState | AdminViewState;
 
 export interface RouteConfig {
@@ -73,6 +74,12 @@ export const ROUTES: Record<ViewState, RouteConfig> = {
     requiresAuth: true,
     isAdmin: true,
   },
+  "admin-banking": {
+    path: "/admin/banking",
+    view: "admin-banking",
+    requiresAuth: true,
+    isAdmin: true,
+  },
 };
 
 export const PATH_TO_VIEW: Record<string, ViewState> = {
@@ -87,6 +94,7 @@ export const PATH_TO_VIEW: Record<string, ViewState> = {
   "/admin/promo": "admin-promo",
   "/admin/tier": "admin-tier",
   "/admin/users": "admin-users",
+  "/admin/banking": "admin-banking",
 };
 
 /**

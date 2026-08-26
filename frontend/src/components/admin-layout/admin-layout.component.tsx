@@ -7,6 +7,7 @@ import {
   Tag,
   Crown,
   Users,
+  CreditCard,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -25,7 +26,8 @@ interface AdminLayoutProps {
     | "admin-services"
     | "admin-promo"
     | "admin-tier"
-    | "admin-users";
+    | "admin-users"
+    | "admin-banking";
   onNavigate: (view: string) => void;
   onSignOut: () => void;
   children: ReactNode;
@@ -92,6 +94,11 @@ export default function AdminLayout({
       id: "admin-users" as const,
       label: "Users",
       icon: Users,
+    },
+    {
+      id: "admin-banking" as const,
+      label: "Banking Info",
+      icon: CreditCard,
     },
   ];
 

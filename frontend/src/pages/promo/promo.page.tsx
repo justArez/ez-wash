@@ -206,21 +206,43 @@ export default function PromoPage({
     setIsSubmittingClaim(true);
     try {
       const result = await claimPromo(promo.id, phone);
-      if (result.success && result.claimedPromo) {
+      if (result.claimedPromo || result.success !== false) {
+        const claimedItem = result.claimedPromo || {
+          id: `voucher-${Date.now()}`,
+          promoId: promo.id,
+          customerId: dashboard?.customerId || "",
+          title: promo.title,
+          description: promo.description,
+          claimedAt: new Date().toISOString(),
+          validUntil: new Date(Date.now() + 30 * 86400000)
+            .toISOString()
+            .split("T")[0],
+          status: "ACTIVE" as const,
+          perkIdentifier: promo.perkType || "VOUCHER",
+        };
+
         const newBal = result.pointsBalance ?? pointsBalance - promo.pointPrice;
         setPointsBalance(newBal);
-        setClaimedPromos((prev) => [result.claimedPromo, ...prev]);
-        appendClaimedPromo(result.claimedPromo, dashboard?.customerId);
 
-        // Re-fetch claimed promos so the page reflects the latest server state
-        fetchClaimedPromos(phone)
-          .then((vouchers) => {
-            setClaimedPromos(vouchers || []);
-            saveClaimedPromos(vouchers || [], dashboard?.customerId);
-          })
-          .catch((err) => {
-            console.error("Failed to refresh claimed promos:", err);
-          });
+        // Immediately update state with returned claimed voucher
+        setClaimedPromos((prev) => {
+          const filtered = prev.filter(
+            (p) => p.id !== claimedItem.id && p.promoId !== promo.id,
+          );
+          return [claimedItem, ...filtered];
+        });
+        appendClaimedPromo(claimedItem, dashboard?.customerId);
+
+        // Re-fetch latest claimed promos from backend to ensure synchronization
+        try {
+          const freshVouchers = await fetchClaimedPromos(phone);
+          if (freshVouchers && freshVouchers.length > 0) {
+            setClaimedPromos(freshVouchers);
+            saveClaimedPromos(freshVouchers, dashboard?.customerId);
+          }
+        } catch (err) {
+          console.error("Failed to refresh claimed promos:", err);
+        }
 
         setClaimToast(`Claimed "${promo.title}"! Added to Your Promos.`);
         setTimeout(() => setClaimToast(null), 4000);

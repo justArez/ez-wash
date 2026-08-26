@@ -31,13 +31,17 @@
 .booking-intro {
 	display: flex;
 	justify-content: space-between;
-	align-items: end;
+	align-items: flex-end;
 	gap: 24px;
 	background: linear-gradient(135deg, #fff7ed, #ffffff 58%, #eff6ff);
 
 	h1 {
-		margin: 8px 0;
+		margin: 0 0 8px;
 		font-size: clamp(2rem, 4vw, 3.5rem);
+		line-height: 1.2;
+		font-weight: 800;
+		color: #1e1b4b;
+		letter-spacing: -0.02em;
 	}
 }
 
@@ -57,11 +61,24 @@
 	border-radius: 20px;
 	background: linear-gradient(145deg, #ffffff, #f8fafc);
 	box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.05);
-	transition: transform 0.2s ease, box-shadow 0.2s ease;
+	transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 
 	&:hover {
 		transform: translateY(-2px);
 		box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.08);
+	}
+
+	&.booking-card-clickable {
+		cursor: pointer;
+
+		&:hover {
+			border-color: rgba(59, 130, 246, 0.4);
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--primary, #3b82f6);
+			outline-offset: 2px;
+		}
 	}
 }
 
@@ -172,16 +189,27 @@
 	}
 }
 
-.pill-completed {
-	background: #dcfce7;
-	color: #15803d;
-	border: 1px solid #86efac;
-}
+.pill {
+	display: inline-flex;
+	align-items: center;
+	font-size: 0.75rem;
+	font-weight: 600;
+	padding: 3px 12px;
+	border-radius: 9999px;
+	line-height: 1.4;
 
-.pill-pending {
-	background: #fef3c7;
-	color: #96633c;
-	border: 1px solid #fde68a;
+	&-confirmed,
+	&-completed {
+		background: #ddfbe7 !important;
+		color: #166534 !important;
+		border: 1px solid #bbf7d0 !important;
+	}
+
+	&-pending {
+		background: #fef3c7 !important;
+		color: #92400e !important;
+		border: 1px solid #fde68a !important;
+	}
 }
 
 .booking-card-topline,

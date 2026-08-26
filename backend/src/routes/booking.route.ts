@@ -11,6 +11,8 @@ export function registerBookingRoutes(app: any) {
     const body = (await ctx.body) as {
       phone: string;
       vehiclePlate: string;
+      vehicleModel?: string;
+      vehicleType?: "car" | "motorcycle" | "suv" | "van";
       requestedDate: string;
       serviceId?: string;
       serviceIds?: string[];

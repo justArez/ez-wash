@@ -82,6 +82,18 @@ export async function loadCustomerDetails(
     const veh = vehicleMap.get(b.vehiclePlate.toUpperCase());
     const pts = b.pointsEarned || b.pointsSpent || undefined;
 
+    // Resolve service names if multiple serviceIds or serviceName is present
+    let resolvedServiceName = b.serviceName;
+    if (!resolvedServiceName && b.serviceIds && b.serviceIds.length > 0) {
+      resolvedServiceName = b.serviceIds
+        .map((id) => serviceMap.get(id)?.name)
+        .filter(Boolean)
+        .join(", ");
+    }
+    if (!resolvedServiceName && srv?.name) {
+      resolvedServiceName = srv.name;
+    }
+
     return {
       id: b.id,
       customerId: b.customerId,
@@ -89,8 +101,15 @@ export async function loadCustomerDetails(
       vehicleModel: veh?.model || undefined,
       vehicleType: veh?.type || undefined,
       serviceId: b.serviceId || undefined,
-      serviceName: srv?.name || undefined,
-      service: srv?.name || undefined,
+      serviceIds:
+        b.serviceIds && b.serviceIds.length > 0
+          ? b.serviceIds
+          : b.serviceId
+            ? [b.serviceId]
+            : undefined,
+      serviceName: resolvedServiceName || undefined,
+      service: resolvedServiceName || undefined,
+      bookingPrice: b.bookingPrice ?? undefined,
       date: b.date.toISOString().split("T")[0],
       time: b.timeSlot || undefined,
       timeSlot: b.timeSlot || undefined,
@@ -145,6 +164,7 @@ export async function loadCustomerDetails(
     lateCancellationWarningCount: dbC.lateCancellationWarningCount,
     priorityStatus: dbC.priorityStatus,
     status: dbC.status as any,
+    blockedUntil: dbC.blockedUntil ? dbC.blockedUntil.toISOString() : null,
     createdAt: dbC.createdAt.toISOString(),
     updatedAt: dbC.updatedAt.toISOString(),
   };
@@ -341,6 +361,14 @@ export async function updateCustomerItem(
       collectedPoints: data.collectedPoints ?? existing.collectedPoints,
       priorityStatus: data.priorityStatus ?? existing.priorityStatus,
       status: data.status ?? existing.status,
+      blockedUntil:
+        data.blockedUntil !== undefined
+          ? data.blockedUntil
+            ? new Date(data.blockedUntil)
+            : null
+          : existing.blockedUntil
+            ? new Date(existing.blockedUntil)
+            : null,
       updatedAt: new Date(),
     })
     .where(eq(schema.loyaltyCustomers.id, id));
@@ -416,6 +444,11 @@ export async function resetCustomerWarningsItem(
     .set({
       lateCancellationWarningCount: 0,
       priorityStatus: "normal",
+      status:
+        existing.status === "Blocked" || existing.status === "Low Priority"
+          ? "Active"
+          : existing.status,
+      blockedUntil: null,
       updatedAt: new Date(),
     })
     .where(eq(schema.loyaltyCustomers.id, id));

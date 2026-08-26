@@ -66,7 +66,7 @@ export const ClaimedPromoCard: React.FC<ClaimedPromoCardProps> = ({
             {voucher.title}
           </CardTitle>
           <Badge className="bg-[#dcfce7] text-[#15803d] border-[#bbf7d0] text-[10px] font-bold tracking-wide">
-            READY TO USE
+            ACTIVE
           </Badge>
         </div>
       </CardHeader>

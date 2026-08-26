@@ -19,7 +19,7 @@ import type {
  * API Configuration
  */
 const API_CONFIG = {
-  BASE_URL: "http://localhost:3000/api",
+  BASE_URL: "/api",
   TIMEOUT: 5000, // 5 seconds
   MAX_RETRIES: 3,
   RETRY_DELAYS: [1000, 2000, 4000], // 1s, 2s, 4s exponential backoff

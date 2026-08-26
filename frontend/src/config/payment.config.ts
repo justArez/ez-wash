@@ -16,7 +16,7 @@ export const TIER_ORDER = ["member", "silver", "gold", "platinum"];
 export const MEMBER_DEPOSIT_PERCENT = 50;
 
 /** Service prices are stored in USD; convert to VND for bank transfers. */
-export const USD_TO_VND_RATE = 25000;
+export const USD_TO_VND_RATE = 26110;
 
 /**
  * Deposit percentage for a given tier, stepped evenly between
@@ -54,12 +54,27 @@ export function buildDepositTransferNote(bookingId: string): string {
  * Builds an auto-generated, scannable VietQR bank-transfer QR code image
  * URL (https://vietqr.io) pre-filled with the account, amount and note.
  */
-export function buildDepositQrUrl(bookingId: string, amount: number): string {
-  const { bankCode, accountNumber, accountName } = CAR_WASH_BANK_ACCOUNT;
+export function buildDepositQrUrl(
+  bookingId: string,
+  amount: number,
+  bankOverride?: {
+    bankCode?: string;
+    accountNumber?: string;
+    accountHolder?: string;
+    qrTemplate?: string;
+  },
+): string {
+  const bankCode = bankOverride?.bankCode || CAR_WASH_BANK_ACCOUNT.bankCode;
+  const accountNumber =
+    bankOverride?.accountNumber || CAR_WASH_BANK_ACCOUNT.accountNumber;
+  const accountName =
+    bankOverride?.accountHolder || CAR_WASH_BANK_ACCOUNT.accountName;
+  const template = bankOverride?.qrTemplate || "compact2";
+
   const params = new URLSearchParams({
     amount: String(amount),
     addInfo: buildDepositTransferNote(bookingId),
     accountName,
   });
-  return `https://img.vietqr.io/image/${bankCode}-${accountNumber}-compact2.png?${params.toString()}`;
+  return `https://img.vietqr.io/image/${bankCode}-${accountNumber}-${template}.png?${params.toString()}`;
 }

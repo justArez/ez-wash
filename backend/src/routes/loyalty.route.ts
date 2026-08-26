@@ -1,4 +1,5 @@
 import { fetchAllTiers, getTier } from "../services/tier.service";
+import { fetchActiveBankingInfo } from "../services/banking.service";
 import {
   buildDashboard,
   checkUsernameExists,
@@ -9,6 +10,7 @@ import {
   isValidVietnamesePlate,
   formatVietnamesePlate,
 } from "../services/plate-validation";
+import { signJwt, verifyJwt } from "../services/jwt.service";
 
 export function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
@@ -149,7 +151,16 @@ export function registerLoyaltyRoutes(app: any) {
         `[LoyaltyController] Successfully linked/registered customer ID: ${customer.id}`,
       );
 
+      const token = signJwt({
+        customerId: customer.id,
+        username: customer.username || "",
+        phone: customer.phone,
+        email: customer.email || undefined,
+        fullName: customer.fullName || undefined,
+      });
+
       return {
+        token,
         customerId: customer.id,
         phone: customer.phone,
         username: customer.username,
@@ -224,7 +235,18 @@ export function registerLoyaltyRoutes(app: any) {
       });
     }
 
-    return dashboard;
+    const token = signJwt({
+      customerId: customer.id,
+      username: customer.username || "",
+      phone: customer.phone,
+      email: customer.email || undefined,
+      fullName: customer.fullName || undefined,
+    });
+
+    return {
+      ...dashboard,
+      token,
+    };
   });
 
   // Quick lookup endpoint for booking modal auto-fill
@@ -296,6 +318,118 @@ export function registerLoyaltyRoutes(app: any) {
     };
   });
 
+  // JWT session refresh endpoint (called when user takes action to refresh 1h session)
+  app.post("/api/auth/refresh", async (ctx: any) => {
+    let authHeader = "";
+    if (ctx.headers?.get) {
+      authHeader =
+        ctx.headers.get("authorization") ||
+        ctx.headers.get("Authorization") ||
+        "";
+    } else if (ctx.headers) {
+      authHeader =
+        ctx.headers["authorization"] || ctx.headers["Authorization"] || "";
+    }
+
+    const token = authHeader.startsWith("Bearer ")
+      ? authHeader.slice(7).trim()
+      : ctx.body?.token?.trim() || "";
+
+    if (!token) {
+      return new Response(
+        JSON.stringify({ error: "No token provided for refresh." }),
+        {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    const verification = verifyJwt(token);
+    if (!verification.valid || !verification.payload) {
+      return new Response(
+        JSON.stringify({
+          error: verification.error || "Invalid or expired token.",
+        }),
+        {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    // Generate new refreshed token with fresh 1-hour expiration
+    const newToken = signJwt({
+      customerId: verification.payload.customerId,
+      username: verification.payload.username,
+      phone: verification.payload.phone,
+      email: verification.payload.email,
+      fullName: verification.payload.fullName,
+      role: verification.payload.role,
+    });
+
+    const now = Math.floor(Date.now() / 1000);
+    return {
+      token: newToken,
+      expiresIn: 3600,
+      expiresAt: now + 3600,
+      user: {
+        customerId: verification.payload.customerId,
+        username: verification.payload.username,
+        phone: verification.payload.phone,
+        email: verification.payload.email,
+        fullName: verification.payload.fullName,
+      },
+    };
+  });
+
+  // Verify token endpoint to check session validity
+  app.get("/api/auth/verify", async (ctx: any) => {
+    let authHeader = "";
+    if (ctx.headers?.get) {
+      authHeader =
+        ctx.headers.get("authorization") ||
+        ctx.headers.get("Authorization") ||
+        "";
+    } else if (ctx.headers) {
+      authHeader =
+        ctx.headers["authorization"] || ctx.headers["Authorization"] || "";
+    }
+
+    const token = authHeader.startsWith("Bearer ")
+      ? authHeader.slice(7).trim()
+      : (ctx.query?.token as string | undefined)?.trim() || "";
+
+    if (!token) {
+      return new Response(
+        JSON.stringify({ valid: false, error: "No token provided." }),
+        {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    const verification = verifyJwt(token);
+    if (!verification.valid || !verification.payload) {
+      return new Response(
+        JSON.stringify({
+          valid: false,
+          error: verification.error || "Invalid or expired token.",
+        }),
+        {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    return {
+      valid: true,
+      user: verification.payload,
+    };
+  });
+
   // Public tiers catalog
   app.get("/api/tiers", async () => {
     const tiers = await fetchAllTiers();
@@ -303,6 +437,15 @@ export function registerLoyaltyRoutes(app: any) {
       status: "success",
       count: tiers.length,
       data: tiers,
+    };
+  });
+
+  // Public banking info for deposit modal
+  app.get("/api/banking-info", async () => {
+    const banking = await fetchActiveBankingInfo();
+    return {
+      status: "success",
+      data: banking,
     };
   });
 

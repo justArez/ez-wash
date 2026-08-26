@@ -198,6 +198,13 @@ function computeSlotsForDate(
   });
 }
 
+function formatLocalDate(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export async function getSlotsForDays(
   daysCount = 7,
   startDateStr?: string,
@@ -212,9 +219,12 @@ export async function getSlotsForDays(
 
   const dateStrs: string[] = [];
   for (let i = 0; i < daysCount; i++) {
-    const current = new Date(start);
-    current.setDate(start.getDate() + i);
-    dateStrs.push(current.toISOString().split("T")[0]);
+    const current = new Date(
+      start.getFullYear(),
+      start.getMonth(),
+      start.getDate() + i,
+    );
+    dateStrs.push(formatLocalDate(current));
   }
 
   const rangeStart = dateStrs[0];

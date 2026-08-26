@@ -29,6 +29,20 @@
       "when": 1787505916591,
       "tag": "0003_add_booking_deposit",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1787505916592,
+      "tag": "0004_add_promo_is_infinite_use",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1787505916593,
+      "tag": "0005_add_banking_info",
+      "breakpoints": true
     }
   ]
 }

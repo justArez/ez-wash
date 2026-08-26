@@ -8,6 +8,7 @@ import BookingModal, {
 import DepositPaymentModal, {
   type DepositBookingInfo,
 } from "./components/deposit-modal/deposit-modal.component";
+import CustomerBookingDetailModal from "./components/customer-booking-detail-modal/customer-booking-detail-modal.component";
 import Toast from "./components/toast/toast.component";
 import { PageRenderer } from "./components/page-renderer/page-renderer.component";
 import type { ViewState } from "./router";
@@ -21,7 +22,15 @@ import {
   linkLoyaltyAccount,
   fetchLoyaltyDashboard,
   createBooking,
+  refreshJwtSession,
 } from "./services/loyalty.service";
+import {
+  saveJwtToken,
+  getJwtToken,
+  getUserFromJwtToken,
+  clearJwtToken,
+  isJwtTokenValid,
+} from "./services/auth-token.service";
 import { refreshSlotsCache } from "./services/api.service";
 import {
   loginAdmin,
@@ -38,15 +47,7 @@ import "./App.css";
 
 type AuthMode = "sign-in" | "sign-up";
 
-interface StoredUserMeta {
-  phone: string;
-  username?: string;
-  fullName?: string;
-  email?: string;
-  customerId?: string;
-}
-
-const USER_META_STORAGE_KEY = "ezwash-user-meta";
+const REFRESH_THROTTLE_MS = 60 * 1000; // Refresh JWT at most once every 60 seconds on activity
 
 const availableSlots = [
   "Today 09:00",
@@ -63,29 +64,15 @@ const serviceOptions: ServiceOption[] = [
   { id: "srv-ceramic-coating", label: "Ceramic Shield Detailing", price: 120 },
 ];
 
-const saveUserMetaToStorage = (userMeta: StoredUserMeta) => {
-  window.localStorage.setItem(USER_META_STORAGE_KEY, JSON.stringify(userMeta));
-};
-
-const loadUserMetaFromStorage = (): StoredUserMeta | null => {
-  try {
-    const value = window.localStorage.getItem(USER_META_STORAGE_KEY);
-    if (!value) return null;
-    return JSON.parse(value) as StoredUserMeta;
-  } catch {
-    return null;
-  }
-};
-
-const clearUserMetaFromStorage = () => {
-  window.localStorage.removeItem(USER_META_STORAGE_KEY);
-  // Clean up legacy storage key if present
-  window.localStorage.removeItem("ezwash-dashboard");
-};
-
 function App() {
-  const initialUserMeta = loadUserMetaFromStorage();
+  const initialUser = getUserFromJwtToken();
   const initialAdminUserInfo = loadAdminUserInfo();
+
+  // Flag to prevent UI flash/multiple reload flashes during initial session validation
+  const [isSessionChecking, setIsSessionChecking] = useState<boolean>(() => {
+    const token = getJwtToken();
+    return Boolean(token && isJwtTokenValid(token));
+  });
 
   const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
   const [adminUserInfo, setAdminUserInfo] = useState<{
@@ -107,13 +94,16 @@ function App() {
   const [showDemoToast, setShowDemoToast] = useState(false);
   const [depositBooking, setDepositBooking] =
     useState<DepositBookingInfo | null>(null);
+  const [activeUserBookingDetail, setActiveUserBookingDetail] = useState<
+    any | null
+  >(null);
 
   // Initialize view based on current path and auth state
   const [view, setView] = useState<ViewState>(() => {
     const pathView = getViewFromPath(window.location.pathname);
 
     // Redirect unauthenticated users away from protected routes
-    if (!initialUserMeta && pathView === "bookings") {
+    if (!initialUser && pathView === "bookings") {
       return "home";
     }
 
@@ -139,10 +129,13 @@ function App() {
     isAdminLoggedIn: Boolean(adminUserInfo?.token),
   });
 
-  const username = useMemo(
-    () => dashboard?.fullName || dashboard?.username || dashboard?.phone || "",
-    [dashboard],
-  );
+  const username = useMemo(() => {
+    if (dashboard?.fullName || dashboard?.username || dashboard?.phone) {
+      return dashboard.fullName || dashboard.username || dashboard.phone;
+    }
+    const tokenUser = getUserFromJwtToken();
+    return tokenUser?.fullName || tokenUser?.username || tokenUser?.phone || "";
+  }, [dashboard]);
   const isLoggedIn = Boolean(dashboard);
   const isAdminLoggedIn = Boolean(adminUserInfo?.token);
 
@@ -166,17 +159,13 @@ function App() {
     try {
       const data = await fetchLoyaltyDashboard(phoneOrUsername, password);
       setDashboard(data);
-      // Save only user metadata to localStorage
-      saveUserMetaToStorage({
-        phone: data.phone,
-        username: data.username,
-        fullName: data.fullName,
-        email: data.email,
-        customerId: data.customerId,
-      });
+      // Persist only the JWT token in localStorage
+      if (data.token) {
+        saveJwtToken(data.token);
+      }
     } catch (err) {
       setDashboard(null);
-      clearUserMetaFromStorage();
+      clearJwtToken();
       if (!propagateError) {
         setError(
           err instanceof Error ? err.message : "Failed to load dashboard.",
@@ -190,18 +179,109 @@ function App() {
     }
   };
 
-  // Auto-restore customer session if metadata exists in localStorage
+  // Auto-restore customer session if JWT token exists and is valid
   useEffect(() => {
-    if (initialUserMeta) {
-      const identifier =
-        initialUserMeta.username ||
-        initialUserMeta.phone ||
-        initialUserMeta.email;
-      if (identifier) {
-        refreshDashboard(identifier);
+    let isMounted = true;
+    const restoreSession = async () => {
+      const token = getJwtToken();
+      if (!token || !isJwtTokenValid(token)) {
+        clearJwtToken();
+        if (isMounted) {
+          setDashboard(null);
+          setIsSessionChecking(false);
+        }
+        return;
       }
-    }
+
+      const userFromToken = getUserFromJwtToken();
+      const identifier =
+        userFromToken?.username || userFromToken?.phone || userFromToken?.email;
+
+      if (identifier) {
+        try {
+          await refreshDashboard(identifier);
+        } catch {
+          // Handled inside refreshDashboard
+        }
+      }
+
+      if (isMounted) {
+        setIsSessionChecking(false);
+      }
+    };
+
+    restoreSession();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
+
+  // Idle check & Session refresh on user action
+  useEffect(() => {
+    if (!dashboard) return;
+
+    let lastRefreshedAt = Date.now();
+
+    const handleUserActivity = async () => {
+      const token = getJwtToken();
+      if (!token || !isJwtTokenValid(token)) {
+        setDashboard(null);
+        clearJwtToken();
+        if (view === "bookings") {
+          window.history.pushState({}, "", getPathFromView("home"));
+          setView("home");
+        }
+        setError(
+          "Your session has expired due to 1 hour of inactivity. Please sign in again.",
+        );
+        return;
+      }
+
+      const now = Date.now();
+      // Throttled token refresh on backend on user activity
+      if (now - lastRefreshedAt > REFRESH_THROTTLE_MS) {
+        lastRefreshedAt = now;
+        try {
+          const refreshRes = await refreshJwtSession(token);
+          if (refreshRes.token) {
+            saveJwtToken(refreshRes.token);
+          }
+        } catch (err) {
+          console.warn("[Session] Background token refresh warning:", err);
+        }
+      }
+    };
+
+    // Listen to user actions
+    const events = ["mousedown", "keydown", "touchstart", "scroll", "click"];
+    events.forEach((evt) =>
+      window.addEventListener(evt, handleUserActivity, { passive: true }),
+    );
+
+    // Periodic idle checker (every 30 seconds) to expire session even if user doesn't interact
+    const idleInterval = setInterval(() => {
+      const token = getJwtToken();
+      if (!token || !isJwtTokenValid(token)) {
+        setDashboard(null);
+        clearJwtToken();
+        if (view === "bookings") {
+          window.history.pushState({}, "", getPathFromView("home"));
+          setView("home");
+        }
+        setError(
+          "Your session has expired due to 1 hour of inactivity. Please sign in again.",
+        );
+      }
+    }, 30000);
+
+    return () => {
+      events.forEach((evt) =>
+        window.removeEventListener(evt, handleUserActivity),
+      );
+      clearInterval(idleInterval);
+    };
+  }, [dashboard, view]);
 
   const handleSignIn = async (username: string, password: string) => {
     await refreshDashboard(username, password, true);
@@ -264,6 +344,41 @@ function App() {
   };
 
   const handleOpenBookings = (slotOrPromo?: any) => {
+    // If the clicked slot is already booked by the current user, open booking details instead of new booking
+    if (
+      slotOrPromo &&
+      typeof slotOrPromo === "object" &&
+      slotOrPromo.isUserBooked
+    ) {
+      const matchingFromDetails = slotOrPromo.userBookingDetails?.[0];
+      const slotDate = slotOrPromo.date;
+      const slotTime = slotOrPromo.time;
+      const matchingFromHistory = dashboard?.bookingHistory?.find((b: any) => {
+        const bDate = b.date?.slice(0, 10);
+        const bTime = (b.time || b.timeSlot || "").slice(0, 5);
+        return (
+          (b.id &&
+            matchingFromDetails?.id &&
+            b.id === matchingFromDetails.id) ||
+          (bDate === slotDate && bTime === slotTime)
+        );
+      });
+
+      const targetBooking = matchingFromHistory ||
+        matchingFromDetails || {
+          date: slotDate,
+          time: slotTime,
+          status: slotOrPromo.userBookingStatus || "confirmed",
+          durationMinutes: slotOrPromo.userBookingDurationMinutes || 30,
+        };
+
+      setActiveUserBookingDetail({
+        booking: targetBooking,
+        slot: slotOrPromo,
+      });
+      return;
+    }
+
     if (
       slotOrPromo &&
       typeof slotOrPromo === "object" &&
@@ -314,6 +429,8 @@ function App() {
       const result = await createBooking({
         phone: bookingPhone,
         vehiclePlate: vehicle.plate,
+        vehicleModel: vehicle.model,
+        vehicleType: vehicle.type,
         requestedDate: date,
         serviceId: selectedServices?.[0],
         serviceIds: selectedServices,
@@ -378,7 +495,7 @@ function App() {
 
   const handleSignOut = () => {
     setDashboard(null);
-    clearUserMetaFromStorage();
+    clearJwtToken();
     if (view === "bookings") {
       window.history.pushState({}, "", getPathFromView("home"));
       setView("home");
@@ -401,14 +518,27 @@ function App() {
         target === "/bookings" ||
         target === "/promo")
     ) {
-      const userMeta = loadUserMetaFromStorage();
+      const userFromToken = getUserFromJwtToken();
       const identifier =
-        userMeta?.username || userMeta?.phone || userMeta?.email;
+        userFromToken?.username || userFromToken?.phone || userFromToken?.email;
       if (identifier) {
         refreshDashboard(identifier);
       }
     }
   };
+
+  if (isSessionChecking) {
+    return (
+      <div
+        className="app-session-loading"
+        role="status"
+        aria-label="Loading session"
+      >
+        <div className="app-session-loading__spinner" />
+        <span>Just a moment...</span>
+      </div>
+    );
+  }
 
   return (
     <main
@@ -470,6 +600,7 @@ function App() {
           setAuthMode("sign-in");
           setShowAuthModal(true);
         }}
+        onNavigate={handleNavigate}
         offersList={dashboard?.rewardSuggestions ?? []}
         availableSlots={availableSlots}
         refreshTrigger={refreshSlotTrigger}
@@ -507,6 +638,26 @@ function App() {
         onSubmitted={async () => {
           setDepositBooking(null);
           setSuccess("Seat deposit submitted!");
+          if (dashboard?.phone) {
+            await refreshDashboard(dashboard.phone);
+          }
+        }}
+      />
+
+      <CustomerBookingDetailModal
+        visible={Boolean(activeUserBookingDetail)}
+        booking={activeUserBookingDetail?.booking}
+        slot={activeUserBookingDetail?.slot}
+        customer={dashboard}
+        onClose={() => setActiveUserBookingDetail(null)}
+        onOpenDeposit={(bookingInfo) => {
+          setActiveUserBookingDetail(null);
+          setDepositBooking(bookingInfo);
+        }}
+        onBookingCancelled={async () => {
+          setSuccess("Booking cancelled.");
+          await refreshSlotsCache(14).catch(() => {});
+          setRefreshSlotTrigger((prev) => prev + 1);
           if (dashboard?.phone) {
             await refreshDashboard(dashboard.phone);
           }

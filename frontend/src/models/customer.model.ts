@@ -14,8 +14,9 @@ export interface AdminUser {
   mostActiveVehicle: string;
   points: number;
   collectedPoints?: number;
-  status: "Active" | "Inactive" | "Low Priority";
+  status: "Active" | "Inactive" | "Low Priority" | "Blocked";
   tier: "Platinum" | "Gold" | "Silver" | "Member";
+  blockedUntil?: string | null;
 }
 
 export interface LoyaltyCustomer {
@@ -31,7 +32,8 @@ export interface LoyaltyCustomer {
   bookingHistory: Booking[];
   lateCancellationWarningCount?: number;
   priorityStatus?: PriorityStatus;
-  status?: "Active" | "Inactive" | "Low Priority";
+  status?: "Active" | "Inactive" | "Low Priority" | "Blocked";
+  blockedUntil?: string | null;
   fullName?: string;
   username?: string;
   email?: string;
@@ -58,6 +60,7 @@ export interface LinkAccountRequest {
 }
 
 export interface LinkAccountResponse {
+  token?: string;
   customerId: string;
   phone: string;
   tier: LoyaltyTier;
@@ -69,6 +72,7 @@ export interface LinkAccountResponse {
 }
 
 export interface DashboardResponse {
+  token?: string;
   customerId: string;
   phone: string;
   username?: string;
@@ -82,6 +86,8 @@ export interface DashboardResponse {
   appliedPerks: string[];
   lateCancellationWarningCount: number;
   priorityStatus: "normal" | "LOW_PRIORITIED";
+  status?: "Active" | "Inactive" | "Low Priority" | "Blocked";
+  blockedUntil?: string | null;
   rewardSuggestions: RewardOffer[];
   claimedPromos?: ClaimedPromo[];
   bookingHistory: Booking[];

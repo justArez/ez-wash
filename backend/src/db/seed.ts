@@ -242,8 +242,45 @@ async function seed() {
     }
 
     console.log("🎉 Promo seeding completed successfully!");
+
+    // Seed default banking info
+    console.log("🏦 Checking Banking Info...");
+    const existingBanking = await sql`SELECT count(*) FROM banking_info`;
+    if (parseInt(existingBanking[0].count, 10) === 0) {
+      console.log("🌱 Seeding default banking info...");
+      await sql`
+        INSERT INTO banking_info (
+          id,
+          bank_code,
+          bank_name,
+          bank_branch,
+          account_number,
+          account_holder,
+          qr_template,
+          is_default,
+          is_active,
+          note,
+          created_at,
+          updated_at
+        ) VALUES (
+          'bank-default-vietcombank',
+          'vietcombank',
+          'Vietcombank',
+          'Ho Chi Minh Head Office',
+          '1234567890',
+          'EZ WASH CAR CARE CENTER',
+          'compact2',
+          true,
+          true,
+          'Official deposit receiving account',
+          NOW(),
+          NOW()
+        );
+      `;
+      console.log("   ✓ Seeded default Vietcombank banking info");
+    }
   } catch (err: any) {
-    console.error("❌ Error seeding promotions:", err.message);
+    console.error("❌ Error seeding database:", err.message);
   } finally {
     await sql.end({ timeout: 1 });
   }

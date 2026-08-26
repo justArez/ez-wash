@@ -1,5 +1,5 @@
 import { db, schema } from "../db/index";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, desc } from "drizzle-orm";
 import { logAudit } from "./audit.service";
 
 export interface ScheduleBlock {
@@ -17,47 +17,51 @@ export interface ScheduleBlock {
   updatedAt: string;
 }
 
-// In-memory persistent fallback store if table doesn't exist yet in db
-let inMemoryBlocks: ScheduleBlock[] = [
-  {
-    id: "BLK-001",
-    type: "maintenance",
-    title: "Bay 3 Jet Pump Servicing",
-    reason:
-      "Routine quarterly high-pressure nozzle and pump filter replacement.",
-    startDate: new Date().toISOString().split("T")[0],
-    endDate: new Date().toISOString().split("T")[0],
-    startTime: "13:00",
-    endTime: "15:00",
-    bayId: "3",
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
-
 export async function fetchScheduleBlocks(options?: {
   date?: string;
   type?: string;
   bayId?: string;
 }): Promise<ScheduleBlock[]> {
-  let list = [...inMemoryBlocks];
+  try {
+    const rows = await db
+      .select()
+      .from(schema.scheduleBlocks)
+      .orderBy(desc(schema.scheduleBlocks.createdAt));
 
-  if (options?.type && options.type !== "ALL" && options.type !== "All") {
-    list = list.filter((b) => b.type === options.type);
+    let list: ScheduleBlock[] = rows.map((r) => ({
+      id: r.id,
+      type: r.type as ScheduleBlock["type"],
+      title: r.title,
+      reason: r.reason || undefined,
+      startDate: r.startDate,
+      endDate: r.endDate,
+      startTime: r.startTime || undefined,
+      endTime: r.endTime || undefined,
+      bayId: r.bayId || "all",
+      isActive: r.isActive,
+      createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt.toISOString(),
+    }));
+
+    if (options?.type && options.type !== "ALL" && options.type !== "All") {
+      list = list.filter((b) => b.type === options.type);
+    }
+
+    if (options?.bayId && options.bayId !== "ALL" && options.bayId !== "All") {
+      list = list.filter((b) => b.bayId === options.bayId || b.bayId === "all");
+    }
+
+    if (options?.date) {
+      list = list.filter(
+        (b) => b.startDate <= options.date! && b.endDate >= options.date!,
+      );
+    }
+
+    return list;
+  } catch (error) {
+    console.error("Failed to fetch schedule blocks from db:", error);
+    return [];
   }
-
-  if (options?.bayId && options.bayId !== "ALL" && options.bayId !== "All") {
-    list = list.filter((b) => b.bayId === options.bayId || b.bayId === "all");
-  }
-
-  if (options?.date) {
-    list = list.filter(
-      (b) => b.startDate <= options.date! && b.endDate >= options.date!,
-    );
-  }
-
-  return list;
 }
 
 export async function createScheduleBlock(data: {
@@ -70,66 +74,111 @@ export async function createScheduleBlock(data: {
   endTime?: string;
   bayId?: string;
 }): Promise<ScheduleBlock> {
-  const newBlock: ScheduleBlock = {
-    id: `BLK-${Date.now().toString(36).toUpperCase()}`,
-    type: data.type,
-    title: data.title.trim(),
-    reason: data.reason?.trim() || undefined,
-    startDate: data.startDate,
-    endDate: data.endDate || data.startDate,
-    startTime: data.startTime || undefined,
-    endTime: data.endTime || undefined,
-    bayId: data.bayId || "all",
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
+  const newId = `BLK-${Date.now().toString(36).toUpperCase()}`;
+  const startDate = data.startDate;
+  const endDate = data.endDate || data.startDate;
 
-  inMemoryBlocks.unshift(newBlock);
+  const [inserted] = await db
+    .insert(schema.scheduleBlocks)
+    .values({
+      id: newId,
+      type: data.type,
+      title: data.title.trim(),
+      reason: data.reason?.trim() || null,
+      startDate,
+      endDate,
+      startTime: data.startTime || null,
+      endTime: data.endTime || null,
+      bayId: data.bayId || "all",
+      isActive: true,
+    })
+    .returning();
+
+  const block: ScheduleBlock = {
+    id: inserted.id,
+    type: inserted.type as ScheduleBlock["type"],
+    title: inserted.title,
+    reason: inserted.reason || undefined,
+    startDate: inserted.startDate,
+    endDate: inserted.endDate,
+    startTime: inserted.startTime || undefined,
+    endTime: inserted.endTime || undefined,
+    bayId: inserted.bayId || "all",
+    isActive: inserted.isActive,
+    createdAt: inserted.createdAt.toISOString(),
+    updatedAt: inserted.updatedAt.toISOString(),
+  };
 
   await logAudit({
     actor: "admin",
     actionType: "create-schedule-block",
     entityType: "schedule_block",
-    entityId: newBlock.id,
-    details: `Created ${newBlock.type}: "${newBlock.title}" for ${newBlock.startDate} (Bay: ${newBlock.bayId})`,
+    entityId: block.id,
+    details: `Created ${block.type}: "${block.title}" for ${block.startDate} (Bay: ${block.bayId})`,
   });
 
-  return newBlock;
+  return block;
 }
 
 export async function updateScheduleBlock(
   id: string,
   data: Partial<Omit<ScheduleBlock, "id" | "createdAt" | "updatedAt">>,
 ): Promise<ScheduleBlock | null> {
-  const index = inMemoryBlocks.findIndex((b) => b.id === id);
-  if (index === -1) return null;
-
-  const existing = inMemoryBlocks[index];
-  const updated: ScheduleBlock = {
-    ...existing,
-    ...data,
-    updatedAt: new Date().toISOString(),
+  const updatePayload: Record<string, any> = {
+    updatedAt: new Date(),
   };
 
-  inMemoryBlocks[index] = updated;
+  if (data.type !== undefined) updatePayload.type = data.type;
+  if (data.title !== undefined) updatePayload.title = data.title.trim();
+  if (data.reason !== undefined) updatePayload.reason = data.reason?.trim() || null;
+  if (data.startDate !== undefined) updatePayload.startDate = data.startDate;
+  if (data.endDate !== undefined) updatePayload.endDate = data.endDate;
+  if (data.startTime !== undefined) updatePayload.startTime = data.startTime || null;
+  if (data.endTime !== undefined) updatePayload.endTime = data.endTime || null;
+  if (data.bayId !== undefined) updatePayload.bayId = data.bayId || "all";
+  if (data.isActive !== undefined) updatePayload.isActive = data.isActive;
+
+  const [updated] = await db
+    .update(schema.scheduleBlocks)
+    .set(updatePayload)
+    .where(eq(schema.scheduleBlocks.id, id))
+    .returning();
+
+  if (!updated) return null;
+
+  const block: ScheduleBlock = {
+    id: updated.id,
+    type: updated.type as ScheduleBlock["type"],
+    title: updated.title,
+    reason: updated.reason || undefined,
+    startDate: updated.startDate,
+    endDate: updated.endDate,
+    startTime: updated.startTime || undefined,
+    endTime: updated.endTime || undefined,
+    bayId: updated.bayId || "all",
+    isActive: updated.isActive,
+    createdAt: updated.createdAt.toISOString(),
+    updatedAt: updated.updatedAt.toISOString(),
+  };
 
   await logAudit({
     actor: "admin",
     actionType: "update-schedule-block",
     entityType: "schedule_block",
     entityId: id,
-    details: `Updated schedule block "${updated.title}"`,
+    details: `Updated schedule block "${block.title}"`,
   });
 
-  return updated;
+  return block;
 }
 
 export async function deleteScheduleBlock(id: string): Promise<boolean> {
-  const index = inMemoryBlocks.findIndex((b) => b.id === id);
-  if (index === -1) return false;
+  const [deleted] = await db
+    .delete(schema.scheduleBlocks)
+    .where(eq(schema.scheduleBlocks.id, id))
+    .returning();
 
-  const deleted = inMemoryBlocks.splice(index, 1)[0];
+  if (!deleted) return false;
 
   await logAudit({
     actor: "admin",

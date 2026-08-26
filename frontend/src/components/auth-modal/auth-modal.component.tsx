@@ -1,5 +1,12 @@
 import { useEffect, useState } from "react";
-import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  Loader2,
+  XCircle,
+} from "lucide-react";
 import { checkUsernameAvailability } from "../../services/loyalty.service";
 import "./auth-modal.component.scss";
 import type {
@@ -20,6 +27,24 @@ function isValidPhone(phone: string): boolean {
     digits.length >= 7 &&
     digits.length <= 15
   );
+}
+
+interface PasswordRules {
+  minLength: boolean;
+  hasLetter: boolean;
+  hasNumber: boolean;
+}
+
+function getPasswordRules(password: string): PasswordRules {
+  return {
+    minLength: password.length >= 6,
+    hasLetter: /[a-zA-Z]/.test(password),
+    hasNumber: /[0-9]/.test(password),
+  };
+}
+
+function isPasswordValid(rules: PasswordRules): boolean {
+  return rules.minLength && rules.hasLetter && rules.hasNumber;
 }
 
 interface AuthModalProps {
@@ -52,11 +77,16 @@ export default function AuthModal({
   const [confirmPassword, setConfirmPassword] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [usernameStatus, setUsernameStatus] =
     useState<UsernameCheckStatus>("idle");
   const [usernameMessage, setUsernameMessage] = useState<string>("");
+
+  const passwordRules = getPasswordRules(password);
+  const isPasswordStrong = isPasswordValid(passwordRules);
 
   // Debounced real-time username duplication check for Sign-Up mode
   useEffect(() => {
@@ -176,8 +206,19 @@ export default function AuthModal({
       return;
     }
 
-    if (trimmedPassword.length < 6) {
+    const currentRules = getPasswordRules(trimmedPassword);
+    if (!currentRules.minLength) {
       setError("Password must be at least 6 characters.");
+      return;
+    }
+
+    if (!currentRules.hasLetter) {
+      setError("Password must contain at least one letter.");
+      return;
+    }
+
+    if (!currentRules.hasNumber) {
+      setError("Password must contain at least one number.");
       return;
     }
 
@@ -291,17 +332,32 @@ export default function AuthModal({
               </label>
 
               {/* Sign In Row 2: Password */}
-              <label className="form-field form-field--full">
-                <span className="form-field__label">Password</span>
-                <input
-                  className="input"
-                  type="password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  placeholder="Enter your password"
-                  autoComplete="current-password"
-                />
-              </label>
+              <div className="form-field form-field--full">
+                <label className="form-field__label" htmlFor="signin-password">
+                  Password
+                </label>
+                <div className="form-field__input-wrap">
+                  <input
+                    id="signin-password"
+                    className="input input--with-toggle"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    placeholder="Enter your password"
+                    autoComplete="current-password"
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle-btn"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
             </>
           ) : (
             <>
@@ -370,33 +426,173 @@ export default function AuthModal({
               </div>
 
               {/* Sign Up Row 2: Password and Confirm Password in 1 row (2 cols) */}
-              <label className="form-field form-field--half">
-                <span className="form-field__label">Password *</span>
-                <input
-                  className="input"
-                  type="password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  placeholder="Min 6 characters"
-                  autoComplete="new-password"
-                />
-              </label>
+              <div className="form-field form-field--half">
+                <div className="form-field__label-row">
+                  <label
+                    htmlFor="signup-password"
+                    className="form-field__label"
+                  >
+                    Password *
+                  </label>
+                  {password && (
+                    <span
+                      className={`form-field__status form-field__status--${
+                        isPasswordStrong ? "available" : "taken"
+                      }`}
+                    >
+                      {isPasswordStrong ? (
+                        <>
+                          <CheckCircle2 size={16} /> Strong
+                        </>
+                      ) : (
+                        <>
+                          <AlertCircle size={16} /> Needs work
+                        </>
+                      )}
+                    </span>
+                  )}
+                </div>
+                <div className="form-field__input-wrap">
+                  <input
+                    id="signup-password"
+                    className={`input input--with-toggle ${
+                      password && !isPasswordStrong
+                        ? "input--error"
+                        : password
+                          ? "input--success"
+                          : ""
+                    }`}
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    placeholder="Min 6 characters"
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle-btn"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
 
-              <label className="form-field form-field--half">
-                <span className="form-field__label">Confirm Password *</span>
-                <input
-                  className={`input ${
-                    confirmPassword && password !== confirmPassword
-                      ? "input--error"
-                      : ""
-                  }`}
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(event) => setConfirmPassword(event.target.value)}
-                  placeholder="Re-enter password"
-                  autoComplete="new-password"
-                />
-              </label>
+              <div className="form-field form-field--half">
+                <div className="form-field__label-row">
+                  <label
+                    htmlFor="signup-confirm-password"
+                    className="form-field__label"
+                  >
+                    Confirm Password *
+                  </label>
+                  {confirmPassword && (
+                    <span
+                      className={`form-field__status form-field__status--${
+                        password === confirmPassword ? "available" : "taken"
+                      }`}
+                    >
+                      {password === confirmPassword ? (
+                        <>
+                          <CheckCircle2 size={16} /> Match
+                        </>
+                      ) : (
+                        <>
+                          <AlertCircle size={16} /> No match
+                        </>
+                      )}
+                    </span>
+                  )}
+                </div>
+                <div className="form-field__input-wrap">
+                  <input
+                    id="signup-confirm-password"
+                    className={`input input--with-toggle ${
+                      confirmPassword && password !== confirmPassword
+                        ? "input--error"
+                        : confirmPassword && password === confirmPassword
+                          ? "input--success"
+                          : ""
+                    }`}
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={confirmPassword}
+                    onChange={(event) => setConfirmPassword(event.target.value)}
+                    placeholder="Re-enter password"
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle-btn"
+                    onClick={() => setShowConfirmPassword((prev) => !prev)}
+                    aria-label={
+                      showConfirmPassword ? "Hide password" : "Show password"
+                    }
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff size={16} />
+                    ) : (
+                      <Eye size={16} />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Password Requirements helper checklist (Full width) */}
+              <div className="form-field form-field--full password-requirements">
+                <div className="password-requirements__title">
+                  Password Requirements:
+                </div>
+                <div className="password-requirements__list">
+                  <div
+                    className={`password-requirement-item ${
+                      passwordRules.minLength ? "is-met" : ""
+                    }`}
+                  >
+                    {passwordRules.minLength ? (
+                      <CheckCircle2
+                        size={14}
+                        className="req-icon req-icon--met"
+                      />
+                    ) : (
+                      <XCircle size={14} className="req-icon req-icon--unmet" />
+                    )}
+                    <span>At least 6 characters</span>
+                  </div>
+                  <div
+                    className={`password-requirement-item ${
+                      passwordRules.hasLetter ? "is-met" : ""
+                    }`}
+                  >
+                    {passwordRules.hasLetter ? (
+                      <CheckCircle2
+                        size={14}
+                        className="req-icon req-icon--met"
+                      />
+                    ) : (
+                      <XCircle size={14} className="req-icon req-icon--unmet" />
+                    )}
+                    <span>Contains at least 1 letter</span>
+                  </div>
+                  <div
+                    className={`password-requirement-item ${
+                      passwordRules.hasNumber ? "is-met" : ""
+                    }`}
+                  >
+                    {passwordRules.hasNumber ? (
+                      <CheckCircle2
+                        size={14}
+                        className="req-icon req-icon--met"
+                      />
+                    ) : (
+                      <XCircle size={14} className="req-icon req-icon--unmet" />
+                    )}
+                    <span>Contains at least 1 number</span>
+                  </div>
+                </div>
+              </div>
 
               {/* Sign Up Row 3: Email and Phone in 1 row (2 cols) */}
               <label className="form-field form-field--half">

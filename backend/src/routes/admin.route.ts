@@ -42,12 +42,29 @@ import {
   deleteRewardOffer,
   fetchAllRewards,
 } from "../services/reward.service";
+import {
+  fetchScheduleBlocks,
+  createScheduleBlock,
+  updateScheduleBlock,
+  deleteScheduleBlock,
+  type ScheduleBlock,
+} from "../services/schedule.service";
+import {
+  fetchAllBankingInfo,
+  createBankingInfoItem,
+  updateBankingInfoItem,
+  deleteBankingInfoItem,
+} from "../services/banking.service";
 import { getAdminDashboardData } from "../services/metric.service";
 import { fetchAuditLogs, logAudit } from "../services/audit.service";
 import type { LoyaltyCustomer } from "../models/customer.model";
 import type { LoyaltyTier, TierSet } from "../models/tier.model";
 import type { Promotion, RewardOffer } from "../models/promo.model";
 import type { ServiceItem } from "../models/service.model";
+import type {
+  CreateBankingInfoInput,
+  UpdateBankingInfoInput,
+} from "../models/banking.model";
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "admin-secret";
 
@@ -715,11 +732,15 @@ export function registerAdminRoutes(app: any) {
         : "No vehicle",
       points: c.pointsBalance,
       status:
-        c.priorityStatus === "LOW_PRIORITIED"
-          ? "Low Priority"
-          : c.status === "Inactive"
-            ? "Inactive"
-            : "Active",
+        c.status === "Blocked" ||
+        (c.blockedUntil && new Date(c.blockedUntil) > new Date())
+          ? "Blocked"
+          : c.priorityStatus === "LOW_PRIORITIED"
+            ? "Low Priority"
+            : c.status === "Inactive"
+              ? "Inactive"
+              : "Active",
+      blockedUntil: c.blockedUntil || null,
       tier: c.tierId
         ? ((c.tierId.charAt(0).toUpperCase() + c.tierId.slice(1)) as any)
         : "Member",
@@ -970,7 +991,212 @@ export function registerAdminRoutes(app: any) {
   });
 
   // -------------------------------------------------------------
-  // 9. AUDIT LOGS
+  // 9. SCHEDULE & SLOT BLOCKS
+  // -------------------------------------------------------------
+  app.get("/api/admin/schedule-blocks", async (ctx: any) => {
+    const authError = requireAdmin(ctx);
+    if (authError) return authError;
+
+    const date = ctx.query?.date as string | undefined;
+    const type = ctx.query?.type as string | undefined;
+    const bayId = ctx.query?.bayId as string | undefined;
+
+    const blocks = await fetchScheduleBlocks({ date, type, bayId });
+
+    return {
+      status: "success",
+      count: blocks.length,
+      data: blocks,
+    };
+  });
+
+  app.post("/api/admin/schedule-blocks", async (ctx: any) => {
+    const authError = requireAdmin(ctx);
+    if (authError) return authError;
+
+    const body = (await ctx.body) as any;
+    if (!body?.type || !body?.title || !body?.startDate) {
+      return new Response(
+        JSON.stringify({
+          error: "type, title, and startDate are required.",
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    const block = await createScheduleBlock(body);
+    return {
+      status: "success",
+      data: block,
+    };
+  });
+
+  app.put("/api/admin/schedule-blocks/:id", async (ctx: any) => {
+    const authError = requireAdmin(ctx);
+    if (authError) return authError;
+
+    const id = ctx.params.id;
+    const body = (await ctx.body) as Partial<ScheduleBlock>;
+    const block = await updateScheduleBlock(id, body);
+    if (!block) {
+      return new Response(
+        JSON.stringify({ error: "Schedule block not found." }),
+        {
+          status: 404,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    return {
+      status: "success",
+      data: block,
+    };
+  });
+
+  app.delete("/api/admin/schedule-blocks/:id", async (ctx: any) => {
+    const authError = requireAdmin(ctx);
+    if (authError) return authError;
+
+    const id = ctx.params.id;
+    const success = await deleteScheduleBlock(id);
+    if (!success) {
+      return new Response(
+        JSON.stringify({ error: "Schedule block not found." }),
+        {
+          status: 404,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    return {
+      status: "success",
+      deleted: true,
+    };
+  });
+
+  // -------------------------------------------------------------
+  // 10. BANKING INFO MANAGEMENT
+  // -------------------------------------------------------------
+  app.get("/api/admin/banking-info", async (ctx: any) => {
+    const authError = requireAdmin(ctx);
+    if (authError) return authError;
+
+    const items = await fetchAllBankingInfo();
+
+    return {
+      status: "success",
+      count: items.length,
+      data: items,
+    };
+  });
+
+  app.post("/api/admin/banking-info", async (ctx: any) => {
+    const authError = requireAdmin(ctx);
+    if (authError) return authError;
+
+    const body = (await ctx.body) as CreateBankingInfoInput;
+    if (
+      !body?.bankName ||
+      !body?.accountNumber ||
+      !body?.accountHolder ||
+      !body?.branch
+    ) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "bankName, accountNumber, accountHolder, and branch are required.",
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    const newRecord = await createBankingInfoItem(body);
+
+    await logAudit({
+      actor: "admin",
+      actionType: "create-banking-info",
+      entityType: "banking_info",
+      entityId: newRecord.id,
+      details: `Created banking info for ${newRecord.bankName} (${newRecord.accountNumber})`,
+    });
+
+    return {
+      status: "success",
+      data: newRecord,
+    };
+  });
+
+  app.put("/api/admin/banking-info/:id", async (ctx: any) => {
+    const authError = requireAdmin(ctx);
+    if (authError) return authError;
+
+    const id = ctx.params.id;
+    const body = (await ctx.body) as UpdateBankingInfoInput;
+    const updatedRecord = await updateBankingInfoItem(id, body);
+    if (!updatedRecord) {
+      return new Response(
+        JSON.stringify({ error: "Banking info record not found." }),
+        {
+          status: 404,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    await logAudit({
+      actor: "admin",
+      actionType: "update-banking-info",
+      entityType: "banking_info",
+      entityId: id,
+      details: `Updated banking info for ${updatedRecord.bankName} (${updatedRecord.accountNumber})`,
+    });
+
+    return {
+      status: "success",
+      data: updatedRecord,
+    };
+  });
+
+  app.delete("/api/admin/banking-info/:id", async (ctx: any) => {
+    const authError = requireAdmin(ctx);
+    if (authError) return authError;
+
+    const id = ctx.params.id;
+    const success = await deleteBankingInfoItem(id);
+    if (!success) {
+      return new Response(
+        JSON.stringify({ error: "Banking info record not found." }),
+        {
+          status: 404,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    await logAudit({
+      actor: "admin",
+      actionType: "delete-banking-info",
+      entityType: "banking_info",
+      entityId: id,
+      details: `Deleted banking info record ${id}`,
+    });
+
+    return {
+      status: "success",
+      deleted: true,
+    };
+  });
+
+  // -------------------------------------------------------------
+  // 11. AUDIT LOGS
   // -------------------------------------------------------------
   app.get("/api/admin/audit-logs", async (ctx: any) => {
     const authError = requireAdmin(ctx);

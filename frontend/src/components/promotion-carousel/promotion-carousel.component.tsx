@@ -24,8 +24,12 @@ export const PromotionCarousel: React.FC<PromotionCarouselProps> = ({
   onPromotionSelected,
   onLoadingChange,
   dashboard,
+  claimedPromoIds,
   onOpenSignIn,
   onOpenBookings,
+  onNavigate,
+  onClaim,
+  isClaiming,
 }) => {
   const { promotions, loading, error } = usePromotions();
   // Limit to maximum 2 pages of 3 items (max 6 promotions)
@@ -105,8 +109,12 @@ export const PromotionCarousel: React.FC<PromotionCarouselProps> = ({
                   key={`${promo.id}-${idx}`}
                   promotion={promo}
                   dashboard={dashboard}
+                  claimedPromoIds={claimedPromoIds}
                   onOpenSignIn={onOpenSignIn}
                   onOpenBookings={onOpenBookings}
+                  onNavigate={onNavigate}
+                  onClaim={onClaim}
+                  isClaiming={isClaiming}
                   isExpanded={selectedPromotion?.id === promo.id}
                   onToggleExpand={() => handleToggleExpand(promo)}
                 />

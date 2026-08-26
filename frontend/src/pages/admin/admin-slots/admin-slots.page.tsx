@@ -454,7 +454,7 @@ export default function AdminSlotsPage() {
                           >
                             {block.isActive ? (
                               <>
-                                <CheckCircle2 size={12} /> Active Block
+                                <CheckCircle2 size={12} /> Active
                               </>
                             ) : (
                               <>

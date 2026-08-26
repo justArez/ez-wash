@@ -16,7 +16,7 @@ export const SlotCard: React.FC<SlotCardProps> = ({
   showTime = true,
 }) => {
   const handleClick = () => {
-    if (slot.isAvailable) {
+    if (slot.isAvailable || slot.isUserBooked) {
       onClick(slot);
     }
   };

@@ -4,9 +4,14 @@ import type {
   LinkAccountRequest,
   LinkAccountResponse,
 } from "../models/customer.model";
-import type { ClaimedPromo, Promotion, RewardOffer } from "../models/promo.model";
+import type {
+  ClaimedPromo,
+  Promotion,
+  RewardOffer,
+} from "../models/promo.model";
 import type { ServiceItem } from "../models/service.model";
 import type { TimeSlot } from "../models/timeslot.model";
+import type { BankingInfo } from "../models/banking.model";
 
 const BASE_URL = "";
 
@@ -125,6 +130,58 @@ export async function claimPromo(
     claimedPromo: ClaimedPromo;
     pointsBalance: number;
     success: boolean;
+  }>(response);
+}
+
+export async function refreshJwtSession(token: string): Promise<{
+  token: string;
+  expiresIn: number;
+  expiresAt: number;
+  user: {
+    customerId: string;
+    username: string;
+    phone: string;
+    email?: string;
+    fullName?: string;
+  };
+}> {
+  const response = await fetch(`${BASE_URL}/api/auth/refresh`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ token }),
+  });
+  return handleJsonResponse<{
+    token: string;
+    expiresIn: number;
+    expiresAt: number;
+    user: {
+      customerId: string;
+      username: string;
+      phone: string;
+      email?: string;
+      fullName?: string;
+    };
+  }>(response);
+}
+
+export async function verifyJwtSession(token: string): Promise<{
+  valid: boolean;
+  user?: any;
+  error?: string;
+}> {
+  const response = await fetch(`${BASE_URL}/api/auth/verify`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return handleJsonResponse<{
+    valid: boolean;
+    user?: any;
+    error?: string;
   }>(response);
 }
 
@@ -253,4 +310,21 @@ export async function fetchRewardSuggestions(
     `${BASE_URL}/api/rewards/suggestions?phone=${encodeURIComponent(phone)}`,
   );
   return handleJsonResponse<RewardOffer[]>(response);
+}
+
+export async function fetchPublicBankingInfo(): Promise<BankingInfo | null> {
+  try {
+    const response = await fetch(`${BASE_URL}/api/banking-info`);
+    const json = await handleJsonResponse<{
+      status: string;
+      data: BankingInfo | null;
+    }>(response);
+    return json.data;
+  } catch (err) {
+    console.warn(
+      "Failed to fetch dynamic banking info, will use fallback:",
+      err,
+    );
+    return null;
+  }
 }

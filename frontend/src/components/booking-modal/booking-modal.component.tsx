@@ -69,10 +69,11 @@ const toBookingServices = (options: ServiceOption[]): BookingService[] =>
   }));
 
 const formatDuration = (minutes: number) => {
-  if (minutes < 60) return `${minutes} min`;
+  if (minutes <= 0) return "0m";
+  if (minutes < 60) return `${minutes}m`;
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
-  return rest === 0 ? `${hours} hr` : `${hours} hr ${rest} min`;
+  return rest === 0 ? `${hours}h` : `${hours}h${rest}m`;
 };
 
 const dayLabelForDate = (dateStr: string, dayOfWeek: string): string => {
@@ -336,65 +337,69 @@ export default function BookingModal({
 
     const fetchGlobals = fetchPublicPromotions().catch(() => [] as Promotion[]);
 
-    Promise.all([fetchVouchers, fetchGlobals]).then(([vouchers, publicPromos]) => {
-      // Filter out used or expired claimed vouchers
-      const activeVouchers = (vouchers ?? []).filter(
-        (v) => v.status === "ACTIVE",
-      );
+    Promise.all([fetchVouchers, fetchGlobals]).then(
+      ([vouchers, publicPromos]) => {
+        // Filter out used or expired claimed vouchers
+        const activeVouchers = (vouchers ?? []).filter(
+          (v) => v.status === "ACTIVE",
+        );
 
-      // Track all promo IDs that the customer has claimed/used
-      const usedOrClaimedPromoIds = new Set(
-        (vouchers ?? []).map((v) => v.promoId),
-      );
+        // Track all promo IDs that the customer has claimed/used
+        const usedOrClaimedPromoIds = new Set(
+          (vouchers ?? []).map((v) => v.promoId),
+        );
 
-      // Map active global promos (free, member/all tiers) into promo options
-      const globalOptions: ClaimedPromo[] = (publicPromos || [])
-        .filter((p: Promotion) => {
-          const tiers = p.applicableTiers || [];
-          const isGlobalTier =
-            tiers.length === 0 ||
-            tiers.map((t: string) => t.toLowerCase()).includes("member") ||
-            p.category === "new_member";
-          const isFree = !p.pointPrice || Number(p.pointPrice) === 0;
-          const isInfinite = p.isInfiniteUse || p.isInifiteUse || false;
+        // Map active global promos (free, member/all tiers) into promo options
+        const globalOptions: ClaimedPromo[] = (publicPromos || [])
+          .filter((p: Promotion) => {
+            const tiers = p.applicableTiers || [];
+            const isGlobalTier =
+              tiers.length === 0 ||
+              tiers.map((t: string) => t.toLowerCase()).includes("member") ||
+              p.category === "new_member";
+            const isFree = !p.pointPrice || Number(p.pointPrice) === 0;
+            const isInfinite = p.isInfiniteUse || p.isInifiteUse || false;
 
-          // If not infinite use, only include if user hasn't used/claimed it before
-          if (!isInfinite && usedOrClaimedPromoIds.has(p.id)) {
-            return false;
+            // If not infinite use, only include if user hasn't used/claimed it before
+            if (!isInfinite && usedOrClaimedPromoIds.has(p.id)) {
+              return false;
+            }
+
+            return (
+              isGlobalTier &&
+              isFree &&
+              p.category !== "tier_reward" &&
+              p.isActive !== false
+            );
+          })
+          .map((p: Promotion) => ({
+            id: p.id,
+            promoId: p.id,
+            title: p.title || p.name,
+            description: p.description,
+            claimedAt: new Date().toISOString(),
+            validUntil: p.validUntil || p.endDate || "2026-12-31",
+            status: "ACTIVE" as const,
+            perkIdentifier: p.id,
+            promoType: p.promoType,
+            discountPercentage: p.discountPercentage,
+            discountAmount: p.discountAmount,
+            bonusPoints: p.bonusPoints,
+            applicableServiceIds: p.applicableServiceIds,
+          }));
+
+        // Combine user active vouchers and global promotions, avoiding duplicates by promoId
+        const combined = [...activeVouchers];
+        for (const gp of globalOptions) {
+          if (
+            !combined.some((c) => c.promoId === gp.promoId || c.id === gp.id)
+          ) {
+            combined.push(gp);
           }
-
-          return (
-            isGlobalTier &&
-            isFree &&
-            p.category !== "tier_reward" &&
-            p.isActive !== false
-          );
-        })
-        .map((p: Promotion) => ({
-          id: p.id,
-          promoId: p.id,
-          title: p.title || p.name,
-          description: p.description,
-          claimedAt: new Date().toISOString(),
-          validUntil: p.validUntil || p.endDate || "2026-12-31",
-          status: "ACTIVE" as const,
-          perkIdentifier: p.id,
-          promoType: p.promoType,
-          discountPercentage: p.discountPercentage,
-          discountAmount: p.discountAmount,
-          bonusPoints: p.bonusPoints,
-          applicableServiceIds: p.applicableServiceIds,
-        }));
-
-      // Combine user active vouchers and global promotions, avoiding duplicates by promoId
-      const combined = [...activeVouchers];
-      for (const gp of globalOptions) {
-        if (!combined.some((c) => c.promoId === gp.promoId || c.id === gp.id)) {
-          combined.push(gp);
         }
-      }
-      setPromos(combined);
-    });
+        setPromos(combined);
+      },
+    );
   }, [visible, phone]);
 
   // Recognize walk-in customers typed in manually
@@ -551,6 +556,19 @@ export default function BookingModal({
 
   const handleSubmit = () => {
     setError(null);
+    if (
+      customer?.status === "Blocked" ||
+      (customer?.blockedUntil && new Date(customer.blockedUntil) > new Date())
+    ) {
+      setError(
+        `Your account has been temporarily blocked from making new bookings due to excessive cancellations. You can book again after 7 days${
+          customer.blockedUntil
+            ? ` (on ${new Date(customer.blockedUntil).toLocaleDateString()})`
+            : ""
+        }.`,
+      );
+      return;
+    }
     if (!phone || !plate || !model) {
       setError("Phone, plate, and model are required.");
       return;
@@ -565,7 +583,9 @@ export default function BookingModal({
       setError("Select an available date and timeslot.");
       return;
     }
-    if (!checkConsecutiveSlotsAvailability(selectedDate, selectedTime, totalSlots)) {
+    if (
+      !checkConsecutiveSlotsAvailability(selectedDate, selectedTime, totalSlots)
+    ) {
       setError(
         `The selected ${totalMinutes}-minute service duration (${totalSlots} slot${totalSlots > 1 ? "s" : ""}) overlaps with other occupied slots or exceeds operating hours. Please choose another timeslot.`,
       );
@@ -618,42 +638,6 @@ export default function BookingModal({
             <p>Choose a slot and add service options before confirming.</p>
           </div>
         </div>
-
-        {selectedDate && selectedTime && (
-          <div
-            style={{
-              padding: "10px 14px",
-              marginBottom: "16px",
-              borderRadius: "8px",
-              backgroundColor: "rgba(59, 130, 246, 0.08)",
-              border: "1px solid rgba(59, 130, 246, 0.25)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              fontSize: "0.875rem",
-              color: "#1e40af",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <span style={{ fontWeight: 600 }}>📅 Selected Slot:</span>
-              <span>
-                {selectedSlotLabel || `${selectedDate} at ${selectedTime}`}
-              </span>
-            </div>
-            <span
-              style={{
-                fontWeight: 600,
-                fontSize: "0.75rem",
-                backgroundColor: "#dbeafe",
-                color: "#1d4ed8",
-                padding: "2px 8px",
-                borderRadius: "9999px",
-              }}
-            >
-              {totalSlots} × {SLOT_DURATION_MINUTES}m
-            </span>
-          </div>
-        )}
 
         <div className="booking-modal__body">
           <section className="booking-modal__column">
@@ -794,19 +778,28 @@ export default function BookingModal({
           <section className="booking-modal__column">
             <div className="booking-modal__panel service-checkboxes">
               <p className="section-label">Select services</p>
-              {services.map((service) => (
-                <label key={service.id} className="checkbox-field">
-                  <input
-                    type="checkbox"
-                    checked={selectedServices.includes(service.id)}
-                    onChange={() => handleServiceToggle(service.id)}
-                  />
-                  <span>
-                    {service.name} - {formatDuration(service.durationMinutes)} -
-                    ${service.price}
-                  </span>
-                </label>
-              ))}
+              <div className="service-cards-list">
+                {services.map((service) => {
+                  const isSelected = selectedServices.includes(service.id);
+                  return (
+                    <button
+                      key={service.id}
+                      type="button"
+                      className={`service-card ${isSelected ? "service-card--selected" : ""}`}
+                      onClick={() => handleServiceToggle(service.id)}
+                      aria-pressed={isSelected}
+                    >
+                      <span className="service-chip-name">{service.name}</span>
+                      <span className="service-chip-price">
+                        ${service.price}
+                      </span>
+                      <span className="service-chip-duration">
+                        {formatDuration(service.durationMinutes)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="booking-modal__panel">
@@ -855,7 +848,7 @@ export default function BookingModal({
           <div className="booking-summary">
             <span>Timeslots required</span>
             <strong>
-              {totalSlots} × {SLOT_DURATION_MINUTES} min
+              {totalSlots} in {SLOT_DURATION_MINUTES} min
             </strong>
           </div>
           <div className="booking-summary">

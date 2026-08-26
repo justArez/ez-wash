@@ -122,6 +122,7 @@ export const loyaltyCustomers = pgTable(
       .default("normal")
       .notNull(),
     status: text("status").default("Active").notNull(),
+    blockedUntil: timestamp("blocked_until", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -252,6 +253,9 @@ export const bookings = pgTable(
     serviceId: text("service_id").references(() => serviceItems.id, {
       onDelete: "set null",
     }),
+    serviceIds: text("service_ids").array(),
+    serviceName: text("service_name"),
+    bookingPrice: doublePrecision("booking_price"),
     date: timestamp("date", { withTimezone: true }).notNull(),
     timeSlot: text("time_slot"),
     durationMinutes: integer("duration_minutes"),
@@ -340,6 +344,63 @@ export const auditLogs = pgTable(
   (t) => [
     index("audit_logs_timestamp_idx").on(t.timestamp),
     index("audit_logs_entity_idx").on(t.entityType, t.entityId),
+  ],
+);
+
+export const bankingInfo = pgTable(
+  "banking_info",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    bankCode: text("bank_code").notNull(), // e.g. "vietcombank", "MB", "techcombank", "ACB"
+    bankName: text("bank_name").notNull(), // e.g. "Vietcombank", "MBBank"
+    bankBranch: text("bank_branch"),
+    accountNumber: text("account_number").notNull(),
+    accountHolder: text("account_holder").notNull(),
+    qrTemplate: text("qr_template").default("compact2").notNull(), // "compact2", "compact", "qr_only"
+    isDefault: boolean("is_default").default(false).notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    index("banking_info_is_default_idx").on(t.isDefault),
+    index("banking_info_is_active_idx").on(t.isActive),
+  ],
+);
+
+export const scheduleBlocks = pgTable(
+  "schedule_blocks",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => `BLK-${Date.now().toString(36).toUpperCase()}`),
+    type: text("type").notNull(), // 'maintenance' | 'day_off' | 'holiday' | 'custom_block'
+    title: text("title").notNull(),
+    reason: text("reason"),
+    startDate: text("start_date").notNull(), // YYYY-MM-DD
+    endDate: text("end_date").notNull(), // YYYY-MM-DD
+    startTime: text("start_time"), // HH:MM
+    endTime: text("end_time"), // HH:MM
+    bayId: text("bay_id").default("all").notNull(), // 'all', '1', '2', '3', '4'
+    isActive: boolean("is_active").default(true).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    index("schedule_blocks_start_date_idx").on(t.startDate),
+    index("schedule_blocks_end_date_idx").on(t.endDate),
+    index("schedule_blocks_is_active_idx").on(t.isActive),
   ],
 );
 

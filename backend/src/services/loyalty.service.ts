@@ -162,7 +162,10 @@ export async function buildDashboard(phone: string) {
       ((customer.lateCancellationWarningCount ?? 0) >= 3
         ? "LOW_PRIORITIED"
         : "normal"),
+    status: customer.status,
+    blockedUntil: customer.blockedUntil,
     pointHistory: customer.pointHistory.slice(-10).reverse(),
+    claimedPromos: customer.claimedPromos || [],
   };
 }
 
@@ -221,11 +224,92 @@ export async function cancelBooking(
     })
     .where(eq(schema.bookings.id, bookingId));
 
+  booking.status = "cancelled";
+  booking.cancelledAt = now.toISOString();
+  booking.isLateCancellation = isLateCancellation;
+
+  // Evaluate cancellation streak for blocking
+  // Re-fetch all bookings for the customer sorted by updatedAt/cancelledAt/createdAt descending
+  const customerBookingRows = await db
+    .select()
+    .from(schema.bookings)
+    .where(eq(schema.bookings.customerId, customer.id));
+
+  // Sort newest to oldest based on cancellation time or update time or creation time
+  const sortedBookings = customerBookingRows.slice().sort((a, b) => {
+    const timeA = new Date(
+      a.cancelledAt || a.updatedAt || a.createdAt || a.date,
+    ).getTime();
+    const timeB = new Date(
+      b.cancelledAt || b.updatedAt || b.createdAt || b.date,
+    ).getTime();
+    return timeB - timeA;
+  });
+
+  // Calculate consecutive cancellations in a row from the most recent booking
+  let consecutiveCancelledCount = 0;
+  const recentCancelledTimestamps: number[] = [];
+
+  for (const b of sortedBookings) {
+    if (b.status === "cancelled") {
+      consecutiveCancelledCount++;
+      const cancelTime = new Date(
+        b.cancelledAt || b.updatedAt || b.createdAt,
+      ).getTime();
+      recentCancelledTimestamps.push(cancelTime);
+    } else {
+      // Streak broken by non-cancelled booking (completed, confirmed, pending, blocked)
+      break;
+    }
+  }
+
+  // Check condition 1: 10 cancellations in a row
+  const has10InARow = consecutiveCancelledCount >= 10;
+
+  // Check condition 2: 5 in a row cancelled in less than 24h
+  let has5In24h = false;
+  if (consecutiveCancelledCount >= 5) {
+    // Check if the first 5 in the current cancellation streak were cancelled within 24 hours of each other
+    const first5 = recentCancelledTimestamps.slice(0, 5);
+    const maxTime = Math.max(...first5);
+    const minTime = Math.min(...first5);
+    if (maxTime - minTime <= 24 * 60 * 60 * 1000) {
+      has5In24h = true;
+    }
+  }
+
+  let customerBlockedUntil: Date | null = customer.blockedUntil
+    ? new Date(customer.blockedUntil)
+    : null;
+  let customerStatus = customer.status || "Active";
+
+  if (has10InARow || has5In24h) {
+    const blockDurationMs = 7 * 24 * 60 * 60 * 1000;
+    const newBlockedUntil = new Date(now.getTime() + blockDurationMs);
+    customerBlockedUntil = newBlockedUntil;
+    customerStatus = "Blocked";
+
+    await db.insert(schema.auditLogs).values({
+      id: createId(),
+      actor: "system",
+      actionType: "customer-blocked",
+      entityType: "customer",
+      entityId: customer.id,
+      details: `Customer automatically blocked for 7 days (until ${newBlockedUntil.toISOString()}) due to ${
+        has10InARow
+          ? "10 consecutive cancellations"
+          : "5 cancellations within 24 hours"
+      }.`,
+    });
+  }
+
   await db
     .update(schema.loyaltyCustomers)
     .set({
       lateCancellationWarningCount: warningCount,
       priorityStatus,
+      status: customerStatus,
+      blockedUntil: customerBlockedUntil,
       updatedAt: now,
     })
     .where(eq(schema.loyaltyCustomers.id, customer.id));
@@ -243,16 +327,16 @@ export async function cancelBooking(
       : "Booking cancelled within the permitted notice period.",
   });
 
-  booking.status = "cancelled";
-  booking.cancelledAt = now.toISOString();
-  booking.isLateCancellation = isLateCancellation;
-
   return {
     success: true,
     booking,
     isLateCancellation,
     warningCount,
     priorityStatus,
+    status: customerStatus,
+    blockedUntil: customerBlockedUntil
+      ? customerBlockedUntil.toISOString()
+      : null,
   };
 }
 
@@ -271,6 +355,44 @@ export async function createBooking(
     throw new Error(
       "Customer not found for the provided phone or vehicle plate.",
     );
+  }
+
+  const now = new Date();
+
+  // Check if customer is blocked
+  if (customer.status === "Blocked" || customer.blockedUntil) {
+    const blockedUntilDate = customer.blockedUntil
+      ? new Date(customer.blockedUntil)
+      : null;
+    if (blockedUntilDate && blockedUntilDate > now) {
+      const remainingDays = Math.ceil(
+        (blockedUntilDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000),
+      );
+      const formattedDate = blockedUntilDate.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+      throw new Error(
+        `Your account has been temporarily blocked from booking due to repeated cancellations. You can book again after 7 days (on ${formattedDate}, ${remainingDays} day(s) remaining).`,
+      );
+    } else if (blockedUntilDate && blockedUntilDate <= now) {
+      // Block expired, automatically restore active status
+      await db
+        .update(schema.loyaltyCustomers)
+        .set({
+          status: "Active",
+          blockedUntil: null,
+          updatedAt: now,
+        })
+        .where(eq(schema.loyaltyCustomers.id, customer.id));
+      customer.status = "Active";
+      customer.blockedUntil = null;
+    } else if (customer.status === "Blocked") {
+      throw new Error(
+        "Your account has been temporarily blocked from booking.",
+      );
+    }
   }
 
   const requested = new Date(requestedDate);

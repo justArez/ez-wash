@@ -11,6 +11,8 @@ import {
   X,
 } from "lucide-react";
 import { uploadDepositImage } from "../../services/deposit-upload.service";
+import { fetchPublicBankingInfo } from "../../services/loyalty.service";
+import type { BankingInfo } from "../../models/banking.model";
 import {
   CAR_WASH_BANK_ACCOUNT,
   buildDepositQrUrl,
@@ -61,7 +63,16 @@ export default function DepositPaymentModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [dynamicBank, setDynamicBank] = useState<BankingInfo | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (visible) {
+      fetchPublicBankingInfo().then((info) => {
+        if (info) setDynamicBank(info);
+      });
+    }
+  }, [visible]);
 
   // Reset state during render whenever a different booking is opened
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
@@ -94,6 +105,10 @@ export default function DepositPaymentModal({
   const showWaivedPanel = isWaived && !hasSubmittedImage;
   const showUploadForm =
     !readOnly && !isWaived && (!hasSubmittedImage || isReplacing);
+
+  const activeBankLabel = dynamicBank?.bankName || CAR_WASH_BANK_ACCOUNT.bankLabel;
+  const activeAccountNumber = dynamicBank?.accountNumber || CAR_WASH_BANK_ACCOUNT.accountNumber;
+  const activeAccountHolder = dynamicBank?.accountHolder || CAR_WASH_BANK_ACCOUNT.accountName;
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -211,7 +226,12 @@ export default function DepositPaymentModal({
                 <div className="deposit-modal__bank-info">
                   <img
                     className="deposit-modal__qr"
-                    src={buildDepositQrUrl(booking.id, depositAmount)}
+                    src={buildDepositQrUrl(booking.id, depositAmount, {
+                      bankCode: dynamicBank?.bankCode,
+                      accountNumber: dynamicBank?.accountNumber,
+                      accountHolder: dynamicBank?.accountHolder,
+                      qrTemplate: dynamicBank?.qrTemplate,
+                    })}
                     alt="Scan to pay the seat deposit via bank transfer"
                     width={180}
                     height={180}
@@ -219,18 +239,18 @@ export default function DepositPaymentModal({
                   <dl className="deposit-modal__bank-details">
                     <div>
                       <dt>Bank</dt>
-                      <dd>{CAR_WASH_BANK_ACCOUNT.bankLabel}</dd>
+                      <dd>{activeBankLabel}</dd>
                     </div>
                     <div>
                       <dt>Account number</dt>
                       <dd>
-                        {CAR_WASH_BANK_ACCOUNT.accountNumber}
+                        {activeAccountNumber}
                         <button
                           type="button"
                           className="deposit-modal__copy-btn"
                           onClick={() => {
                             navigator.clipboard
-                              .writeText(CAR_WASH_BANK_ACCOUNT.accountNumber)
+                              .writeText(activeAccountNumber)
                               .then(() => {
                                 setCopied(true);
                                 setTimeout(() => setCopied(false), 2000);
@@ -244,7 +264,7 @@ export default function DepositPaymentModal({
                     </div>
                     <div>
                       <dt>Account holder</dt>
-                      <dd>{CAR_WASH_BANK_ACCOUNT.accountName}</dd>
+                      <dd>{activeAccountHolder}</dd>
                     </div>
                     <div>
                       <dt>Amount ({depositPercent}%)</dt>

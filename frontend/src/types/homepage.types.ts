@@ -194,6 +194,7 @@ export interface SlotCalendarProps {
     time?: string;
     timeSlot?: string;
     status?: string;
+    durationMinutes?: number;
     vehiclePlate?: string;
     service?: string;
   }>;
@@ -218,6 +219,7 @@ export interface PromotionCardProps {
   claimedPromoIds?: string[];
   onOpenSignIn?: () => void;
   onOpenBookings?: (promoContext?: string) => void;
+  onNavigate?: (path: string) => void;
   onClaim?: (promotion: Promotion) => void | Promise<void>;
   isClaiming?: boolean;
 }
@@ -226,8 +228,12 @@ export interface PromotionCarouselProps {
   onPromotionSelected?: (promotion: Promotion) => void;
   onLoadingChange?: (loading: boolean) => void;
   dashboard?: DashboardResponse | null;
+  claimedPromoIds?: string[];
   onOpenSignIn?: () => void;
   onOpenBookings?: (promoContext?: string) => void;
+  onNavigate?: (path: string) => void;
+  onClaim?: (promotion: Promotion) => void | Promise<void>;
+  isClaiming?: boolean;
 }
 
 export interface PromotionDetailsModalProps {

@@ -135,13 +135,78 @@
     }
   }
 
+  .service-cards-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .service-card {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface-strong);
+    cursor: pointer;
+    text-align: left;
+    font-family: inherit;
+    transition:
+      border-color 0.2s ease,
+      background 0.2s ease,
+      box-shadow 0.2s ease,
+      transform 0.15s ease;
+
+    &:hover {
+      border-color: var(--accent);
+      transform: translateY(-1px);
+    }
+
+    .service-chip-name {
+      font-weight: 600;
+      color: var(--text);
+      font-size: 0.92rem;
+      margin-right: auto;
+    }
+
+    .service-chip-price {
+      font-weight: 700;
+      color: #059669;
+      background: #ecfdf5;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+    }
+
+    .service-chip-duration {
+      font-weight: 500;
+      color: var(--text-secondary);
+      background: #f1f5f9;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+    }
+
+    &--selected {
+      border-color: var(--accent);
+      background: rgba(124, 58, 237, 0.08);
+      box-shadow: 0 0 12px rgba(124, 58, 237, 0.35), 0 0 0 1px var(--accent);
+
+      &:hover {
+        box-shadow: 0 0 16px rgba(124, 58, 237, 0.45), 0 0 0 1px var(--accent);
+      }
+    }
+  }
+
   .checkbox-field {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 12px 14px;
+    padding: 10px 14px;
     border: 1px solid var(--border);
-    border-radius: 14px;
+    border-radius: 12px;
     background: var(--surface-strong);
     cursor: pointer;
     transition:
@@ -160,9 +225,36 @@
       cursor: pointer;
     }
 
-    span {
-      font-size: 0.95rem;
-      line-height: 1.35;
+    .service-chip-content {
+      display: inline-flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      flex: 1;
+
+      .service-chip-name {
+        font-weight: 600;
+        color: var(--text);
+        font-size: 0.92rem;
+      }
+
+      .service-chip-price {
+        font-weight: 700;
+        color: #059669;
+        background: #ecfdf5;
+        padding: 2px 8px;
+        border-radius: 6px;
+        font-size: 0.8rem;
+      }
+
+      .service-chip-duration {
+        font-weight: 500;
+        color: var(--text-secondary);
+        background: #f1f5f9;
+        padding: 2px 8px;
+        border-radius: 6px;
+        font-size: 0.8rem;
+      }
     }
 
     &:has(input:checked) {

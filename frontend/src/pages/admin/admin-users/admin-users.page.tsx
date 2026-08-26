@@ -224,7 +224,7 @@ export default function AdminUsersPage() {
   const handleResetWarnings = async (userId: string) => {
     if (
       !window.confirm(
-        "Reset late cancellation strikes and restore normal priority status?",
+        "Reset late cancellation strikes/block state and restore normal active status?",
       )
     )
       return;
@@ -232,7 +232,9 @@ export default function AdminUsersPage() {
     try {
       await resetAdminUserWarnings(userId);
       setUsers((prev) =>
-        prev.map((u) => (u.id === userId ? { ...u, status: "Active" } : u)),
+        prev.map((u) =>
+          u.id === userId ? { ...u, status: "Active", blockedUntil: null } : u,
+        ),
       );
     } catch (err) {
       console.error("Failed to reset warnings:", err);
@@ -660,6 +662,9 @@ export default function AdminUsersPage() {
                           {user.status === "Low Priority" && (
                             <AlertTriangle size={12} />
                           )}
+                          {user.status === "Blocked" && (
+                            <AlertTriangle size={12} />
+                          )}
                           {user.status === "Inactive" && <Clock size={12} />}
                           {user.status}
                         </span>
@@ -667,13 +672,14 @@ export default function AdminUsersPage() {
 
                       <td className="text-right">
                         <div className="flex items-center justify-end gap-1">
-                          {user.status === "Low Priority" && (
+                          {(user.status === "Low Priority" ||
+                            user.status === "Blocked") && (
                             <Button
                               variant="ghost"
                               size="sm"
                               className="h-8 px-2 text-xs text-amber-600 hover:text-amber-800 hover:bg-amber-50 flex items-center gap-1"
                               onClick={() => handleResetWarnings(user.id)}
-                              title="Reset late cancellation penalty strikes"
+                              title="Reset strikes and unblock customer"
                             >
                               <RotateCcw size={12} />
                               Reset Strike

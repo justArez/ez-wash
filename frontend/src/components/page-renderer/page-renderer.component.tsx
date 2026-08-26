@@ -12,6 +12,7 @@ import AdminBookingsPage from "../../pages/admin/admin-bookings/admin-bookings.p
 import AdminSlotsPage from "../../pages/admin/admin-slots/admin-slots.page";
 import AdminUsersPage from "../../pages/admin/admin-users/admin-users.page";
 import AdminServicesPage from "../../pages/admin/admin-services/admin-services.page";
+import AdminBankingPage from "../../pages/admin/admin-banking/admin-banking.page";
 import type { DashboardResponse } from "../../models/customer.model";
 
 export interface PageRendererProps {
@@ -23,6 +24,7 @@ export interface PageRendererProps {
   onAdminLogin: (username: string, password: string) => Promise<void>;
   onOpenBookings: (slotOrPromo?: any) => void;
   onOpenSignIn?: () => void;
+  onNavigate?: (path: string) => void;
   offersList: any[];
   availableSlots: string[];
   refreshTrigger?: number;
@@ -37,6 +39,7 @@ export function PageRenderer({
   onAdminLogin,
   onOpenBookings,
   onOpenSignIn,
+  onNavigate,
   offersList,
   availableSlots,
   refreshTrigger,
@@ -55,7 +58,8 @@ export function PageRenderer({
       | "admin-services"
       | "admin-promo"
       | "admin-tier"
-      | "admin-users";
+      | "admin-users"
+      | "admin-banking";
 
     return (
       <AdminLayout
@@ -70,6 +74,7 @@ export function PageRenderer({
         {adminView === "admin-promo" && <AdminPromoPage />}
         {adminView === "admin-tier" && <AdminTierPage />}
         {adminView === "admin-users" && <AdminUsersPage />}
+        {adminView === "admin-banking" && <AdminBankingPage />}
       </AdminLayout>
     );
   }
@@ -95,6 +100,7 @@ export function PageRenderer({
           availableSlots={availableSlots}
           onBook={onOpenBookings}
           onOpenSignIn={onOpenSignIn}
+          onNavigate={onNavigate}
           refreshTrigger={refreshTrigger}
         />
       );
@@ -110,6 +116,7 @@ export function PageRenderer({
       availableSlots={availableSlots}
       onBook={onOpenBookings}
       onOpenSignIn={onOpenSignIn}
+      onNavigate={onNavigate}
       refreshTrigger={refreshTrigger}
     />
   );

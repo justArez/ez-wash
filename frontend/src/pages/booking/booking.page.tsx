@@ -17,10 +17,12 @@ import {
   Tag,
   Sparkles,
   Wallet,
+  ScrollText,
 } from "lucide-react";
 import DepositPaymentModal, {
   type DepositBookingInfo,
 } from "../../components/deposit-modal/deposit-modal.component";
+import CustomerBookingDetailModal from "../../components/customer-booking-detail-modal/customer-booking-detail-modal.component";
 
 interface BookingPageProps {
   dashboard: DashboardResponse;
@@ -44,6 +46,8 @@ export default function BookingPage({ dashboard }: BookingPageProps) {
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(
     null,
   );
+  const [detailModalBooking, setDetailModalBooking] =
+    useState<BookingRecord | null>(null);
   const [depositBooking, setDepositBooking] =
     useState<DepositBookingInfo | null>(null);
   const [isDepositReadOnly, setIsDepositReadOnly] = useState(false);
@@ -112,25 +116,84 @@ export default function BookingPage({ dashboard }: BookingPageProps) {
 
   const resolveServiceForBooking = (booking: BookingRecord) =>
     (booking.serviceId ? serviceMap.get(booking.serviceId) : undefined) ||
-    (booking.service ? serviceMap.get(booking.service.toLowerCase()) : undefined) ||
+    (booking.service
+      ? serviceMap.get(booking.service.toLowerCase())
+      : undefined) ||
     (booking.serviceName
       ? serviceMap.get(booking.serviceName.toLowerCase())
       : undefined);
 
+  const calculateBookingTotalPrice = (booking: BookingRecord): number => {
+    // 1. Calculate raw service total from all selected services
+    let rawTotal = 0;
+
+    if (Array.isArray(booking.serviceIds) && booking.serviceIds.length > 0) {
+      for (const id of booking.serviceIds) {
+        const item = serviceMap.get(id) || serviceMap.get(id.toLowerCase());
+        rawTotal += item?.price ?? 0;
+      }
+    }
+
+    const srvName = booking.service || booking.serviceName;
+    if (rawTotal === 0 && srvName) {
+      if (srvName.includes(",")) {
+        const names = srvName.split(",").map((n) => n.trim().toLowerCase());
+        for (const name of names) {
+          const item = serviceMap.get(name);
+          rawTotal += item ? item.price : 0;
+        }
+      } else {
+        const item = serviceMap.get(srvName.toLowerCase());
+        if (item) rawTotal += item.price;
+      }
+    }
+
+    if (rawTotal === 0) {
+      if (
+        typeof booking.bookingPrice === "number" &&
+        booking.bookingPrice > 0
+      ) {
+        rawTotal = booking.bookingPrice;
+      } else {
+        const srv = resolveServiceForBooking(booking);
+        rawTotal = srv ? srv.price : 15;
+      }
+    }
+
+    let total = rawTotal;
+
+    // 2. Apply promo discount afterwards if any
+    if (booking.appliedPromoId && dashboard.claimedPromos) {
+      const promo = dashboard.claimedPromos.find(
+        (p) =>
+          p.promoId === booking.appliedPromoId ||
+          p.id === booking.appliedPromoId,
+      );
+
+      if (promo) {
+        if (promo.discountPercentage) {
+          total = Math.max(0, total - (total * promo.discountPercentage) / 100);
+        } else if (promo.discountAmount) {
+          total = Math.max(0, total - promo.discountAmount);
+        } else {
+          const match = (promo.title || promo.perkIdentifier || "").match(
+            /(\d+)%/,
+          );
+          if (match) {
+            const pct = parseFloat(match[1]);
+            if (!isNaN(pct)) {
+              total = Math.max(0, total - (total * pct) / 100);
+            }
+          }
+        }
+      }
+    }
+
+    return Math.round(total * 100) / 100;
+  };
+
   const openBookingDetails = (booking: BookingRecord) => {
-    const srv = resolveServiceForBooking(booking);
-    setIsDepositReadOnly(true);
-    setDepositBooking({
-      id: booking.id,
-      serviceName:
-        srv?.name || booking.service || booking.serviceName || "Car Wash",
-      date: formatDate(booking.date),
-      timeSlot: formatTime(booking),
-      vehiclePlate: booking.vehiclePlate,
-      bookingPrice: srv ? srv.price : 15,
-      depositImageUrl: booking.depositImageUrl,
-      depositSubmittedAt: booking.depositSubmittedAt,
-    });
+    setDetailModalBooking(booking);
   };
 
   const getPointsDisplay = (booking: BookingRecord) => {
@@ -258,21 +321,52 @@ export default function BookingPage({ dashboard }: BookingPageProps) {
       >
         <section className="booking-intro">
           <div>
-            <h1 id="booking-page-title">Your Bookings</h1>
+            <div className="flex items-center gap-2">
+              <ScrollText size={48} />
+              <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-[#2c264f]">
+                Your bookings
+              </h1>
+            </div>
             <p className="panel-copy">
               Manage your upcoming wash appointments, view past visits, and stay
               on top of your schedule.
             </p>
           </div>
-          {dashboard.priorityStatus === "LOW_PRIORITIED" && (
-            <div className="priority-banner" role="status">
+          {(dashboard.status === "Blocked" ||
+            (dashboard.blockedUntil &&
+              new Date(dashboard.blockedUntil) > new Date())) && (
+            <div
+              className="priority-banner bg-red-50 border-red-300 text-red-700"
+              role="status"
+            >
               <strong>
-                <TriangleAlertIcon className="w-5 h-5 text-yellow-600" /> LOW
-                PRIORITIZE
+                <TriangleAlertIcon className="w-5 h-5 text-red-600" /> ACCOUNT
+                TEMPORARILY BLOCKED
               </strong>
-              <span>Three late cancellation warnings are on your account.</span>
+              <span>
+                Your account is blocked from booking new washes for 7 days due
+                to excessive cancellations.
+                {dashboard.blockedUntil &&
+                  ` (Blocked until ${new Date(dashboard.blockedUntil).toLocaleDateString()})`}
+              </span>
             </div>
           )}
+          {dashboard.priorityStatus === "LOW_PRIORITIED" &&
+            dashboard.status !== "Blocked" &&
+            !(
+              dashboard.blockedUntil &&
+              new Date(dashboard.blockedUntil) > new Date()
+            ) && (
+              <div className="priority-banner" role="status">
+                <strong>
+                  <TriangleAlertIcon className="w-5 h-5 text-yellow-600" /> LOW
+                  PRIORITIZE
+                </strong>
+                <span>
+                  Three late cancellation warnings are on your account.
+                </span>
+              </div>
+            )}
         </section>
 
         {(actionMessage || actionError) && (
@@ -321,8 +415,18 @@ export default function BookingPage({ dashboard }: BookingPageProps) {
 
                 return (
                   <article
-                    className="booking-card booking-card-featured"
+                    className="booking-card booking-card-featured booking-card-clickable"
                     key={booking.id}
+                    tabIndex={0}
+                    role="button"
+                    onClick={() => openBookingDetails(booking)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        openBookingDetails(booking);
+                      }
+                    }}
+                    aria-label={`View details for booking on ${formatDate(booking.date)}`}
                   >
                     <div className="booking-card-header">
                       <div className="booking-card-title-wrap">
@@ -407,7 +511,10 @@ export default function BookingPage({ dashboard }: BookingPageProps) {
                       </div>
                     )}
 
-                    <div className="booking-card-footer">
+                    <div
+                      className="booking-card-footer"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <span className={isLateWindow ? "warning-copy" : "note"}>
                         {isLateWindow
                           ? "⚠️ Less than 4 hours: a warning applies."
@@ -416,7 +523,10 @@ export default function BookingPage({ dashboard }: BookingPageProps) {
                       <button
                         className="secondary-button booking-deposit-button"
                         type="button"
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const totalPrice =
+                            calculateBookingTotalPrice(booking);
                           setIsDepositReadOnly(false);
                           setDepositBooking({
                             id: booking.id,
@@ -424,7 +534,7 @@ export default function BookingPage({ dashboard }: BookingPageProps) {
                             date: formatDate(booking.date),
                             timeSlot: formatTime(booking),
                             vehiclePlate: booking.vehiclePlate,
-                            bookingPrice: srv ? srv.price : 15,
+                            bookingPrice: totalPrice,
                             depositImageUrl: booking.depositImageUrl,
                             depositSubmittedAt: booking.depositSubmittedAt,
                           });
@@ -439,7 +549,10 @@ export default function BookingPage({ dashboard }: BookingPageProps) {
                       <button
                         className="button button-danger"
                         type="button"
-                        onClick={() => setSelectedBookingId(booking.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedBookingId(booking.id);
+                        }}
                         aria-label={`Cancel booking for ${formatDate(booking.date)}`}
                       >
                         Cancel Booking
@@ -603,6 +716,31 @@ export default function BookingPage({ dashboard }: BookingPageProps) {
             );
             setDepositBooking(null);
             setActionMessage("Seat deposit submitted successfully.");
+          }}
+        />
+
+        <CustomerBookingDetailModal
+          visible={Boolean(detailModalBooking)}
+          booking={detailModalBooking}
+          customer={dashboard}
+          onClose={() => setDetailModalBooking(null)}
+          onOpenDeposit={(bookingInfo) => {
+            setDetailModalBooking(null);
+            setIsDepositReadOnly(false);
+            setDepositBooking(bookingInfo);
+          }}
+          onBookingCancelled={() => {
+            if (dashboard?.phone) {
+              fetchCustomerBookings(dashboard.phone)
+                .then((res) => {
+                  if (res?.bookingHistory) {
+                    setBookings(res.bookingHistory);
+                  }
+                })
+                .catch(() => {});
+            }
+            setDetailModalBooking(null);
+            setActionMessage("Booking cancelled successfully.");
           }}
         />
 

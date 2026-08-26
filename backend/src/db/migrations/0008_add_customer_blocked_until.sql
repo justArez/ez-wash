@@ -1,0 +1,1 @@
+ALTER TABLE "loyalty_customers" ADD COLUMN IF NOT EXISTS "blocked_until" timestamp with time zone;

@@ -61,15 +61,25 @@ interface DayInfo {
   dayIndex: number; // 0 for today, 1 for tomorrow, etc.
 }
 
+const formatLocalDateStr = (d: Date): string => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 const getDaysForWeek = (weekOffset: number): DayInfo[] => {
   const result: DayInfo[] = [];
   const now = new Date();
   const startDay = weekOffset * 7;
   for (let i = 0; i < 7; i++) {
     const dayIndex = startDay + i;
-    const d = new Date(now);
-    d.setDate(now.getDate() + dayIndex);
-    const dateStr = d.toISOString().split("T")[0];
+    const d = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() + dayIndex,
+    );
+    const dateStr = formatLocalDateStr(d);
     const dayOfWeek = DAYS_OF_WEEK[d.getDay()];
     const dayDisplayDate = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
     const slotLabel = `${dayOfWeek} (${dayDisplayDate})`;
@@ -240,7 +250,19 @@ export const SlotCalendar: React.FC<SlotCalendarProps> = ({
   // Fetch up to 14 days so both weeks are immediately available
   const { slots, loading, error, refetch, nextRefreshCountdown } = useSlots(14);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [fetchedUserBookings, setFetchedUserBookings] = useState<any[]>([]);
+  const [fetchedUserBookings, setFetchedUserBookings] = useState<
+    Array<{
+      id?: string;
+      date: string;
+      time?: string;
+      timeSlot?: string;
+      status?: string;
+      durationMinutes?: number;
+      vehiclePlate?: string;
+      service?: string;
+      serviceName?: string;
+    }>
+  >([]);
   const tableContainerRef = React.useRef<HTMLDivElement>(null);
   const theadRef = React.useRef<HTMLTableSectionElement>(null);
   const rowRefs = React.useRef<Map<string, HTMLTableRowElement>>(new Map());
@@ -256,19 +278,18 @@ export const SlotCalendar: React.FC<SlotCalendarProps> = ({
   useEffect(() => {
     const identifier =
       dashboard?.phone || dashboard?.username || dashboard?.email;
-    if (identifier) {
-      fetchUserBookings(identifier)
-        .then((res) => {
-          if (res?.bookingHistory) {
-            setFetchedUserBookings(res.bookingHistory);
-          }
-        })
-        .catch(() => {
-          // fallback to dashboard.bookingHistory
-        });
-    } else {
-      setFetchedUserBookings([]);
+    if (!identifier) {
+      return;
     }
+    fetchUserBookings(identifier)
+      .then((res) => {
+        if (res?.bookingHistory) {
+          setFetchedUserBookings(res.bookingHistory);
+        }
+      })
+      .catch(() => {
+        // fallback to dashboard.bookingHistory
+      });
   }, [dashboard?.phone, dashboard?.username, dashboard?.email, refreshTrigger]);
 
   // Combine all user booking sources
@@ -278,7 +299,7 @@ export const SlotCalendar: React.FC<SlotCalendarProps> = ({
       ...(userBookings || []),
       ...fetchedUserBookings,
     ];
-    const map = new Map<string, any>();
+    const map = new Map<string, (typeof combined)[number]>();
     combined.forEach((b, idx) => {
       const key = b.id || `idx-${idx}-${b.date}-${b.time || b.timeSlot}`;
       map.set(key, b);
@@ -356,10 +377,12 @@ export const SlotCalendar: React.FC<SlotCalendarProps> = ({
             const bTime = normalizeTimeTo24h(b.time || b.timeSlot);
             if (!bTime) return false;
             const bStart = timeToMinutes(bTime);
-            const bDuration =
+            const rawDuration =
               b.durationMinutes && b.durationMinutes > 0
                 ? b.durationMinutes
                 : 30;
+            // Round duration up to full 30-minute blocks (e.g. 45m or 50m spans 2 slots = 60m)
+            const bDuration = Math.ceil(rawDuration / 30) * 30;
             return (
               currentSlotMinutes >= bStart &&
               currentSlotMinutes < bStart + bDuration
@@ -387,12 +410,13 @@ export const SlotCalendar: React.FC<SlotCalendarProps> = ({
               primaryBooking.time || primaryBooking.timeSlot,
             );
             const bStart = bTime ? timeToMinutes(bTime) : currentSlotMinutes;
-            const bDuration =
+            const rawDuration =
               primaryBooking.durationMinutes &&
               primaryBooking.durationMinutes > 0
                 ? primaryBooking.durationMinutes
                 : 30;
-            userBookingDurationMinutes = bDuration;
+            const bDuration = Math.ceil(rawDuration / 30) * 30;
+            userBookingDurationMinutes = rawDuration;
 
             const isStart = currentSlotMinutes === bStart;
             const isEnd = currentSlotMinutes + 30 === bStart + bDuration;

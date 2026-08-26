@@ -68,13 +68,16 @@
   }
 }
 
-.pill {
-  display: inline-flex;
-  gap: 8px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: rgba(99, 102, 241, 0.08);
-  color: var(--accent-strong);
+.loyalty-dashboard,
+.dashboard-card {
+  .pill {
+    display: inline-flex;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: rgba(99, 102, 241, 0.08);
+    color: var(--accent-strong);
+  }
 }
 
 .note {

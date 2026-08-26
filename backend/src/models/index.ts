@@ -7,3 +7,4 @@ export * from "./service.model";
 export * from "./promo.model";
 export * from "./customer.model";
 export * from "./admin.model";
+export * from "./banking.model";

@@ -9,6 +9,11 @@ import type { Promotion } from "../models/promo.model";
 import type { ScheduleBlock } from "../models/timeslot.model";
 import type { ServiceItem } from "../models/service.model";
 import type { TierSet } from "../models/tier.model";
+import type {
+  BankingInfo,
+  CreateBankingInfoInput,
+  UpdateBankingInfoInput,
+} from "../models/banking.model";
 import { getAdminToken } from "./admin-auth.service";
 
 const BASE_URL = "/api/admin";
@@ -450,6 +455,64 @@ export async function updateScheduleBlock(
 
 export async function deleteScheduleBlock(id: string): Promise<boolean> {
   const res = await fetch(`${BASE_URL}/schedule-blocks/${id}`, {
+    method: "DELETE",
+    headers: getHeaders(),
+  });
+  const json = await handleResponse<{
+    status: string;
+    deleted: boolean;
+  }>(res);
+  return json.deleted;
+}
+
+// -------------------------------------------------------------
+// 10. BANKING INFO MANAGEMENT
+// -------------------------------------------------------------
+export async function fetchAdminBankingInfos(): Promise<BankingInfo[]> {
+  const res = await fetch(`${BASE_URL}/banking-info`, {
+    headers: getHeaders(),
+  });
+  const json = await handleResponse<{
+    status: string;
+    count: number;
+    data: BankingInfo[];
+  }>(res);
+  return json.data;
+}
+
+export async function createAdminBankingInfo(
+  data: CreateBankingInfoInput,
+): Promise<BankingInfo> {
+  const res = await fetch(`${BASE_URL}/banking-info`, {
+    method: "POST",
+    headers: getHeaders(),
+    body: JSON.stringify(data),
+  });
+  const json = await handleResponse<{
+    status: string;
+    data: BankingInfo;
+  }>(res);
+  return json.data;
+}
+
+export async function updateAdminBankingInfo(
+  id: string,
+  data: UpdateBankingInfoInput,
+): Promise<BankingInfo> {
+  const res = await fetch(`${BASE_URL}/banking-info/${id}`, {
+    method: "PUT",
+    headers: getHeaders(),
+    body: JSON.stringify(data),
+  });
+  const json = await handleResponse<{
+    status: string;
+    data: BankingInfo;
+  }>(res);
+  return json.data;
+}
+
+export async function deleteAdminBankingInfo(id: string): Promise<boolean> {
+  const res = await fetch(`${BASE_URL}/banking-info/${id}`, {
     method: "DELETE",
     headers: getHeaders(),
   });

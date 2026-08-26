@@ -40,8 +40,10 @@ export interface Booking {
   vehicleModel?: string;
   vehicleType?: VehicleType;
   serviceId?: string;
+  serviceIds?: string[];
   serviceName?: string;
   service?: string;
+  bookingPrice?: number;
   date: string;
   time?: string;
   timeSlot?: string;
@@ -65,6 +67,8 @@ export interface Booking {
 export interface BookingRequest {
   phone: string;
   vehiclePlate: string;
+  vehicleModel?: string;
+  vehicleType?: VehicleType;
   requestedDate: string;
   serviceId?: string;
   serviceIds?: string[];

@@ -41,6 +41,7 @@ export const PromotionCard: React.FC<PromotionCardProps> = ({
   claimedPromoIds,
   onOpenSignIn,
   onOpenBookings,
+  onNavigate,
   onClaim,
   isClaiming = false,
 }) => {
@@ -114,7 +115,9 @@ export const PromotionCard: React.FC<PromotionCardProps> = ({
       onOpenSignIn?.();
       return;
     }
-    if (isEligibleToClaim && onClaim) {
+    if (onNavigate) {
+      onNavigate("/promo");
+    } else if (isEligibleToClaim && onClaim) {
       onClaim(promotion);
     } else {
       handleToggle();
@@ -186,7 +189,10 @@ export const PromotionCard: React.FC<PromotionCardProps> = ({
                 </Badge>
               )}
               {promotion.bonusPoints ? (
-                <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-xs px-2 py-0.5 font-bold">
+                <Badge
+                  variant="default"
+                  className="text-xs px-2 py-0.5 font-bold"
+                >
                   +{promotion.bonusPoints} PTS
                 </Badge>
               ) : null}
@@ -208,10 +214,12 @@ export const PromotionCard: React.FC<PromotionCardProps> = ({
                 isClaimed ? (
                   <Button
                     size="sm"
-                    disabled
-                    className="px-2.5 py-0.5 h-6 text-[11px] font-bold bg-[#f1f5f9] text-[#64748b] border border-[#cbd5e1] cursor-not-allowed rounded-lg shadow-none"
+                    variant="outline"
+                    className="px-2.5 py-0.5 h-6 text-[11px] font-medium border-[#d7d3eb] text-[#3a46ed] hover:bg-[#f1efff] shrink-0 cursor-pointer rounded-lg"
+                    onClick={handleToggle}
+                    aria-label={`View claimed promotion ${promotion.name || promotion.title}`}
                   >
-                    Claimed
+                    View
                   </Button>
                 ) : isLoggedIn && isEligibleToClaim ? (
                   <Button
@@ -226,7 +234,7 @@ export const PromotionCard: React.FC<PromotionCardProps> = ({
                   <Button
                     size="sm"
                     variant="outline"
-                    className="px-2.5 py-0.5 h-6 text-[8px] font-medium border-[#d7d3eb] text-[#3a46ed] hover:bg-[#f1efff] shrink-0 cursor-pointer rounded-lg"
+                    className="px-2.5 py-0.5 h-6 text-[11px] font-medium border-[#d7d3eb] text-[#3a46ed] hover:bg-[#f1efff] shrink-0 cursor-pointer rounded-lg"
                     onClick={handleToggle}
                   >
                     View
@@ -238,7 +246,7 @@ export const PromotionCard: React.FC<PromotionCardProps> = ({
                   variant="outline"
                   className="px-2.5 py-0.5 h-6 text-[11px] font-medium border-[#d7d3eb] text-[#3a46ed] hover:bg-[#f1efff] shrink-0 cursor-pointer rounded-lg"
                   onClick={handleToggle}
-                  aria-label={`View details for ${promotion.name}`}
+                  aria-label={`View details for ${promotion.name || promotion.title}`}
                 >
                   View
                 </Button>
@@ -327,14 +335,17 @@ export const PromotionCard: React.FC<PromotionCardProps> = ({
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {promotion.discountPercentage > 0 && (
                     <Badge
-                      variant="destructive"
+                      variant="default"
                       className="text-xs px-2.5 py-0.5 font-bold"
                     >
                       {promotion.discountPercentage}% OFF
                     </Badge>
                   )}
                   {promotion.bonusPoints ? (
-                    <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-xs px-2.5 py-0.5 font-bold">
+                    <Badge
+                      variant="default"
+                      className="text-xs px-2.5 py-0.5 font-bold"
+                    >
                       +{promotion.bonusPoints} PTS
                     </Badge>
                   ) : null}
@@ -408,8 +419,12 @@ export const PromotionCard: React.FC<PromotionCardProps> = ({
                           Requires {requiredTier} tier
                         </span>
                       ) : (
-                        <span className="text-amber-700 font-semibold">
-                          Need {pointCost - userPoints} more pts
+                        <span
+                          className={`text-amber-700 font-semibold ${userPoints < pointCost ? "text-amber-700" : "text-[#15803d]"}`}
+                        >
+                          {userPoints < pointCost
+                            ? `Need ${pointCost - userPoints} more pts`
+                            : "Claimable!"}
                         </span>
                       )}
                     </div>
@@ -475,10 +490,11 @@ export const PromotionCard: React.FC<PromotionCardProps> = ({
                 ) : isClaimed ? (
                   <Button
                     size="sm"
-                    disabled
-                    className="px-4 h-9 text-xs font-bold bg-[#f1f5f9] text-[#64748b] border border-[#cbd5e1] cursor-not-allowed rounded-lg shadow-none"
+                    variant="outline"
+                    className="px-4 h-9 text-xs font-bold border-[#d7d3eb] text-[#3a46ed] hover:bg-[#f1efff] cursor-pointer"
+                    onClick={handleToggle}
                   >
-                    Already Claimed
+                    Claimed (View Details)
                   </Button>
                 ) : isEligibleToClaim ? (
                   <Button
@@ -486,13 +502,17 @@ export const PromotionCard: React.FC<PromotionCardProps> = ({
                     className="px-4 h-9 text-xs font-bold bg-[#3a46ed] hover:bg-[#3721b6] text-white cursor-pointer"
                     onClick={() => {
                       handleToggle();
-                      onClaim?.(promotion);
+                      if (onNavigate) {
+                        onNavigate("/promo");
+                      } else {
+                        onClaim?.(promotion);
+                      }
                     }}
                     disabled={isClaiming}
                   >
                     {isClaiming
                       ? "Claiming..."
-                      : `Redeem for ${pointCost === 0 ? "Free" : `${pointCost} Pts`}`}
+                      : `Go to Claim (${pointCost === 0 ? "Free" : `${pointCost} Pts`})`}
                   </Button>
                 ) : null
               ) : onOpenBookings ? (

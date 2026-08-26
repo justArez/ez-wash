@@ -1,6 +1,6 @@
 import React from "react";
 import { Badge } from "@/components/ui/badge";
-import { Coins, Crown, Sparkles } from "lucide-react";
+import { BadgePercent, Coins, Crown, Sparkles } from "lucide-react";
 
 interface PromoHeaderSummaryProps {
   currentTier: string;
@@ -19,9 +19,7 @@ export const PromoHeaderSummary: React.FC<PromoHeaderSummaryProps> = ({
     <div className="promo-intro p-6 md:p-8 rounded-[24px] border border-[#e8e6f3] bg-gradient-to-br from-[#f8f7ff] via-[#ffffff] to-[#eef2ff] shadow-[0_20px_40px_rgba(44,38,79,0.06)] flex flex-col md:flex-row md:items-center md:justify-between gap-6">
       <div className="space-y-2">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-[rgba(58,70,237,0.1)] text-[#3a46ed]">
-            <Sparkles className="w-5 h-5" />
-          </div>
+          <BadgePercent size={36} />
           <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-[#2c264f]">
             Rewards & Promotions
           </h1>
