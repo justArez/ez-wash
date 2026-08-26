@@ -205,14 +205,7 @@ function formatLocalDate(d: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-export async function getSlotsForDays(
-  daysCount = 7,
-  startDateStr?: string,
-): Promise<TimeSlotWithComputedFields[]> {
-  if (!db) {
-    throw new Error("Database connection is not available.");
-  }
-
+function buildDateRange(daysCount: number, startDateStr?: string): string[] {
   const start = startDateStr
     ? new Date(startDateStr + "T00:00:00")
     : new Date();
@@ -225,6 +218,41 @@ export async function getSlotsForDays(
       start.getDate() + i,
     );
     dateStrs.push(formatLocalDate(current));
+  }
+
+  return dateStrs;
+}
+
+export function generateFallbackSlotsForDate(
+  dateStr: string,
+): TimeSlotWithComputedFields[] {
+  return computeSlotsForDate(dateStr, [], []);
+}
+
+export function generateFallbackSlotsForDays(
+  daysCount = 7,
+  startDateStr?: string,
+): TimeSlotWithComputedFields[] {
+  const dateStrs = buildDateRange(daysCount, startDateStr);
+  const result: TimeSlotWithComputedFields[] = [];
+  for (const dateStr of dateStrs) {
+    result.push(...computeSlotsForDate(dateStr, [], []));
+  }
+  return result;
+}
+
+export async function getSlotsForDays(
+  daysCount = 7,
+  startDateStr?: string,
+): Promise<TimeSlotWithComputedFields[]> {
+  if (!db) {
+    throw new Error("Database connection is not available.");
+  }
+
+  const dateStrs = buildDateRange(daysCount, startDateStr);
+
+  if (dateStrs.length === 0) {
+    return [];
   }
 
   const rangeStart = dateStrs[0];

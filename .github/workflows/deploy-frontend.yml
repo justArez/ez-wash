@@ -38,5 +38,7 @@ jobs:
           directory: './frontend/dist'
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
           branch: main
+          gitHubDeployment: false
+          environment: production
           environmentVariables: |
             VITE_API_URL=${{ vars.VITE_API_URL || 'https://ez-wash-backend.justarez-2510.workers.dev' }}

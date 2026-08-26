@@ -15,23 +15,45 @@ if (typeof process === "undefined") {
 }
 
 let isDbInitialized = false;
-const injectEnvVariablesOnce = (cfEnv: Record<string, string>) => {
-  if (isDbInitialized) return;
+let dbInitPromise: Promise<void> | null = null;
 
-  if (!cfEnv.DATABASE_URL) {
-    throw new Error(
-      "DATABASE_URL is not configured. The API cannot connect to the database.",
-    );
+function resolveDatabaseUrl(
+  envLike: Record<string, string | undefined>,
+): string {
+  return envLike.DATABASE_URL_WORKER || envLike.DATABASE_URL || "";
+}
+
+async function ensureDbInitialized(
+  envLike: Record<string, string | undefined>,
+) {
+  if (isDbInitialized) return;
+  if (dbInitPromise) {
+    await dbInitPromise;
+    return;
   }
 
-  initDb(cfEnv.DATABASE_URL);
-  Object.assign(process.env, cfEnv);
-  isDbInitialized = true;
+  dbInitPromise = (async () => {
+    const databaseUrl = resolveDatabaseUrl(envLike);
+    if (!databaseUrl) {
+      throw new Error(
+        "DATABASE_URL (or DATABASE_URL_WORKER) is missing from environment variables.",
+      );
+    }
 
-  console.log(
-    "🐘 Supabase / PostgreSQL: Connected and ready via Cloudflare Env.",
-  );
-};
+    initDb(databaseUrl, "worker");
+    Object.assign(process.env, envLike);
+    isDbInitialized = true;
+    console.log(
+      "🐘 Supabase / PostgreSQL: Connection established with worker DB profile.",
+    );
+  })();
+
+  try {
+    await dbInitPromise;
+  } finally {
+    dbInitPromise = null;
+  }
+}
 
 const app = new Elysia({
   name: "EZ-Wash API",
@@ -98,24 +120,23 @@ console.log(
 
 export default {
   async fetch(request: Request, env: Record<string, string>, ctx: any) {
-    if (!isDbInitialized) {
-      const databaseUrl = env.DATABASE_URL || process.env.DATABASE_URL;
-      if (!databaseUrl) {
-        return new Response(
-          JSON.stringify({
-            error:
-              "DATABASE_URL is missing from Cloudflare environment variables.",
-          }),
-          { status: 500, headers: { "Content-Type": "application/json" } },
-        );
-      }
-      initDb(databaseUrl);
-      Object.assign(process.env, env);
-      isDbInitialized = true;
-      console.log(
-        "🐘 Supabase / PostgreSQL: Connection established on hot request.",
+    try {
+      await ensureDbInitialized({
+        DATABASE_URL_WORKER: env.DATABASE_URL_WORKER,
+        DATABASE_URL: env.DATABASE_URL || process.env.DATABASE_URL,
+      });
+    } catch (error) {
+      return new Response(
+        JSON.stringify({
+          error:
+            error instanceof Error
+              ? error.message
+              : "Database initialization failed.",
+        }),
+        { status: 500, headers: { "Content-Type": "application/json" } },
       );
     }
+
     return (app.fetch as any)(request, env, ctx);
   },
 };
