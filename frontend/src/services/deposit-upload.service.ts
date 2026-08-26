@@ -4,6 +4,8 @@
  * a single request. Never talk to Supabase Storage directly from the
  * browser — S3 secret keys must not be exposed to the client.
  */
+import { apiFetch } from "../config/api.config";
+
 export async function uploadDepositImage(
   bookingId: string,
   phone: string,
@@ -17,7 +19,7 @@ export async function uploadDepositImage(
   formData.append("phone", phone);
   formData.append("file", file);
 
-  const response = await fetch(
+  const response = await apiFetch(
     `/api/bookings/${encodeURIComponent(bookingId)}/deposit/upload`,
     {
       method: "POST",

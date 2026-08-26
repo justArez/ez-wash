@@ -15,6 +15,7 @@ import type {
   UpdateBankingInfoInput,
 } from "../models/banking.model";
 import { getAdminToken } from "./admin-auth.service";
+import { apiFetch } from "../config/api.config";
 
 const BASE_URL = "/api/admin";
 
@@ -39,7 +40,7 @@ async function handleResponse<T>(res: Response): Promise<T> {
 // 1. DASHBOARD & METRICS
 // -------------------------------------------------------------
 export async function fetchAdminDashboardData(): Promise<AdminDashboardData> {
-  const res = await fetch(`${BASE_URL}/dashboard/data`, {
+  const res = await apiFetch(`${BASE_URL}/dashboard/data`, {
     headers: getHeaders(),
   });
   const data = await handleResponse<{
@@ -50,7 +51,7 @@ export async function fetchAdminDashboardData(): Promise<AdminDashboardData> {
 }
 
 export async function fetchAdminMetrics(): Promise<DashboardMetrics> {
-  const res = await fetch(`${BASE_URL}/dashboard/metrics`, {
+  const res = await apiFetch(`${BASE_URL}/dashboard/metrics`, {
     headers: getHeaders(),
   });
   const data = await handleResponse<{ status: string; data: DashboardMetrics }>(
@@ -77,7 +78,7 @@ export async function fetchAdminBookings(options?: {
   if (options?.serviceId) params.append("serviceId", options.serviceId);
 
   const url = `${BASE_URL}/bookings${params.toString() ? `?${params.toString()}` : ""}`;
-  const res = await fetch(url, { headers: getHeaders() });
+  const res = await apiFetch(url, { headers: getHeaders() });
   const json = await handleResponse<{
     status: string;
     count: number;
@@ -109,7 +110,7 @@ export async function createAdminBooking(data: {
   serviceName?: string;
   note?: string;
 }): Promise<Booking> {
-  const res = await fetch(`${BASE_URL}/bookings`, {
+  const res = await apiFetch(`${BASE_URL}/bookings`, {
     method: "POST",
     headers: getHeaders(),
     body: JSON.stringify(data),
@@ -122,7 +123,7 @@ export async function updateAdminBooking(
   id: string,
   data: Partial<Booking>,
 ): Promise<Booking> {
-  const res = await fetch(`${BASE_URL}/bookings/${id}`, {
+  const res = await apiFetch(`${BASE_URL}/bookings/${id}`, {
     method: "PUT",
     headers: getHeaders(),
     body: JSON.stringify(data),
@@ -132,7 +133,7 @@ export async function updateAdminBooking(
 }
 
 export async function deleteAdminBooking(id: string): Promise<boolean> {
-  const res = await fetch(`${BASE_URL}/bookings/${id}`, {
+  const res = await apiFetch(`${BASE_URL}/bookings/${id}`, {
     method: "DELETE",
     headers: getHeaders(),
   });
@@ -144,7 +145,7 @@ export async function deleteAdminBooking(id: string): Promise<boolean> {
 // 3. SERVICES
 // -------------------------------------------------------------
 export async function fetchAdminServices(): Promise<ServiceItem[]> {
-  const res = await fetch(`${BASE_URL}/services`, { headers: getHeaders() });
+  const res = await apiFetch(`${BASE_URL}/services`, { headers: getHeaders() });
   const json = await handleResponse<{
     status: string;
     count: number;
@@ -156,7 +157,7 @@ export async function fetchAdminServices(): Promise<ServiceItem[]> {
 export async function createAdminService(
   data: Partial<ServiceItem>,
 ): Promise<ServiceItem> {
-  const res = await fetch(`${BASE_URL}/services`, {
+  const res = await apiFetch(`${BASE_URL}/services`, {
     method: "POST",
     headers: getHeaders(),
     body: JSON.stringify(data),
@@ -169,7 +170,7 @@ export async function updateAdminService(
   id: string,
   data: Partial<ServiceItem>,
 ): Promise<ServiceItem> {
-  const res = await fetch(`${BASE_URL}/services/${id}`, {
+  const res = await apiFetch(`${BASE_URL}/services/${id}`, {
     method: "PUT",
     headers: getHeaders(),
     body: JSON.stringify(data),
@@ -179,7 +180,7 @@ export async function updateAdminService(
 }
 
 export async function deleteAdminService(id: string): Promise<boolean> {
-  const res = await fetch(`${BASE_URL}/services/${id}`, {
+  const res = await apiFetch(`${BASE_URL}/services/${id}`, {
     method: "DELETE",
     headers: getHeaders(),
   });
@@ -191,7 +192,9 @@ export async function deleteAdminService(id: string): Promise<boolean> {
 // 4. PROMOTIONS
 // -------------------------------------------------------------
 export async function fetchAdminPromotions(): Promise<Promotion[]> {
-  const res = await fetch(`${BASE_URL}/promotions`, { headers: getHeaders() });
+  const res = await apiFetch(`${BASE_URL}/promotions`, {
+    headers: getHeaders(),
+  });
   const json = await handleResponse<{
     status: string;
     count: number;
@@ -203,7 +206,7 @@ export async function fetchAdminPromotions(): Promise<Promotion[]> {
 export async function createAdminPromotion(
   data: Partial<Promotion>,
 ): Promise<Promotion> {
-  const res = await fetch(`${BASE_URL}/promotions`, {
+  const res = await apiFetch(`${BASE_URL}/promotions`, {
     method: "POST",
     headers: getHeaders(),
     body: JSON.stringify(data),
@@ -216,7 +219,7 @@ export async function updateAdminPromotion(
   id: string,
   data: Partial<Promotion>,
 ): Promise<Promotion> {
-  const res = await fetch(`${BASE_URL}/promotions/${id}`, {
+  const res = await apiFetch(`${BASE_URL}/promotions/${id}`, {
     method: "PUT",
     headers: getHeaders(),
     body: JSON.stringify(data),
@@ -226,7 +229,7 @@ export async function updateAdminPromotion(
 }
 
 export async function deleteAdminPromotion(id: string): Promise<boolean> {
-  const res = await fetch(`${BASE_URL}/promotions/${id}`, {
+  const res = await apiFetch(`${BASE_URL}/promotions/${id}`, {
     method: "DELETE",
     headers: getHeaders(),
   });
@@ -238,7 +241,9 @@ export async function deleteAdminPromotion(id: string): Promise<boolean> {
 // 5. TIER SETS & TIERS
 // -------------------------------------------------------------
 export async function fetchAdminTierSets(): Promise<TierSet[]> {
-  const res = await fetch(`${BASE_URL}/tier-sets`, { headers: getHeaders() });
+  const res = await apiFetch(`${BASE_URL}/tier-sets`, {
+    headers: getHeaders(),
+  });
   const json = await handleResponse<{
     status: string;
     count: number;
@@ -250,7 +255,7 @@ export async function fetchAdminTierSets(): Promise<TierSet[]> {
 export async function createAdminTierSet(
   data: Partial<TierSet>,
 ): Promise<TierSet> {
-  const res = await fetch(`${BASE_URL}/tier-sets`, {
+  const res = await apiFetch(`${BASE_URL}/tier-sets`, {
     method: "POST",
     headers: getHeaders(),
     body: JSON.stringify(data),
@@ -263,7 +268,7 @@ export async function updateAdminTierSet(
   id: string,
   data: Partial<TierSet>,
 ): Promise<TierSet> {
-  const res = await fetch(`${BASE_URL}/tier-sets/${id}`, {
+  const res = await apiFetch(`${BASE_URL}/tier-sets/${id}`, {
     method: "PUT",
     headers: getHeaders(),
     body: JSON.stringify(data),
@@ -273,7 +278,7 @@ export async function updateAdminTierSet(
 }
 
 export async function deleteAdminTierSet(id: string): Promise<boolean> {
-  const res = await fetch(`${BASE_URL}/tier-sets/${id}`, {
+  const res = await apiFetch(`${BASE_URL}/tier-sets/${id}`, {
     method: "DELETE",
     headers: getHeaders(),
   });
@@ -299,7 +304,7 @@ export async function fetchAdminUsers(options?: {
   }
 
   const url = `${BASE_URL}/users${params.toString() ? `?${params.toString()}` : ""}`;
-  const res = await fetch(url, { headers: getHeaders() });
+  const res = await apiFetch(url, { headers: getHeaders() });
   const json = await handleResponse<{
     status: string;
     count: number;
@@ -320,7 +325,7 @@ export async function createAdminUser(data: {
     type: "car" | "motorcycle" | "suv" | "van";
   };
 }): Promise<LoyaltyCustomer> {
-  const res = await fetch(`${BASE_URL}/users`, {
+  const res = await apiFetch(`${BASE_URL}/users`, {
     method: "POST",
     headers: getHeaders(),
     body: JSON.stringify(data),
@@ -335,7 +340,7 @@ export async function updateAdminUser(
   id: string,
   data: Partial<LoyaltyCustomer>,
 ): Promise<LoyaltyCustomer> {
-  const res = await fetch(`${BASE_URL}/users/${id}`, {
+  const res = await apiFetch(`${BASE_URL}/users/${id}`, {
     method: "PUT",
     headers: getHeaders(),
     body: JSON.stringify(data),
@@ -351,7 +356,7 @@ export async function adjustAdminUserPoints(
   delta: number,
   reason?: string,
 ): Promise<{ customer: LoyaltyCustomer; points: number }> {
-  const res = await fetch(`${BASE_URL}/users/${id}/adjust-points`, {
+  const res = await apiFetch(`${BASE_URL}/users/${id}/adjust-points`, {
     method: "POST",
     headers: getHeaders(),
     body: JSON.stringify({ delta, reason }),
@@ -365,7 +370,7 @@ export async function adjustAdminUserPoints(
 export async function resetAdminUserWarnings(
   id: string,
 ): Promise<LoyaltyCustomer> {
-  const res = await fetch(`${BASE_URL}/users/${id}/reset-warnings`, {
+  const res = await apiFetch(`${BASE_URL}/users/${id}/reset-warnings`, {
     method: "POST",
     headers: getHeaders(),
   });
@@ -379,7 +384,9 @@ export async function resetAdminUserWarnings(
 // 7. AUDIT LOGS
 // -------------------------------------------------------------
 export async function fetchAuditLogs(): Promise<AuditLog[]> {
-  const res = await fetch(`${BASE_URL}/audit-logs`, { headers: getHeaders() });
+  const res = await apiFetch(`${BASE_URL}/audit-logs`, {
+    headers: getHeaders(),
+  });
   const json = await handleResponse<{
     status: string;
     count: number;
@@ -406,7 +413,7 @@ export async function fetchScheduleBlocks(options?: {
   }
 
   const url = `${BASE_URL}/schedule-blocks${params.toString() ? `?${params.toString()}` : ""}`;
-  const res = await fetch(url, { headers: getHeaders() });
+  const res = await apiFetch(url, { headers: getHeaders() });
   const json = await handleResponse<{
     status: string;
     count: number;
@@ -425,7 +432,7 @@ export async function createScheduleBlock(data: {
   endTime?: string;
   bayId?: string;
 }): Promise<ScheduleBlock> {
-  const res = await fetch(`${BASE_URL}/schedule-blocks`, {
+  const res = await apiFetch(`${BASE_URL}/schedule-blocks`, {
     method: "POST",
     headers: getHeaders(),
     body: JSON.stringify(data),
@@ -441,7 +448,7 @@ export async function updateScheduleBlock(
   id: string,
   data: Partial<Omit<ScheduleBlock, "id" | "createdAt" | "updatedAt">>,
 ): Promise<ScheduleBlock> {
-  const res = await fetch(`${BASE_URL}/schedule-blocks/${id}`, {
+  const res = await apiFetch(`${BASE_URL}/schedule-blocks/${id}`, {
     method: "PUT",
     headers: getHeaders(),
     body: JSON.stringify(data),
@@ -454,7 +461,7 @@ export async function updateScheduleBlock(
 }
 
 export async function deleteScheduleBlock(id: string): Promise<boolean> {
-  const res = await fetch(`${BASE_URL}/schedule-blocks/${id}`, {
+  const res = await apiFetch(`${BASE_URL}/schedule-blocks/${id}`, {
     method: "DELETE",
     headers: getHeaders(),
   });
@@ -469,7 +476,7 @@ export async function deleteScheduleBlock(id: string): Promise<boolean> {
 // 10. BANKING INFO MANAGEMENT
 // -------------------------------------------------------------
 export async function fetchAdminBankingInfos(): Promise<BankingInfo[]> {
-  const res = await fetch(`${BASE_URL}/banking-info`, {
+  const res = await apiFetch(`${BASE_URL}/banking-info`, {
     headers: getHeaders(),
   });
   const json = await handleResponse<{
@@ -483,7 +490,7 @@ export async function fetchAdminBankingInfos(): Promise<BankingInfo[]> {
 export async function createAdminBankingInfo(
   data: CreateBankingInfoInput,
 ): Promise<BankingInfo> {
-  const res = await fetch(`${BASE_URL}/banking-info`, {
+  const res = await apiFetch(`${BASE_URL}/banking-info`, {
     method: "POST",
     headers: getHeaders(),
     body: JSON.stringify(data),
@@ -499,7 +506,7 @@ export async function updateAdminBankingInfo(
   id: string,
   data: UpdateBankingInfoInput,
 ): Promise<BankingInfo> {
-  const res = await fetch(`${BASE_URL}/banking-info/${id}`, {
+  const res = await apiFetch(`${BASE_URL}/banking-info/${id}`, {
     method: "PUT",
     headers: getHeaders(),
     body: JSON.stringify(data),
@@ -512,7 +519,7 @@ export async function updateAdminBankingInfo(
 }
 
 export async function deleteAdminBankingInfo(id: string): Promise<boolean> {
-  const res = await fetch(`${BASE_URL}/banking-info/${id}`, {
+  const res = await apiFetch(`${BASE_URL}/banking-info/${id}`, {
     method: "DELETE",
     headers: getHeaders(),
   });

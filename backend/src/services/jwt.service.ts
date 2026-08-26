@@ -1,5 +1,4 @@
-import crypto from "crypto";
-
+import crypto from "node:crypto";
 export interface UserJwtPayload {
   customerId: string;
   username: string;

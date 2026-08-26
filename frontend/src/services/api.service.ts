@@ -14,6 +14,7 @@ import type {
   Promotion,
   TimeSlot,
 } from "../types/homepage.types";
+import { apiFetch } from "../config/api.config";
 
 /**
  * API Configuration
@@ -51,7 +52,7 @@ async function fetchWithTimeout(
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
   try {
-    const response = await fetch(url, {
+    const response = await apiFetch(url, {
       ...options,
       signal: controller.signal,
     });

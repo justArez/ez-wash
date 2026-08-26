@@ -1,6 +1,6 @@
 import React from "react";
 import { Badge } from "@/components/ui/badge";
-import { BadgePercent, Coins, Crown, Sparkles } from "lucide-react";
+import { BadgePercent, Coins, Crown } from "lucide-react";
 
 interface PromoHeaderSummaryProps {
   currentTier: string;

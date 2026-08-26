@@ -1,0 +1,26 @@
+name = "ez-wash-backend"
+main = "src/index.ts"
+compatibility_date = "2025-06-01"
+compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = false
+head_sampling_rate = 1
+redact_query_string = false
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = false
+persist = true
+head_sampling_rate = 1
+
+# Environment Variables
+[vars]
+NODE_ENV = "production"
+SUPABASE_STORAGE_BUCKET = "seat-deposits"
+PORT = 8080

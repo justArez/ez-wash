@@ -2,6 +2,7 @@
   "name": "app",
   "version": "1.0.50",
   "scripts": {
+    "build": "bun build",
     "test": "bun test",
     "dev": "bun run --watch src/index.ts",
     "db:push": "drizzle-kit push",
@@ -18,9 +19,10 @@
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "elysia": "latest",
-    "postgres": "^3.4.9"
+    "pg": "^8.23.0"
   },
   "devDependencies": {
+    "@types/pg": "^8.23.1",
     "bun-types": "latest",
     "concurrently": "^10.0.5",
     "drizzle-kit": "^0.18.1"

@@ -12,6 +12,7 @@ import type {
 import type { ServiceItem } from "../models/service.model";
 import type { TimeSlot } from "../models/timeslot.model";
 import type { BankingInfo } from "../models/banking.model";
+import { apiFetch } from "../config/api.config";
 
 const BASE_URL = "";
 
@@ -35,7 +36,7 @@ async function handleJsonResponse<T>(response: Response): Promise<T> {
 export async function linkLoyaltyAccount(
   request: LinkAccountRequest,
 ): Promise<LinkAccountResponse> {
-  const response = await fetch(`${BASE_URL}/api/loyalty/link`, {
+  const response = await apiFetch(`${BASE_URL}/api/loyalty/link`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),
@@ -46,7 +47,7 @@ export async function linkLoyaltyAccount(
 export async function checkUsernameAvailability(
   username: string,
 ): Promise<{ exists: boolean; available: boolean; username: string }> {
-  const response = await fetch(
+  const response = await apiFetch(
     `${BASE_URL}/api/loyalty/check-username?username=${encodeURIComponent(username.trim())}`,
   );
   return handleJsonResponse<{
@@ -68,12 +69,12 @@ export async function fetchLoyaltyDashboard(
   password?: string,
 ): Promise<DashboardResponse> {
   const url = `${BASE_URL}/api/loyalty/dashboard?phone=${encodeURIComponent(phoneOrUsername)}${password ? `&password=${encodeURIComponent(password)}` : ""}`;
-  const response = await fetch(url);
+  const response = await apiFetch(url);
   return handleJsonResponse<DashboardResponse>(response);
 }
 
 export async function fetchCustomerLookup(phone: string) {
-  const response = await fetch(
+  const response = await apiFetch(
     `${BASE_URL}/api/loyalty/customer?phone=${encodeURIComponent(phone)}`,
   );
   return handleJsonResponse<{
@@ -93,7 +94,7 @@ export async function fetchClaimedPromos(
   phone: string,
 ): Promise<ClaimedPromo[]> {
   try {
-    const response = await fetch(
+    const response = await apiFetch(
       `${BASE_URL}/api/loyalty/claimed-promos?phone=${encodeURIComponent(phone)}`,
     );
     const data = await handleJsonResponse<{
@@ -116,7 +117,7 @@ export async function claimPromo(
   pointsBalance: number;
   message?: string;
 }> {
-  const response = await fetch(
+  const response = await apiFetch(
     `${BASE_URL}/api/promotions/${encodeURIComponent(promotionId)}/claim`,
     {
       method: "POST",
@@ -145,7 +146,7 @@ export async function refreshJwtSession(token: string): Promise<{
     fullName?: string;
   };
 }> {
-  const response = await fetch(`${BASE_URL}/api/auth/refresh`, {
+  const response = await apiFetch(`${BASE_URL}/api/auth/refresh`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -172,7 +173,7 @@ export async function verifyJwtSession(token: string): Promise<{
   user?: any;
   error?: string;
 }> {
-  const response = await fetch(`${BASE_URL}/api/auth/verify`, {
+  const response = await apiFetch(`${BASE_URL}/api/auth/verify`, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -188,7 +189,7 @@ export async function verifyJwtSession(token: string): Promise<{
 export async function fetchPublicServices(
   onlyActive = true,
 ): Promise<ServiceItem[]> {
-  const response = await fetch(
+  const response = await apiFetch(
     `${BASE_URL}/api/services?onlyActive=${onlyActive}`,
   );
   const data = await handleJsonResponse<{
@@ -207,7 +208,7 @@ export async function fetchPublicPromotions(
   if (category) params.append("category", category);
   if (tier) params.append("tier", tier);
   const query = params.toString() ? `?${params.toString()}` : "";
-  const response = await fetch(`${BASE_URL}/api/promotions${query}`);
+  const response = await apiFetch(`${BASE_URL}/api/promotions${query}`);
   const data = await handleJsonResponse<{
     status: string;
     count: number;
@@ -217,7 +218,7 @@ export async function fetchPublicPromotions(
 }
 
 export async function fetchPublicSlots(days = 7): Promise<TimeSlot[]> {
-  const response = await fetch(`${BASE_URL}/api/slots?days=${days}`);
+  const response = await apiFetch(`${BASE_URL}/api/slots?days=${days}`);
   const data = await handleJsonResponse<{
     status: string;
     count: number;
@@ -227,7 +228,7 @@ export async function fetchPublicSlots(days = 7): Promise<TimeSlot[]> {
 }
 
 export async function createBooking(request: BookingRequest) {
-  const response = await fetch(`${BASE_URL}/api/bookings`, {
+  const response = await apiFetch(`${BASE_URL}/api/bookings`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),
@@ -245,7 +246,7 @@ export async function submitBookingDeposit(
   phone: string,
   depositImageUrl: string,
 ) {
-  const response = await fetch(
+  const response = await apiFetch(
     `${BASE_URL}/api/bookings/${encodeURIComponent(bookingId)}/deposit`,
     {
       method: "PUT",
@@ -260,7 +261,7 @@ export async function submitBookingDeposit(
 }
 
 export async function fetchCustomerBookings(phone: string) {
-  const response = await fetch(
+  const response = await apiFetch(
     `${BASE_URL}/api/bookings/my-bookings?phone=${encodeURIComponent(phone)}`,
   );
   return handleJsonResponse<{
@@ -273,7 +274,7 @@ export async function fetchCustomerBookings(phone: string) {
 }
 
 export async function fetchUserBookings(identifier: string) {
-  const response = await fetch(
+  const response = await apiFetch(
     `${BASE_URL}/api/bookings/user?phone=${encodeURIComponent(identifier)}`,
   );
   return handleJsonResponse<{
@@ -286,7 +287,7 @@ export async function fetchUserBookings(identifier: string) {
 }
 
 export async function cancelBooking(bookingId: string, phone: string) {
-  const response = await fetch(
+  const response = await apiFetch(
     `${BASE_URL}/api/bookings/${encodeURIComponent(bookingId)}/cancel`,
     {
       method: "POST",
@@ -306,7 +307,7 @@ export async function cancelBooking(bookingId: string, phone: string) {
 export async function fetchRewardSuggestions(
   phone: string,
 ): Promise<RewardOffer[]> {
-  const response = await fetch(
+  const response = await apiFetch(
     `${BASE_URL}/api/rewards/suggestions?phone=${encodeURIComponent(phone)}`,
   );
   return handleJsonResponse<RewardOffer[]>(response);
@@ -314,7 +315,7 @@ export async function fetchRewardSuggestions(
 
 export async function fetchPublicBankingInfo(): Promise<BankingInfo | null> {
   try {
-    const response = await fetch(`${BASE_URL}/api/banking-info`);
+    const response = await apiFetch(`${BASE_URL}/api/banking-info`);
     const json = await handleJsonResponse<{
       status: string;
       data: BankingInfo | null;

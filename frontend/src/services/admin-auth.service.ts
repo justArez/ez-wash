@@ -1,3 +1,5 @@
+import { apiFetch } from "../config/api.config";
+
 export interface AdminUserInfo {
   token: string;
   role: string;
@@ -10,7 +12,7 @@ export async function loginAdmin(
   username: string,
   password: string,
 ): Promise<AdminUserInfo> {
-  const response = await fetch("/api/admin/login", {
+  const response = await apiFetch("/api/admin/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

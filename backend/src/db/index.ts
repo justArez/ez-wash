@@ -1,31 +1,29 @@
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
-import * as dotenv from "dotenv";
-import { resolve } from "path";
+import { Pool } from "pg";
+import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "./schema";
 
-// Load .env from backend folder or root
-dotenv.config({ path: resolve(import.meta.dirname, "../../.env") });
-if (!process.env.DATABASE_URL) {
-  dotenv.config();
-}
-
-const connectionString = process.env.DATABASE_URL;
-
-// If DATABASE_URL is provided, initialize postgres client with prepared statement disabled for Supabase PgBouncer/transaction pooler support.
-// idle_timeout/max_lifetime are set below the pooler's own idle timeout so stale
-// connections are recycled by the client instead of being killed server-side and
-// surfacing as "socket hang up" errors on the next query.
-const client = connectionString
-  ? postgres(connectionString, {
-      prepare: false,
-      connect_timeout: 10,
-      idle_timeout: 20,
-      max_lifetime: 60 * 30,
-      onnotice: () => {},
-    })
-  : null;
-
-export const db = client ? drizzle(client, { schema }) : null;
-
 export { schema };
+
+let _dbInstance: any = null;
+
+export const initDb = (databaseUrl: string) => {
+  if (!_dbInstance) {
+    const pool = new Pool({
+      connectionString: databaseUrl,
+      max: 1,
+    });
+
+    _dbInstance = drizzle(pool, { schema });
+  }
+};
+
+export const db = new Proxy({} as any, {
+  get: (_, prop) => {
+    if (!_dbInstance) {
+      throw new Error(
+        "Database is not initialized. Please call initDb(databaseUrl) before accessing the db instance.",
+      );
+    }
+    return _dbInstance[prop];
+  },
+});
