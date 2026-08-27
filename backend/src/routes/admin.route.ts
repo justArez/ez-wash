@@ -1103,13 +1103,12 @@ export function registerAdminRoutes(app: any) {
     if (
       !body?.bankName ||
       !body?.accountNumber ||
-      !body?.accountHolder ||
-      !body?.branch
+      !body?.accountHolder
     ) {
       return new Response(
         JSON.stringify({
           error:
-            "bankName, accountNumber, accountHolder, and branch are required.",
+            "bankName, accountNumber, and accountHolder are required.",
         }),
         {
           status: 400,
