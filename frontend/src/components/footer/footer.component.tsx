@@ -21,12 +21,12 @@ export default function Footer() {
           </div>
           <div>
             <h4 className="text-white font-semibold mb-3">
-              Team X - Team Member
+              SWP391_SU26_3W_01 - Group 9
             </h4>
             <ul className="space-y-2">
               <li>Nguyen Kien Cuong - CE161131</li>
-              <li>Nguyen Van B - CE161132</li>
-              <li>Nguyen Van C - CE161133</li>
+              <li>Nguyen Van Thang - SE183913</li>
+              <li>Nguyen Ngoc Duc - SE183121</li>
             </ul>
           </div>
         </div>
