@@ -619,14 +619,20 @@ export const SlotCalendar: React.FC<SlotCalendarProps> = ({
       {/* Legend - hidden while a hard error blocks the calendar */}
       {!(error && slots.length === 0 && !loading) && (
         <div className="flex flex-wrap items-center justify-end gap-4 p-3 bg-gray-50/70 rounded-lg border border-gray-200/60">
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded border-2 border-blue-600 bg-blue-600 flex items-center justify-center"></div>
-            <span className="text-xs font-semibold">Your Booking</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded bg-sky-300 flex items-center justify-center"></div>
-            <span className="text-xs font-semibold">Your Pending Booking</span>
-          </div>
+          {dashboard && (
+            <>
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded border-2 border-blue-600 bg-blue-600 flex items-center justify-center"></div>
+                <span className="text-xs font-semibold">Your Booking</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded bg-sky-300 flex items-center justify-center"></div>
+                <span className="text-xs font-semibold">
+                  Your Pending Booking
+                </span>
+              </div>
+            </>
+          )}
           <div className="flex items-center gap-2">
             <div className="w-5 h-5 rounded border-2 border-green-500 bg-white" />
             <span className="text-xs font-medium text-gray-700">Available</span>
