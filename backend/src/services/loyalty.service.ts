@@ -209,6 +209,7 @@ export async function cancelBooking(
     booking.time ? `${booking.date}T${booking.time}` : booking.date,
   ).getTime();
   const isLateCancellation =
+    booking.status === "confirmed" &&
     scheduledTime - now.getTime() <= 4 * 60 * 60 * 1000;
   const warningCount =
     (customer.lateCancellationWarningCount ?? 0) + (isLateCancellation ? 1 : 0);
