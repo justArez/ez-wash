@@ -278,6 +278,7 @@ export async function fetchCustomerById(
 
 export async function createCustomerItem(data: {
   phone: string;
+  password: string;
   fullName?: string;
   email?: string;
   tierId?: string;
@@ -307,6 +308,7 @@ export async function createCustomerItem(data: {
   await db.insert(schema.loyaltyCustomers).values({
     id,
     phone: data.phone.trim(),
+    password: data.password.trim(),
     email: data.email?.trim() || null,
     fullName: data.fullName?.trim() || null,
     tierId: data.tierId || "member",

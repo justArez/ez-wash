@@ -17,7 +17,6 @@ import {
   CheckCircle2,
   Clock,
   Edit2,
-  Trash2,
   Phone,
   Mail,
   Car,
@@ -25,6 +24,7 @@ import {
   X,
   RefreshCw,
   RotateCcw,
+  Ban,
 } from "lucide-react";
 import type { AdminUser as User } from "@/models/customer.model";
 import {
@@ -50,6 +50,7 @@ export default function AdminUsersPage() {
   // Create User Modal
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newPhone, setNewPhone] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newPlate, setNewPlate] = useState("");
@@ -256,6 +257,7 @@ export default function AdminUsersPage() {
     try {
       await createAdminUser({
         phone: newPhone.trim(),
+        password: newPassword,
         fullName: newName.trim() || undefined,
         email: newEmail.trim() || undefined,
         pointsBalance: Number(newPoints) || 0,
@@ -270,6 +272,7 @@ export default function AdminUsersPage() {
 
       setShowCreateModal(false);
       setNewPhone("");
+      setNewPassword("");
       setNewName("");
       setNewEmail("");
       setNewPlate("");
@@ -697,7 +700,7 @@ export default function AdminUsersPage() {
                             }
                             title="Delete customer"
                           >
-                            <Trash2 size={14} />
+                            <Ban size={14} />
                           </Button>
                         </div>
                       </td>
@@ -735,6 +738,19 @@ export default function AdminUsersPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs font-semibold text-gray-700 block mb-1">
+                    Password *
+                  </label>
+                  <Input
+                    required
+                    type="password"
+                    minLength={6}
+                    placeholder="At least 6 characters"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                  />
+                </div>
                 <div>
                   <label className="text-xs font-semibold text-gray-700 block mb-1">
                     Full Name

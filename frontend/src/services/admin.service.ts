@@ -316,6 +316,7 @@ export async function fetchAdminUsers(options?: {
 
 export async function createAdminUser(data: {
   phone: string;
+  password: string;
   fullName?: string;
   email?: string;
   tierId?: string;
