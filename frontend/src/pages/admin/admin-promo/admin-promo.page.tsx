@@ -47,6 +47,8 @@ export default function AdminPromoPage() {
     description: "",
     tierRequired: "GENERAL" as Promotion["tierRequired"],
     pointPrice: "500 pts",
+    discountPercentage: "",
+    discountAmount: "",
     status: "ACTIVE" as Promotion["status"],
     validRange: "08.01 - 09.30",
   });
@@ -61,12 +63,15 @@ export default function AdminPromoPage() {
           promoName: p.promoName || p.name || p.title || "Promotion",
           description: p.description || "",
           tierRequired: (p.tierRequired ||
-            (p.requiredTier?.toUpperCase() as any) ||
+            p.requiredTier?.toUpperCase() ||
+            p.applicableTiers?.[0]?.toUpperCase() ||
             "GENERAL") as Promotion["tierRequired"],
           pointPrice:
             typeof p.pointPrice === "number"
               ? `${p.pointPrice} pts`
               : String(p.pointPrice || "0 pts"),
+          discountPercentage: p.discountPercentage ?? 0,
+          discountAmount: p.discountAmount ?? 0,
           status: (p.status ||
             (p.isActive ? "ACTIVE" : "INACTIVE")) as Promotion["status"],
           validRange:
@@ -81,6 +86,22 @@ export default function AdminPromoPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Clamps a plain numeric string field, resetting negative values back to 0
+  const clampNonNegativeNumber = (value: string) => {
+    const num = parseFloat(value);
+    if (!isNaN(num) && num < 0) return "0";
+    return value;
+  };
+
+  // Clamps the numeric portion of a "500 pts"-style value, preserving any suffix
+  const clampNonNegativePointPrice = (value: string) => {
+    const match = value.match(/-?\d+(\.\d+)?/);
+    if (match && parseFloat(match[0]) < 0) {
+      return value.replace(match[0], "0");
+    }
+    return value;
   };
 
   useEffect(() => {
@@ -110,6 +131,8 @@ export default function AdminPromoPage() {
       description: "",
       tierRequired: "GENERAL",
       pointPrice: "500 pts",
+      discountPercentage: "",
+      discountAmount: "",
       status: "ACTIVE",
       validRange: "08.15 - 09.30",
     });
@@ -123,6 +146,10 @@ export default function AdminPromoPage() {
       description: promo.description,
       tierRequired: promo.tierRequired,
       pointPrice: String(promo.pointPrice),
+      discountPercentage: promo.discountPercentage
+        ? String(promo.discountPercentage)
+        : "",
+      discountAmount: promo.discountAmount ? String(promo.discountAmount) : "",
       status: promo.status,
       validRange: promo.validRange,
     });
@@ -135,6 +162,12 @@ export default function AdminPromoPage() {
 
     const numericPrice =
       parseInt(formData.pointPrice.replace(/[^0-9]/g, ""), 10) || 0;
+    const numericDiscountPercentage =
+      parseFloat(formData.discountPercentage.replace(/[^0-9.]/g, "")) || 0;
+    const numericDiscountAmount =
+      parseFloat(formData.discountAmount.replace(/[^0-9.]/g, "")) || 0;
+    const applicableTiers =
+      formData.tierRequired === "GENERAL" ? [] : [formData.tierRequired];
 
     try {
       if (editingPromo) {
@@ -144,7 +177,10 @@ export default function AdminPromoPage() {
           promoName: formData.promoName,
           description: formData.description,
           tierRequired: formData.tierRequired,
+          applicableTiers,
           pointPrice: numericPrice,
+          discountPercentage: numericDiscountPercentage,
+          discountAmount: numericDiscountAmount,
           status: formData.status,
           validRange: formData.validRange,
           isActive: formData.status === "ACTIVE",
@@ -156,7 +192,10 @@ export default function AdminPromoPage() {
           promoName: formData.promoName,
           description: formData.description,
           tierRequired: formData.tierRequired,
+          applicableTiers,
           pointPrice: numericPrice,
+          discountPercentage: numericDiscountPercentage,
+          discountAmount: numericDiscountAmount,
           status: formData.status,
           validRange: formData.validRange,
           isActive: formData.status === "ACTIVE",
@@ -530,7 +569,50 @@ export default function AdminPromoPage() {
                       placeholder="e.g. 500 pts / 0 pts"
                       value={formData.pointPrice}
                       onChange={(e) =>
-                        setFormData({ ...formData, pointPrice: e.target.value })
+                        setFormData({
+                          ...formData,
+                          pointPrice: clampNonNegativePointPrice(
+                            e.target.value,
+                          ),
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-gray-700 block mb-1">
+                      Discount Percentage (%)
+                    </label>
+                    <Input
+                      placeholder="e.g. 15 (% off)"
+                      value={formData.discountPercentage}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          discountPercentage: clampNonNegativeNumber(
+                            e.target.value,
+                          ),
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-gray-700 block mb-1">
+                      Discount Amount (flat)
+                    </label>
+                    <Input
+                      placeholder="e.g. 100 (currency amount off)"
+                      value={formData.discountAmount}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          discountAmount: clampNonNegativeNumber(
+                            e.target.value,
+                          ),
+                        })
                       }
                     />
                   </div>

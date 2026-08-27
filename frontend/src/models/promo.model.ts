@@ -147,6 +147,8 @@ export interface AdminPromotion {
   description: string;
   tierRequired: AdminPromotionTier;
   pointPrice: number | string;
+  discountPercentage?: number;
+  discountAmount?: number;
   status: AdminPromotionStatus;
   validRange: string;
 }

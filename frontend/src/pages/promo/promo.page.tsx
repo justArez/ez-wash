@@ -13,6 +13,7 @@ import {
 import {
   claimPromo,
   fetchClaimedPromos,
+  fetchLoyaltyDashboard,
   fetchPublicPromotions,
 } from "../../services/loyalty.service";
 import { PromoHeaderSummary } from "./components/promo-header-summary.component";
@@ -130,6 +131,22 @@ export default function PromoPage({
       .catch((err) => {
         console.error("Failed to fetch promotions from API:", err);
       });
+  }, []);
+
+  // Re-fetch the latest redeemable points balance whenever the promo page (re)loads
+  useEffect(() => {
+    if (dashboard?.phone) {
+      fetchLoyaltyDashboard(dashboard.phone)
+        .then((fresh) => {
+          if (typeof fresh?.pointsBalance === "number") {
+            setPointsBalance(fresh.pointsBalance);
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to refresh points balance:", err);
+        });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Fetch customer's claimed vouchers from backend

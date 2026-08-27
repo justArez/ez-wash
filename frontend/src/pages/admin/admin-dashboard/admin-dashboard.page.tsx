@@ -11,6 +11,7 @@ import {
   DollarSign,
   CalendarCheck2,
   Clock,
+  Calendar,
   TrendingUp,
   Activity,
   Car,
@@ -380,6 +381,7 @@ export default function AdminDashboardPage() {
                       <th>Booking ID</th>
                       <th>Customer</th>
                       <th>Vehicle Details</th>
+                      <th>Date</th>
                       <th>Time Slot</th>
                       <th>Package / Service</th>
                       <th>Status</th>
@@ -390,7 +392,7 @@ export default function AdminDashboardPage() {
                     {paginatedQueueBookings.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={7}
+                          colSpan={8}
                           className="text-center py-8 text-gray-400 text-sm"
                         >
                           No bookings matching the selected filter in the active
@@ -420,6 +422,12 @@ export default function AdminDashboardPage() {
                             <div className="flex items-center gap-1.5 text-xs font-medium text-gray-800">
                               <Car size={14} className="text-gray-400" />
                               {b.vehicle}
+                            </div>
+                          </td>
+                          <td>
+                            <div className="flex items-center gap-1.5 text-xs text-gray-700 font-medium">
+                              <Calendar size={14} className="text-gray-400" />
+                              {b.date || "—"}
                             </div>
                           </td>
                           <td>

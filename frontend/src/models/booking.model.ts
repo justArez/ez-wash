@@ -24,6 +24,7 @@ export interface AdminBooking {
   phone: string;
   tier: AdminTier;
   vehicle: string;
+  date: string;
   timeSlot: string;
   services: string;
   status: AdminBookingStatus;

@@ -146,7 +146,7 @@ export const SlotCard: React.FC<SlotCardProps> = ({
             />
           )}
         <div
-          className={`w-8 h-8 rounded flex items-center justify-center relative z-10 ${borderClass} ${isSelected ? "ring-2 ring-primary ring-offset-2 scale-110" : ""}`}
+          className={`w-8 h-8 rounded flex items-center justify-center relative ${borderClass} ${isSelected ? "ring-2 ring-primary ring-offset-2 scale-110" : ""}`}
           style={{
             background: gradientBackground,
           }}

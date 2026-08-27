@@ -12,6 +12,7 @@ import {
   Plus,
   Search,
   Clock,
+  Calendar,
   Car,
   CheckCircle2,
   AlertCircle,
@@ -285,6 +286,7 @@ export default function AdminBookingsPage() {
                   <th>Booking ID</th>
                   <th>Customer & Tier</th>
                   <th>Vehicle Details</th>
+                  <th>Date</th>
                   <th>Time Slot</th>
                   <th>Package / Service</th>
                   <th>Status</th>
@@ -294,7 +296,7 @@ export default function AdminBookingsPage() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-10 text-gray-400">
+                    <td colSpan={8} className="text-center py-10 text-gray-400">
                       <div className="flex items-center justify-center gap-2">
                         <RefreshCw className="animate-spin w-4 h-4 text-[#3a46ed]" />
                         <span>Loading bookings...</span>
@@ -303,7 +305,7 @@ export default function AdminBookingsPage() {
                   </tr>
                 ) : filteredBookings.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-10 text-gray-500">
+                    <td colSpan={8} className="text-center py-10 text-gray-500">
                       No bookings matching your criteria.
                     </td>
                   </tr>
@@ -330,6 +332,12 @@ export default function AdminBookingsPage() {
                         <div className="flex items-center gap-1.5 text-xs font-medium text-gray-800">
                           <Car size={14} className="text-gray-400" />
                           {b.vehicle}
+                        </div>
+                      </td>
+                      <td>
+                        <div className="flex items-center gap-1.5 text-xs text-gray-700 font-medium">
+                          <Calendar size={14} className="text-gray-400" />
+                          {b.date || "—"}
                         </div>
                       </td>
                       <td>
